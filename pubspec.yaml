@@ -1,12 +1,12 @@
 name: corextra
-description: A starting point for Dart libraries or applications.
+description: Handy Dart extensions and utility functions for easier coding.
 version: 1.0.0
-# repository: https://github.com/my_org/my_repo
+homepage: https://github.com/ashiq-dev-codes/corextra.git
+repository: https://github.com/ashiq-dev-codes/corextra.git
 
 environment:
   sdk: ^3.8.1
 
-# Add regular dependencies here.
 dependencies:
   # path: ^1.8.0
 
