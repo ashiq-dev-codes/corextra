@@ -44,6 +44,22 @@ class DemoScreen extends StatelessWidget {
     debugPrint('${isStringEmpty(null)}'); // true
     debugPrint('${isListEmpty([1, 2])}'); // false
 
+    // DateTime extension examples:
+    String? dateStr = '10/08/2023';
+    DateTime? dt = dateStr.toDateTime(inputFormat: 'dd/MM/yyyy');
+    debugPrint('Parsed date: $dt'); // Parsed DateTime or null
+
+    String? isoDate = '2023-08-10T14:00:00Z';
+    DateTime? dt2 = isoDate.toDateTime();
+    debugPrint('Parsed ISO date: $dt2'); // Parsed DateTime or null
+
+    debugPrint(
+      'Formatted dt: ${dt.formatDate(outputFormat: 'yyyy-MM-dd')}',
+    ); // e.g. "2023-08-10"
+    debugPrint(
+      'Formatted dt2: ${dt2.formatDate(outputFormat: 'dd MMM yyyy')}',
+    ); // e.g. "10 Aug 2023"
+
     return LayoutBuilder(
       builder: (context, constraints) {
         String screenSizeLabel;

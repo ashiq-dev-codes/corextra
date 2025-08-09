@@ -1,6 +1,6 @@
 name: corextra
 description: Handy Dart extensions and utility functions for easier coding.
-version: 1.0.1
+version: 1.0.2
 homepage: https://github.com/ashiq-dev-codes/corextra.git
 repository: https://github.com/ashiq-dev-codes/corextra.git
 
@@ -12,7 +12,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # path: ^1.8.0
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
