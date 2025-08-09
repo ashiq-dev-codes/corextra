@@ -28,7 +28,10 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 ```yaml
 dependencies:
   corextra: ^0.1.0
+```
 
 Then import it in your Dart code:
 
+```dart
 import 'package:corextra/corextra.dart';
+```
