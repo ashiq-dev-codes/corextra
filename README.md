@@ -1,8 +1,11 @@
+
 # corextra
 
 A lightweight Dart package offering handy extensions and utility functions  
 for common types like `String`, `int`, `double`, `List`, and more.  
 Make your Dart and Flutter code cleaner, safer, and easier to read.
+
+https://pub.dev/packages/corextra
 
 ---
 
@@ -13,7 +16,8 @@ Make your Dart and Flutter code cleaner, safer, and easier to read.
 - Convenient conversion helpers: `.toTryInt()`, `.toTryDouble()`, `.toTryBool()`  
 - String utilities like `.capitalize()`  
 - Numeric helpers to sanitize negative values  
-- Helper functions like `isStringEmpty()` and `isListEmpty()` for legacy or functional use
+- Helper functions like `isStringEmpty()` and `isListEmpty()` for legacy or functional use  
+- **ResponsiveBreakpoints**: simple and customizable screen size helpers (`xs`, `sm`, `md`, `lg`, `xl`, `xxl`) for responsive layouts in Flutter
 
 ---
 
@@ -24,4 +28,7 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 ```yaml
 dependencies:
   corextra: ^0.1.0
-# corextra
+
+Then import it in your Dart code:
+
+import 'package:corextra/corextra.dart';
