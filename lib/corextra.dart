@@ -1,5 +1,7 @@
 library;
 
+export 'extensions/date_time_extensions/nullable_date_time_extensions.dart';
+export 'extensions/date_time_extensions/nullable_string_date_time_extensions.dart';
 export 'extensions/double_extensions/double_extensions.dart';
 export 'extensions/int_extensions/int_extensions.dart';
 export 'extensions/list_extensions/list_extensions.dart';

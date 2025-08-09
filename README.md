@@ -17,7 +17,8 @@ https://pub.dev/packages/corextra
 - String utilities like `.capitalize()`  
 - Numeric helpers to sanitize negative values  
 - Helper functions like `isStringEmpty()` and `isListEmpty()` for legacy or functional use  
-- **ResponsiveBreakpoints**: simple and customizable screen size helpers (`xs`, `sm`, `md`, `lg`, `xl`, `xxl`) for responsive layouts in Flutter
+- ResponsiveBreakpoints: simple and customizable screen size helpers (`xs`, `sm`, `md`, `lg`, `xl`, `xxl`) for responsive layouts in Flutter  
+- DateTime extensions for easy parsing from string to `DateTime` and formatting from `DateTime` to string with customizable formats
 
 ---
 
@@ -27,7 +28,7 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 
 ```yaml
 dependencies:
-  corextra: ^0.1.0
+  corextra: ^1.0.2
 ```
 
 Then import it in your Dart code:
