@@ -5,7 +5,7 @@ A lightweight Dart package offering handy extensions and utility functions
 for common types like `String`, `int`, `double`, `List`, and more.  
 Make your Dart and Flutter code cleaner, safer, and easier to read.
 
-https://pub.dev/packages/corextra
+[![pub package](https://img.shields.io/pub/v/corextra.svg)](https://pub.dev/packages/corextra)
 
 ---
 
