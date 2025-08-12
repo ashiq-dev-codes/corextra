@@ -46,11 +46,11 @@ class DemoScreen extends StatelessWidget {
 
     // DateTime extension examples:
     String? dateStr = '10/08/2023';
-    DateTime? dt = dateStr.toDateTime(inputFormat: 'dd/MM/yyyy');
+    DateTime? dt = dateStr.toTryDateTime(inputFormat: 'dd/MM/yyyy');
     debugPrint('Parsed date: $dt'); // Parsed DateTime or null
 
     String? isoDate = '2023-08-10T14:00:00Z';
-    DateTime? dt2 = isoDate.toDateTime();
+    DateTime? dt2 = isoDate.toTryDateTime();
     debugPrint('Parsed ISO date: $dt2'); // Parsed DateTime or null
 
     debugPrint(
