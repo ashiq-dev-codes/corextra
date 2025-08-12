@@ -8,21 +8,19 @@ import 'package:intl/intl.dart';
 /// Example:
 /// ```dart
 /// String? dateStr = '10/08/2023';
-/// DateTime? dt = dateStr.toDateTime(inputFormat: 'dd/MM/yyyy');
+/// DateTime? dt = dateStr.toTryDateTime(inputFormat: 'dd/MM/yyyy');
 /// print(dt); // Parsed DateTime or null
 ///
 /// String? isoDate = '2023-08-10T14:00:00Z';
-/// DateTime? dt2 = isoDate.toDateTime();
+/// DateTime? dt2 = isoDate.toTryDateTime();
 /// print(dt2); // Parsed DateTime or null
 /// ```
-extension NullableStringDateTimeExtensions on String? {
-  DateTime? toDateTime({String? inputFormat}) {
-    if (this == null || this!.isEmpty) return null;
-
+extension NonNullableStringDateTimeExtensions on String {
+  DateTime? toTryDateTime({String? inputFormat}) {
     try {
       return inputFormat == null
-          ? DateTime.tryParse(this!)
-          : DateFormat(inputFormat).parseLoose(this!);
+          ? DateTime.tryParse(this)
+          : DateFormat(inputFormat).parseLoose(this);
     } catch (_) {
       return null;
     }
