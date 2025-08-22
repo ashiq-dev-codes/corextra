@@ -17,8 +17,16 @@ Make your Dart and Flutter code cleaner, safer, and easier to read.
 - String utilities like `.capitalize()`  
 - Numeric helpers to sanitize negative values  
 - Helper functions like `isStringEmpty()` and `isListEmpty()` for legacy or functional use  
-- ResponsiveBreakpoints: simple and customizable screen size helpers (`xs`, `sm`, `md`, `lg`, `xl`, `xxl`) for responsive layouts in Flutter  
 - DateTime extensions for easy parsing from string to `DateTime` and formatting from `DateTime` to string with customizable formats
+- **ResponsiveBreakpoints**: simple and customizable screen size helpers (`xs`, `sm`, `md`, `lg`, `xl`) for responsive layouts in Flutter  
+- **Custom Exception System** for structured error handling across your app:
+  - `CorextraException` (base class)
+  - `CorextraCustomException` for generic app-level errors
+  - `CorextraNetworkException` for network-related errors (e.g., Dio, HTTP requests)
+- **DioErrorHandler** for convenient network error handling:
+  - Maps Dio errors to user-friendly messages
+  - Throws typed exceptions (`CorextraNetworkException`)
+  - Ready for future network-related utility functions
 
 ---
 
