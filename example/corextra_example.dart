@@ -23,8 +23,15 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class DemoScreen extends StatelessWidget {
+class DemoScreen extends StatefulWidget {
   const DemoScreen({super.key});
+
+  @override
+  State<DemoScreen> createState() => _DemoScreenState();
+}
+
+class _DemoScreenState extends State<DemoScreen> {
+  String message = 'Initial State';
 
   @override
   Widget build(BuildContext context) {
@@ -47,18 +54,22 @@ class DemoScreen extends StatelessWidget {
     // DateTime extension examples:
     String? dateStr = '10/08/2023';
     DateTime? dt = dateStr.toTryDateTime(inputFormat: 'dd/MM/yyyy');
-    debugPrint('Parsed date: $dt'); // Parsed DateTime or null
+    debugPrint('Parsed date: $dt');
 
     String? isoDate = '2023-08-10T14:00:00Z';
     DateTime? dt2 = isoDate.toTryDateTime();
-    debugPrint('Parsed ISO date: $dt2'); // Parsed DateTime or null
+    debugPrint('Parsed ISO date: $dt2');
 
-    debugPrint(
-      'Formatted dt: ${dt.formatDate(outputFormat: 'yyyy-MM-dd')}',
-    ); // e.g. "2023-08-10"
-    debugPrint(
-      'Formatted dt2: ${dt2.formatDate(outputFormat: 'dd MMM yyyy')}',
-    ); // e.g. "10 Aug 2023"
+    debugPrint('Formatted dt: ${dt.formatDate(outputFormat: 'yyyy-MM-dd')}');
+    debugPrint('Formatted dt2: ${dt2.formatDate(outputFormat: 'dd MMM yyyy')}');
+
+    // --- Using debugLog for structured debug output ---
+    debugLog('This is an info log');
+    debugLog('This is a warning log', level: LogLevel.warning);
+    debugLog('This is an error log', level: LogLevel.error);
+
+    // --- Using AppLogger to log an error ---
+    AppLogger.logError('Something went wrong while loading data');
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -78,11 +89,26 @@ class DemoScreen extends StatelessWidget {
           screenSizeLabel = 'XXL or larger Screen';
         }
 
-        return Center(
-          child: Text(
-            'Screen size: $screenSizeLabel',
-            style: const TextStyle(fontSize: 24),
-          ),
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Screen size: $screenSizeLabel',
+              style: const TextStyle(fontSize: 24),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                // --- Using safeSetState to avoid setState on disposed widget ---
+                safeSetState(() {
+                  message = 'State updated safely at ${DateTime.now()}';
+                });
+              },
+              child: const Text('Update State Safely'),
+            ),
+            const SizedBox(height: 20),
+            Text(message, style: const TextStyle(fontSize: 18)),
+          ],
         );
       },
     );
