@@ -3,11 +3,11 @@ import 'package:flutter/widgets.dart';
 /// Provides helpers to check screen size categories for responsive layouts.
 class ResponsiveBreakpoints {
   // Default breakpoint values (modifiable by user)
-  static double xsMax = 480;
-  static double smMax = 768;
-  static double mdMax = 1024;
-  static double lgMax = 1280;
-  static double xlMax = 1536;
+  static double xsMax = 375;
+  static double smMax = 500;
+  static double mdMax = 768;
+  static double lgMax = 1024;
+  static double xlMax = 1280;
 
   /// Override default breakpoints. All parameters are optional.
   ///

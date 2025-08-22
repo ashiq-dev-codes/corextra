@@ -12,6 +12,7 @@ dependencies:
   flutter:
     sdk: flutter
 
+  dio: ^5.9.0
   intl: ^0.20.2
 
 dev_dependencies:
