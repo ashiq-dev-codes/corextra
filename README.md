@@ -25,6 +25,17 @@ Make your Dart and Flutter code cleaner, safer, and easier to read.
   - Safely updates widget state only if the widget is still mounted
   - Prevents `setState()` calls on disposed widgets, reducing runtime errors  
 
+### Form Validators
+- General-purpose form field validators for Flutter `TextFormField`  
+- Validators included:
+  - `required` — ensures a field is not empty  
+  - `email` — validates email format  
+  - `phone` — validates phone numbers with optional mask length  
+  - `otp` — validates OTP with customizable length  
+  - `password` — validates password with customizable minimum length  
+  - `confirmPassword` — ensures password confirmation matches original password  
+- Optional **translation support** via `easy_localization` 
+
 ### Responsive Utilities
 - ResponsiveBreakpoints: simple and customizable screen size helpers (`xs`, `sm`, `md`, `lg`, `xl`) for responsive layouts in Flutter  
 

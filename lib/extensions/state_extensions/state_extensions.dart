@@ -1,4 +1,4 @@
-import 'package:corextra/log/debug_log.dart';
+import 'package:corextra/logs/debug_log.dart';
 import 'package:flutter/widgets.dart';
 
 /// Extension to safely call setState only if the widget is mounted.
