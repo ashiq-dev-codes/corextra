@@ -1,7 +1,5 @@
 import 'package:dio/dio.dart';
 
-import '../exceptions/corextra_exceptions.dart';
-
 /// Utility helper for Dio-related features like
 /// error handling, logging, and potential future enhancements.
 class DioErrorHandler {
@@ -28,12 +26,16 @@ class DioErrorHandler {
 
   /// Throws a [CorextraServerException] with a user-friendly message.
   static void handleError(DioException error) {
-    throw CorextraNetworkException(
-      message: getErrorMessage(error),
-      details: {
-        'statusCode': error.response?.statusCode,
-        'data': error.response?.data,
-      },
+    final responseData = error.response?.data;
+    throw DioException(
+      type: error.type,
+      error: getErrorMessage(error),
+      requestOptions: error.requestOptions,
+      response: Response(
+        statusCode: error.response?.statusCode,
+        data: responseData is Map ? responseData : null,
+        requestOptions: error.response?.requestOptions ?? RequestOptions(),
+      ),
     );
   }
 }

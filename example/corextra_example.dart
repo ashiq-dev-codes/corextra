@@ -5,6 +5,9 @@ void main() {
   // Override default breakpoints (optional)
   ResponsiveBreakpoints.setCustomBreakpoints(xsMax: 500, mdMax: 1100);
 
+  // Enable translation support for validators (optional)
+  FormValidators.enableTranslation(true);
+
   runApp(const MyApp());
 }
 
@@ -32,6 +35,10 @@ class DemoScreen extends StatefulWidget {
 
 class _DemoScreenState extends State<DemoScreen> {
   String message = 'Initial State';
+
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -89,26 +96,68 @@ class _DemoScreenState extends State<DemoScreen> {
           screenSizeLabel = 'XXL or larger Screen';
         }
 
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Screen size: $screenSizeLabel',
-              style: const TextStyle(fontSize: 24),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                // --- Using safeSetState to avoid setState on disposed widget ---
-                safeSetState(() {
-                  message = 'State updated safely at ${DateTime.now()}';
-                });
-              },
-              child: const Text('Update State Safely'),
-            ),
-            const SizedBox(height: 20),
-            Text(message, style: const TextStyle(fontSize: 18)),
-          ],
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Screen size: $screenSizeLabel',
+                style: const TextStyle(fontSize: 24),
+              ),
+              const SizedBox(height: 20),
+
+              // --- Safe setState Example ---
+              ElevatedButton(
+                onPressed: () {
+                  safeSetState(() {
+                    message = 'State updated safely at ${DateTime.now()}';
+                  });
+                },
+                child: const Text('Update State Safely'),
+              ),
+              const SizedBox(height: 20),
+              Text(message, style: const TextStyle(fontSize: 18)),
+              const SizedBox(height: 30),
+
+              // --- Form Validators Demo ---
+              TextFormField(
+                controller: emailController,
+                decoration: const InputDecoration(labelText: 'Email'),
+                validator: FormValidators.email,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: passwordController,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+                validator: (val) => FormValidators.password(val, minLength: 6),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: confirmController,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm Password',
+                ),
+                obscureText: true,
+                validator: (val) => FormValidators.confirmPassword(
+                  val,
+                  passwordController.text,
+                  minLength: 6,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'OTP'),
+                validator: (val) => FormValidators.otp(val, length: 4),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Required Field'),
+                validator: FormValidators.required,
+              ),
+            ],
+          ),
         );
       },
     );

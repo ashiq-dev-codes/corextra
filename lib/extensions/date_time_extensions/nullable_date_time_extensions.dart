@@ -15,8 +15,8 @@ import 'package:intl/intl.dart';
 /// print(nullDate.formatDate(outputFormat: 'dd/MM/yyyy')); // prints null
 /// ```
 extension NullableDateTimeExtensions on DateTime? {
-  String? formatDate({required String outputFormat}) {
+  String? formatDate({String? locale, required String outputFormat}) {
     if (this == null) return null;
-    return DateFormat(outputFormat).format(this!);
+    return DateFormat(outputFormat, locale).format(this!);
   }
 }
