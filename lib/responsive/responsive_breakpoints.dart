@@ -37,7 +37,7 @@ class ResponsiveBreakpoints {
   ///   // layout for extra small screen
   /// }
   /// ```
-  static bool isXS(BoxConstraints c) => c.maxWidth < xsMax;
+  static bool isXS(BoxConstraints constraints) => constraints.maxWidth < xsMax;
 
   /// Returns true if width from [BuildContext] is less than xsMax (extra small).
   ///
@@ -58,8 +58,8 @@ class ResponsiveBreakpoints {
   ///   // layout for small screen
   /// }
   /// ```
-  static bool isSM(BoxConstraints c) =>
-      c.maxWidth >= xsMax && c.maxWidth < smMax;
+  static bool isSM(BoxConstraints constraints) =>
+      constraints.maxWidth >= xsMax && constraints.maxWidth < smMax;
 
   /// Returns true if width from [BuildContext] is between xsMax and smMax (small).
   ///
@@ -82,8 +82,8 @@ class ResponsiveBreakpoints {
   ///   // layout for medium screen
   /// }
   /// ```
-  static bool isMD(BoxConstraints c) =>
-      c.maxWidth >= smMax && c.maxWidth < mdMax;
+  static bool isMD(BoxConstraints constraints) =>
+      constraints.maxWidth >= smMax && constraints.maxWidth < mdMax;
 
   /// Returns true if width from [BuildContext] is between smMax and mdMax (medium).
   ///
@@ -106,8 +106,8 @@ class ResponsiveBreakpoints {
   ///   // layout for large screen
   /// }
   /// ```
-  static bool isLG(BoxConstraints c) =>
-      c.maxWidth >= mdMax && c.maxWidth < lgMax;
+  static bool isLG(BoxConstraints constraints) =>
+      constraints.maxWidth >= mdMax && constraints.maxWidth < lgMax;
 
   /// Returns true if width from [BuildContext] is between mdMax and lgMax (large).
   ///
@@ -130,8 +130,8 @@ class ResponsiveBreakpoints {
   ///   // layout for extra large screen
   /// }
   /// ```
-  static bool isXL(BoxConstraints c) =>
-      c.maxWidth >= lgMax && c.maxWidth < xlMax;
+  static bool isXL(BoxConstraints constraints) =>
+      constraints.maxWidth >= lgMax && constraints.maxWidth < xlMax;
 
   /// Returns true if width from [BuildContext] is between lgMax and xlMax (extra large).
   ///
@@ -154,7 +154,8 @@ class ResponsiveBreakpoints {
   ///   // layout for very large screen
   /// }
   /// ```
-  static bool isXXL(BoxConstraints c) => c.maxWidth >= xlMax;
+  static bool isXXL(BoxConstraints constraints) =>
+      constraints.maxWidth >= xlMax;
 
   /// Returns true if width from [BuildContext] is greater than or equal to xlMax (xxl).
   ///
