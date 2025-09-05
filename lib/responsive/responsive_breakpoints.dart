@@ -3,168 +3,174 @@ import 'package:flutter/widgets.dart';
 /// Provides helpers to check screen size categories for responsive layouts.
 class ResponsiveBreakpoints {
   // Default breakpoint values (modifiable by user)
-  static double xsMax = 375;
-  static double smMax = 500;
-  static double mdMax = 768;
-  static double lgMax = 1024;
-  static double xlMax = 1280;
+  static double sm = 375;
+  static double md = 500;
+  static double lg = 768;
+  static double xl = 1024;
+  static double xxl = 1280;
 
   /// Override default breakpoints. All parameters are optional.
   ///
   /// Example:
   /// ```dart
-  /// ResponsiveBreakpoints.setCustomBreakpoints(xsMax: 500, mdMax: 1100);
+  /// ResponsiveBreakpoints.setCustomBreakpoints(lg: 900, xl: 1200);
   /// ```
   static void setCustomBreakpoints({
-    double? xsMax,
-    double? smMax,
-    double? mdMax,
-    double? lgMax,
-    double? xlMax,
+    double? sm,
+    double? md,
+    double? lg,
+    double? xl,
+    double? xxl,
   }) {
-    if (xsMax != null) ResponsiveBreakpoints.xsMax = xsMax;
-    if (smMax != null) ResponsiveBreakpoints.smMax = smMax;
-    if (mdMax != null) ResponsiveBreakpoints.mdMax = mdMax;
-    if (lgMax != null) ResponsiveBreakpoints.lgMax = lgMax;
-    if (xlMax != null) ResponsiveBreakpoints.xlMax = xlMax;
+    if (sm != null) ResponsiveBreakpoints.sm = sm;
+    if (md != null) ResponsiveBreakpoints.md = md;
+    if (lg != null) ResponsiveBreakpoints.lg = lg;
+    if (xl != null) ResponsiveBreakpoints.xl = xl;
+    if (xxl != null) ResponsiveBreakpoints.xxl = xxl;
   }
 
-  /// Returns true if width from [BoxConstraints] is less than xsMax (extra small).
-  ///
-  /// Example:
-  /// ```dart
-  /// if (ResponsiveBreakpoints.isXS(constraints)) {
-  ///   // layout for extra small screen
-  /// }
-  /// ```
-  static bool isXS(BoxConstraints constraints) => constraints.maxWidth < xsMax;
+  // --- Context-based helpers ---
+  static double _w(BuildContext context) => MediaQuery.of(context).size.width;
 
-  /// Returns true if width from [BuildContext] is less than xsMax (extra small).
+  /// Returns true if width from [BuildContext] is ≥ sm.
   ///
   /// Example:
   /// ```dart
-  /// if (ResponsiveBreakpoints.isXSContext(context)) {
-  ///   // layout for extra small screen
-  /// }
-  /// ```
-  static bool isXSContext(BuildContext context) =>
-      MediaQuery.of(context).size.width < xsMax;
-
-  /// Returns true if width from [BoxConstraints] is between xsMax and smMax (small).
-  ///
-  /// Example:
-  /// ```dart
-  /// if (ResponsiveBreakpoints.isSM(constraints)) {
+  /// if (ResponsiveBreakpoints.isSmContext(context)) {
   ///   // layout for small screen
   /// }
   /// ```
-  static bool isSM(BoxConstraints constraints) =>
-      constraints.maxWidth >= xsMax && constraints.maxWidth < smMax;
+  static bool isSmContext(BuildContext context) => _w(context) >= sm;
 
-  /// Returns true if width from [BuildContext] is between xsMax and smMax (small).
+  /// Returns true if width from [BuildContext] is ≥ md.
   ///
   /// Example:
   /// ```dart
-  /// if (ResponsiveBreakpoints.isSMContext(context)) {
+  /// if (ResponsiveBreakpoints.isMdContext(context)) {
+  ///   // layout for medium screen
+  /// }
+  /// ```
+  static bool isMdContext(BuildContext context) => _w(context) >= md;
+
+  /// Returns true if width from [BuildContext] is ≥ lg.
+  ///
+  /// Example:
+  /// ```dart
+  /// if (ResponsiveBreakpoints.isLgContext(context)) {
+  ///   // layout for large screen
+  /// }
+  /// ```
+  static bool isLgContext(BuildContext context) => _w(context) >= lg;
+
+  /// Returns true if width from [BuildContext] is ≥ xl.
+  ///
+  /// Example:
+  /// ```dart
+  /// if (ResponsiveBreakpoints.isXlContext(context)) {
+  ///   // layout for extra large screen
+  /// }
+  /// ```
+  static bool isXlContext(BuildContext context) => _w(context) >= xl;
+
+  /// Returns true if width from [BuildContext] is ≥ xxl.
+  ///
+  /// Example:
+  /// ```dart
+  /// if (ResponsiveBreakpoints.isxxlContext(context)) {
+  ///   // layout for XXL screen
+  /// }
+  /// ```
+  static bool isxxlContext(BuildContext context) => _w(context) >= xxl;
+
+  // --- Constraints-based helpers ---
+
+  /// Returns true if width from [BoxConstraints] is ≥ sm.
+  ///
+  /// Example:
+  /// ```dart
+  /// if (ResponsiveBreakpoints.isSm(constraints)) {
   ///   // layout for small screen
   /// }
   /// ```
-  static bool isSMContext(BuildContext context) {
-    final w = MediaQuery.of(context).size.width;
-    return w >= xsMax && w < smMax;
-  }
+  static bool isSm(BoxConstraints constraints) => constraints.maxWidth >= sm;
 
-  /// Returns true if width from [BoxConstraints] is between smMax and mdMax (medium).
+  /// Returns true if width from [BoxConstraints] is ≥ md.
   ///
   /// Example:
   /// ```dart
-  /// if (ResponsiveBreakpoints.isMD(constraints)) {
+  /// if (ResponsiveBreakpoints.isMd(constraints)) {
   ///   // layout for medium screen
   /// }
   /// ```
-  static bool isMD(BoxConstraints constraints) =>
-      constraints.maxWidth >= smMax && constraints.maxWidth < mdMax;
+  static bool isMd(BoxConstraints constraints) => constraints.maxWidth >= md;
 
-  /// Returns true if width from [BuildContext] is between smMax and mdMax (medium).
+  /// Returns true if width from [BoxConstraints] is ≥ lg.
   ///
   /// Example:
   /// ```dart
-  /// if (ResponsiveBreakpoints.isMDContext(context)) {
-  ///   // layout for medium screen
-  /// }
-  /// ```
-  static bool isMDContext(BuildContext context) {
-    final w = MediaQuery.of(context).size.width;
-    return w >= smMax && w < mdMax;
-  }
-
-  /// Returns true if width from [BoxConstraints] is between mdMax and lgMax (large).
-  ///
-  /// Example:
-  /// ```dart
-  /// if (ResponsiveBreakpoints.isLG(constraints)) {
+  /// if (ResponsiveBreakpoints.isLg(constraints)) {
   ///   // layout for large screen
   /// }
   /// ```
-  static bool isLG(BoxConstraints constraints) =>
-      constraints.maxWidth >= mdMax && constraints.maxWidth < lgMax;
+  static bool isLg(BoxConstraints constraints) => constraints.maxWidth >= lg;
 
-  /// Returns true if width from [BuildContext] is between mdMax and lgMax (large).
+  /// Returns true if width from [BoxConstraints] is ≥ xl.
   ///
   /// Example:
   /// ```dart
-  /// if (ResponsiveBreakpoints.isLGContext(context)) {
-  ///   // layout for large screen
-  /// }
-  /// ```
-  static bool isLGContext(BuildContext context) {
-    final w = MediaQuery.of(context).size.width;
-    return w >= mdMax && w < lgMax;
-  }
-
-  /// Returns true if width from [BoxConstraints] is between lgMax and xlMax (extra large).
-  ///
-  /// Example:
-  /// ```dart
-  /// if (ResponsiveBreakpoints.isXL(constraints)) {
+  /// if (ResponsiveBreakpoints.isXl(constraints)) {
   ///   // layout for extra large screen
   /// }
   /// ```
-  static bool isXL(BoxConstraints constraints) =>
-      constraints.maxWidth >= lgMax && constraints.maxWidth < xlMax;
+  static bool isXl(BoxConstraints constraints) => constraints.maxWidth >= xl;
 
-  /// Returns true if width from [BuildContext] is between lgMax and xlMax (extra large).
+  /// Returns true if width from [BoxConstraints] is ≥ xxl.
   ///
   /// Example:
   /// ```dart
-  /// if (ResponsiveBreakpoints.isXLContext(context)) {
-  ///   // layout for extra large screen
+  /// if (ResponsiveBreakpoints.isxxl(constraints)) {
+  ///   // layout for XXL screen
   /// }
   /// ```
-  static bool isXLContext(BuildContext context) {
-    final w = MediaQuery.of(context).size.width;
-    return w >= lgMax && w < xlMax;
+  static bool isxxl(BoxConstraints constraints) => constraints.maxWidth >= xxl;
+
+  // --- Utility: breakpoint-based selection ---
+  /// Returns a value depending on the current screen width.
+  ///
+  /// The first matching breakpoint (from largest to smallest) is returned.
+  /// If none match, [base] is used.
+  ///
+  /// Example:
+  /// ```dart
+  /// LayoutBuilder(
+  ///   builder: (context, constraints) {
+  ///     return ResponsiveBreakpoints.when(
+  ///       constraints,
+  ///       base: () => const Text("Base"),
+  ///       smBuilder: () => const Text("≥ Small"),
+  ///       mdBuilder: () => const Text("≥ Medium"),
+  ///       lgBuilder: () => const Text("≥ Large"),
+  ///       xlBuilder: () => const Text("≥ Extra Large"),
+  ///       xxlBuilder: () => const Text("≥ 2XL"),
+  ///     );
+  ///   },
+  /// );
+  /// ```
+  static T when<T>(
+    BoxConstraints constraints, {
+    required T Function() base,
+    T Function()? smBuilder,
+    T Function()? mdBuilder,
+    T Function()? lgBuilder,
+    T Function()? xlBuilder,
+    T Function()? xxlBuilder,
+  }) {
+    final w = constraints.maxWidth;
+    if (w >= xxl && xxlBuilder != null) return xxlBuilder();
+    if (w >= xl && xlBuilder != null) return xlBuilder();
+    if (w >= lg && lgBuilder != null) return lgBuilder();
+    if (w >= md && mdBuilder != null) return mdBuilder();
+    if (w >= sm && smBuilder != null) return smBuilder();
+    return base();
   }
-
-  /// Returns true if width from [BoxConstraints] is greater than or equal to xlMax (xxl).
-  ///
-  /// Example:
-  /// ```dart
-  /// if (ResponsiveBreakpoints.isXXL(constraints)) {
-  ///   // layout for very large screen
-  /// }
-  /// ```
-  static bool isXXL(BoxConstraints constraints) =>
-      constraints.maxWidth >= xlMax;
-
-  /// Returns true if width from [BuildContext] is greater than or equal to xlMax (xxl).
-  ///
-  /// Example:
-  /// ```dart
-  /// if (ResponsiveBreakpoints.isXXLContext(context)) {
-  ///   // layout for very large screen
-  /// }
-  /// ```
-  static bool isXXLContext(BuildContext context) =>
-      MediaQuery.of(context).size.width >= xlMax;
 }
