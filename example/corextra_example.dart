@@ -80,7 +80,7 @@ class _DemoScreenState extends State<DemoScreen> {
       builder: (context, constraints) {
         // --- Example 1: using helpers ---
         String screenSizeLabel;
-        if (ResponsiveBreakpoints.isxxl(constraints)) {
+        if (ResponsiveBreakpoints.isXxl(constraints)) {
           screenSizeLabel = '≥ 2XL Screen';
         } else if (ResponsiveBreakpoints.isXlContext(context)) {
           screenSizeLabel = '≥ XL Screen';

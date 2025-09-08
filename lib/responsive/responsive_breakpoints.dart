@@ -80,7 +80,7 @@ class ResponsiveBreakpoints {
   ///   // layout for XXL screen
   /// }
   /// ```
-  static bool isxxlContext(BuildContext context) => _w(context) >= xxl;
+  static bool isXxlContext(BuildContext context) => _w(context) >= xxl;
 
   // --- Constraints-based helpers ---
 
@@ -132,7 +132,7 @@ class ResponsiveBreakpoints {
   ///   // layout for XXL screen
   /// }
   /// ```
-  static bool isxxl(BoxConstraints constraints) => constraints.maxWidth >= xxl;
+  static bool isXxl(BoxConstraints constraints) => constraints.maxWidth >= xxl;
 
   // --- Utility: breakpoint-based selection ---
   /// Returns a value depending on the current screen width.
