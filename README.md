@@ -57,6 +57,12 @@ Make your Dart and Flutter code cleaner, safer, and easier to read.
   - Easy integration with existing network layers
   - Optional support for global tokens or custom metadata
 
+### Animation Utilities
+- **FadeSlideTransition**:
+  - A combined **fade + slide** transition widget
+  - Supports directions: `top`, `bottom`, `left`, `right`, and `custom`
+  - Built with `AnimatedSwitcher` for smooth transitions
+
 ---
 
 ## Getting Started

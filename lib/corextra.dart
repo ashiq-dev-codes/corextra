@@ -1,5 +1,6 @@
 library;
 
+export 'animation/fade_slide_transition.dart';
 export 'exceptions/corextra_exceptions.dart';
 export 'extensions/date_time_extensions/nullable_date_time_extensions.dart';
 export 'extensions/double_extensions/double_extensions.dart';

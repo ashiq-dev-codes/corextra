@@ -35,6 +35,7 @@ class DemoScreen extends StatefulWidget {
 
 class _DemoScreenState extends State<DemoScreen> {
   String message = 'Initial State';
+  bool toggle = false;
 
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
@@ -78,7 +79,7 @@ class _DemoScreenState extends State<DemoScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // --- Example 1: using helpers ---
+        // --- Responsive helpers ---
         String screenSizeLabel;
         if (ResponsiveBreakpoints.isXxl(constraints)) {
           screenSizeLabel = '≥ 2XL Screen';
@@ -94,7 +95,7 @@ class _DemoScreenState extends State<DemoScreen> {
           screenSizeLabel = 'Base Screen';
         }
 
-        // --- Example 2: using `when` ---
+        // --- Responsive `when` ---
         final whenLabel = ResponsiveBreakpoints.when(
           constraints,
           base: () => "Base Screen",
@@ -132,6 +133,24 @@ class _DemoScreenState extends State<DemoScreen> {
               ),
               const SizedBox(height: 20),
               Text(message, style: const TextStyle(fontSize: 18)),
+              const SizedBox(height: 30),
+
+              // --- Animation Utilities Demo ---
+              ElevatedButton(
+                onPressed: () => setState(() => toggle = !toggle),
+                child: const Text('Toggle FadeSlideTransition'),
+              ),
+              const SizedBox(height: 20),
+              FadeSlideTransition(
+                direction: SlideDirection.bottom,
+                duration: const Duration(milliseconds: 400),
+                child: toggle
+                    ? const Text(
+                        'Hello from FadeSlideTransition',
+                        key: ValueKey('visible'),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('hidden')),
+              ),
               const SizedBox(height: 30),
 
               // --- Form Validators Demo ---
