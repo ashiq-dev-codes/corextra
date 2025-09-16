@@ -1,18 +1,37 @@
-import 'package:easy_localization/easy_localization.dart';
+/// A function that translates a string.
+typedef Translator = String Function(String);
 
-/// Form validation utility with optional translation support
+/// Form validators with optional translation.
 class FormValidators {
-  /// Global flag to enable/disable translation
+  /// Translator function. If not set, messages are returned as-is.
+  static Translator? translator;
+
+  /// Whether translation is enabled. Defaults to false.
   static bool canTranslate = false;
 
-  /// Enable translation for the app
-  /// Call this in main app before using validators
+  /// Set the translator function.
+  /// Example:
+  /// ```dart
+  /// FormValidators.setTranslator((msg) => msg.tr()); // using easy_localization
+  /// ```
+  static void setTranslator(Translator fn) {
+    translator = fn;
+  }
+
+  /// Enable or disable translation.
+  /// Example:
+  /// ```dart
+  /// FormValidators.enableTranslation(true);  // enable translation
+  /// FormValidators.enableTranslation(false); // disable translation
+  /// ```
   static void enableTranslation([bool enable = true]) {
     canTranslate = enable;
   }
 
-  /// Translate helper
-  static String _msg(String msg) => canTranslate ? msg.tr() : msg;
+  /// Return translated message if translation is enabled and a translator is set.
+  /// Otherwise, returns the original message.
+  static String _msg(String msg) =>
+      (canTranslate && translator != null) ? translator!(msg) : msg;
 
   /// General required field validator
   /// Example:
