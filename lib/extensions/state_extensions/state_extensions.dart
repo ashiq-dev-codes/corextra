@@ -24,6 +24,7 @@ extension SafeSetStateExtension on State {
   /// ```
   void safeSetState(VoidCallback callback) {
     if (mounted) {
+      // ignore: invalid_use_of_protected_member
       setState(callback);
     } else {
       debugLog(
