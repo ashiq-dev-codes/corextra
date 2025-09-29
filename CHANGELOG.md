@@ -1,5 +1,3 @@
-## 1.1.1
+## 1.1.2
 
-- Added `FadeSlideTransition` under Animation Utilities
-- Updated example app to showcase animations
-- Improved README documentation
+- Updated exception classes (`CorextraException` and subclasses) to use Dart 3 super-parameters for cleaner and more maintainable code
