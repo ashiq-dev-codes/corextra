@@ -15,7 +15,7 @@ Make your Dart and Flutter code cleaner, safer, and easier to read.
 - Extensions on core types for safer parsing and formatting  
 - Null-safe and concise checks like `.isNullOrEmpty` on `String?` and `List?`  
 - Convenient conversion helpers: `.toTryInt()`, `.toTryDouble()`, `.toTryBool()`  
-- String utilities like `.capitalize()`  
+- String utilities like `.capitalize()`, `.toPascalCase()`, `.toCamelCase()`    
 - Numeric helpers to sanitize negative values  
 - Helper functions like `isStringEmpty()` and `isListEmpty()` for legacy or functional use  
 - DateTime extensions for:
@@ -71,7 +71,7 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 
 ```yaml
 dependencies:
-  corextra: ^1.0.5
+  corextra: ^1.1.4
 ```
 
 Then import it in your Dart code:
