@@ -49,13 +49,17 @@ Make your Dart and Flutter code cleaner, safer, and easier to read.
   - Throws typed exceptions (`CorextraNetworkException`)
 
 ### Logging Utilities
-- debugLog:
+- `debugLog`:
   - Lightweight, debug-only logger for development builds
-  - Supports multiple log levels (info, warning, error)
-- AppLogger:
+  - Supports multiple log levels via `LogLevel` (`info`, `warning`, `error`)
+  - Each level maps to a distinct ANSI color via `LogColor`
+- `AppLogger`:
   - Structured logging for app events, Dio requests, responses, and errors
   - Easy integration with existing network layers
-  - Optional support for global tokens or custom metadata
+- `AppLoggerInterceptor`:
+  - Dio interceptor for pretty-printed, bordered, color-coded HTTP logs
+  - One consolidated block per request, response, or error
+  - Toggle with `enabled: false` to silence all logs
 
 ### Animation Utilities
 - **FadeSlideTransition**:
@@ -71,7 +75,7 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 
 ```yaml
 dependencies:
-  corextra: ^1.1.4
+  corextra: ^1.1.5
 ```
 
 Then import it in your Dart code:

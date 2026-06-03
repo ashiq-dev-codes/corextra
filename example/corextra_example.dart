@@ -1,5 +1,6 @@
 import 'package:corextra/corextra.dart';
 import 'package:corextra/logs/enum/log_level.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -77,6 +78,12 @@ class _DemoScreenState extends State<DemoScreen> {
     debugLog('This is a warning log', level: LogLevel.warning);
     debugLog('This is an error log', level: LogLevel.error);
     AppLogger.logError('Something went wrong while loading data');
+
+    // --- AppLoggerInterceptor ---
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.example.com'));
+    dio.interceptors.add(const AppLoggerInterceptor());
+    // Pass enabled: false to silence logs in specific environments:
+    // dio.interceptors.add(const AppLoggerInterceptor(enabled: false));
 
     return LayoutBuilder(
       builder: (context, constraints) {
