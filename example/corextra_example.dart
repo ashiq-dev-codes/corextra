@@ -1,4 +1,5 @@
 import 'package:corextra/corextra.dart';
+import 'package:corextra/logs/enum/log_level.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -144,12 +145,13 @@ class _DemoScreenState extends State<DemoScreen> {
               FadeSlideTransition(
                 direction: SlideDirection.bottom,
                 duration: const Duration(milliseconds: 400),
-                child: toggle
-                    ? const Text(
-                        'Hello from FadeSlideTransition',
-                        key: ValueKey('visible'),
-                      )
-                    : const SizedBox.shrink(key: ValueKey('hidden')),
+                child:
+                    toggle
+                        ? const Text(
+                          'Hello from FadeSlideTransition',
+                          key: ValueKey('visible'),
+                        )
+                        : const SizedBox.shrink(key: ValueKey('hidden')),
               ),
               const SizedBox(height: 30),
 
@@ -173,11 +175,12 @@ class _DemoScreenState extends State<DemoScreen> {
                   labelText: 'Confirm Password',
                 ),
                 obscureText: true,
-                validator: (val) => FormValidators.confirmPassword(
-                  val,
-                  passwordController.text,
-                  minLength: 6,
-                ),
+                validator:
+                    (val) => FormValidators.confirmPassword(
+                      val,
+                      passwordController.text,
+                      minLength: 6,
+                    ),
               ),
               const SizedBox(height: 16),
               TextFormField(

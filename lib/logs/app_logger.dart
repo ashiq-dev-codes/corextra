@@ -1,3 +1,4 @@
+import 'package:corextra/logs/enum/log_level.dart';
 import 'package:dio/dio.dart';
 
 import 'debug_log.dart'; // Import debugLog for internal logging
@@ -5,7 +6,10 @@ import 'debug_log.dart'; // Import debugLog for internal logging
 /// AppLogger provides structured logging for app events, Dio requests, responses, and errors.
 class AppLogger {
   /// Logs a generic error with optional type
-  static Future<void> logError(String message, {String? type}) async {
+  static Future<void> logError(
+    String message, {
+    String? type,
+  }) async {
     final logType = type ?? 'Error';
     final timestamp = DateTime.now().toIso8601String();
 

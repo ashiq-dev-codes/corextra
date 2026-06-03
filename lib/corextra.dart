@@ -14,6 +14,7 @@ export 'extensions/string_extensions/nullable_string_extensions.dart';
 export 'functions/validators.dart';
 export 'logs/app_logger.dart';
 export 'logs/debug_log.dart';
+export 'network/app_logger_interceptor.dart';
 export 'network/dio_error_handler.dart';
 export 'responsive/responsive_breakpoints.dart';
 export 'validators/form_validators.dart';
