@@ -1,4 +1,6 @@
 import 'package:corextra/corextra.dart';
+import 'package:corextra/logs/enum/log_level.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -77,6 +79,12 @@ class _DemoScreenState extends State<DemoScreen> {
     debugLog('This is an error log', level: LogLevel.error);
     AppLogger.logError('Something went wrong while loading data');
 
+    // --- AppLoggerInterceptor ---
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.example.com'));
+    dio.interceptors.add(const AppLoggerInterceptor());
+    // Pass enabled: false to silence logs in specific environments:
+    // dio.interceptors.add(const AppLoggerInterceptor(enabled: false));
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // --- Responsive helpers ---
@@ -144,12 +152,13 @@ class _DemoScreenState extends State<DemoScreen> {
               FadeSlideTransition(
                 direction: SlideDirection.bottom,
                 duration: const Duration(milliseconds: 400),
-                child: toggle
-                    ? const Text(
-                        'Hello from FadeSlideTransition',
-                        key: ValueKey('visible'),
-                      )
-                    : const SizedBox.shrink(key: ValueKey('hidden')),
+                child:
+                    toggle
+                        ? const Text(
+                          'Hello from FadeSlideTransition',
+                          key: ValueKey('visible'),
+                        )
+                        : const SizedBox.shrink(key: ValueKey('hidden')),
               ),
               const SizedBox(height: 30),
 
@@ -173,11 +182,12 @@ class _DemoScreenState extends State<DemoScreen> {
                   labelText: 'Confirm Password',
                 ),
                 obscureText: true,
-                validator: (val) => FormValidators.confirmPassword(
-                  val,
-                  passwordController.text,
-                  minLength: 6,
-                ),
+                validator:
+                    (val) => FormValidators.confirmPassword(
+                      val,
+                      passwordController.text,
+                      minLength: 6,
+                    ),
               ),
               const SizedBox(height: 16),
               TextFormField(
