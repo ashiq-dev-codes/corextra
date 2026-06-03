@@ -1,5 +1,4 @@
 import 'package:corextra/corextra.dart';
-import 'package:corextra/logs/enum/log_level.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
