@@ -26,20 +26,35 @@ class DevToolsBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return DraggableFloatingWidget(
       size: const Size(_size, _size),
-      builder: (context, onPanUpdate, onPanEnd) => GestureDetector(
-        onPanUpdate: onPanUpdate,
-        onPanEnd: onPanEnd,
-        child: Material(
-          color: Colors.black87,
-          shape: const CircleBorder(),
-          elevation: 4,
-          child: InkWell(
-            onTap: onTap,
-            customBorder: const CircleBorder(),
-            child: const Icon(LucideIcons.bug, color: Colors.white, size: 24),
+      // The Material below is a circle (CircleBorder) inscribed in this
+      // same-sized square box, so — like the floating window's rounded
+      // rect — it can't reach the box's own four corners, and whatever
+      // leaks through behind it there (most likely the RepaintBoundary
+      // + Material elevation shadow combination, shared with the
+      // window) shows up as a grey square around the circle. A
+      // ClipRRect at exactly half the box's side is a perfect circle,
+      // so it closes that gap the same way the window's borderRadius
+      // does.
+      borderRadius: BorderRadius.circular(_size / 2),
+      builder:
+          (context, onPanUpdate, onPanEnd) => GestureDetector(
+            onPanUpdate: onPanUpdate,
+            onPanEnd: onPanEnd,
+            child: Material(
+              color: Colors.black87,
+              shape: const CircleBorder(),
+              elevation: 4,
+              child: InkWell(
+                onTap: onTap,
+                customBorder: const CircleBorder(),
+                child: const Icon(
+                  LucideIcons.bug,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
     );
   }
 }
