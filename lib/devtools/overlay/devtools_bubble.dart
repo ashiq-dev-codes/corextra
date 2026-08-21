@@ -4,6 +4,15 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 /// A small, self-positioning draggable floating button used to open the
 /// DevTools panel. Must be used as a (possibly indirect) child of a
 /// [Stack] — it produces a [Positioned] from its own build method.
+///
+/// Deliberately has no [Tooltip]: this widget is meant to stay mounted
+/// for as long as DevTools is enabled, and a `Tooltip` requires an
+/// ancestor `Overlay` to exist at build time — which would mean keeping
+/// a full-screen `Overlay` mounted permanently just for this button,
+/// silently absorbing every tap/scroll meant for the host app underneath
+/// wherever it doesn't paint anything. The panel itself (which *is*
+/// wrapped in an `Overlay`, but only while it's actually open) still
+/// supports tooltips fine.
 class DevToolsBubble extends StatefulWidget {
   const DevToolsBubble({super.key, required this.onTap});
 
@@ -48,20 +57,17 @@ class _DevToolsBubbleState extends State<DevToolsBubble> {
       top: offset.dy,
       child: GestureDetector(
         onPanUpdate: (details) => _onPanUpdate(details, screenSize),
-        child: Tooltip(
-          message: 'Open DevTools',
-          child: Material(
-            color: Colors.black87,
-            shape: const CircleBorder(),
-            elevation: 4,
-            child: InkWell(
-              onTap: widget.onTap,
-              customBorder: const CircleBorder(),
-              child: const SizedBox(
-                width: _size,
-                height: _size,
-                child: Icon(LucideIcons.bug, color: Colors.white, size: 24),
-              ),
+        child: Material(
+          color: Colors.black87,
+          shape: const CircleBorder(),
+          elevation: 4,
+          child: InkWell(
+            onTap: widget.onTap,
+            customBorder: const CircleBorder(),
+            child: const SizedBox(
+              width: _size,
+              height: _size,
+              child: Icon(LucideIcons.bug, color: Colors.white, size: 24),
             ),
           ),
         ),

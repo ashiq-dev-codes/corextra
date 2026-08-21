@@ -109,4 +109,43 @@ void main() {
       expect(panelBrightness(), Brightness.light);
     },
   );
+
+  testWidgets(
+    'works when mounted via MaterialApp.builder — the documented usage, '
+    'where the host app has its own Navigator (and HeroController) '
+    'alongside this widget, unlike the home: placement used above',
+    (tester) async {
+      var hostButtonTapped = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) =>
+              CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
+          home: Scaffold(
+            body: ElevatedButton(
+              onPressed: () => hostButtonTapped = true,
+              child: const Text('host button'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('host button'), findsOneWidget);
+      expect(find.byType(DevToolsBubble), findsOneWidget);
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      expect(find.byType(DevToolsPanel), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DevToolsPanel), findsNothing);
+
+      // The host app underneath must still be interactive after the
+      // panel closes.
+      await tester.tap(find.text('host button'));
+      await tester.pump();
+      expect(hostButtonTapped, isTrue);
+    },
+  );
 }

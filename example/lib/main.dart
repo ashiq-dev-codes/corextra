@@ -55,7 +55,11 @@ class _DemoScreenState extends State<DemoScreen> {
   @override
   void initState() {
     super.initState();
-    dio = Dio(BaseOptions(baseUrl: 'https://jsonplaceholder.typicode.com'));
+    // httpbin.org is a small public service built exactly for this: it
+    // lets you request a specific status code and echoes back whatever
+    // you send it, which is handy for exercising every DevTools Network
+    // tab case (2xx / 4xx / 5xx, request body, response body, headers).
+    dio = Dio(BaseOptions(baseUrl: 'https://httpbin.org'));
     dio.interceptors.add(const AppLoggerInterceptor());
     // Additive: also feeds the DevTools panel's Network tab.
     // `hiddenHeaders` redacts sensitive values (e.g. auth tokens) before
@@ -80,20 +84,58 @@ class _DemoScreenState extends State<DemoScreen> {
       ..showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 2)));
   }
 
-  Future<void> _sendSuccessfulRequest() async {
-    _notify('Request sent — check the DevTools Network tab');
+  // --- GET 200: a plain successful request, to see a full response body. ---
+  Future<void> _sendGet200() async {
+    _notify('GET 200 sent — check the Network tab');
     try {
-      await dio.get(
-        '/todos/1',
-        options: Options(headers: {'Authorization': 'Bearer secret-token'}),
-      );
+      await dio.get('/get', queryParameters: {'demo': 'corextra'});
     } on DioException {
-      // Surfaced in the DevTools Network tab either way.
+      // Not expected to fail, but surfaced in the Network tab either way.
     }
   }
 
-  Future<void> _sendFailingRequest() async {
-    _notify('Sending a request that will fail — check the Network tab');
+  // --- POST with a body: exercises request body + header capture (and
+  // header redaction — the Authorization header is hidden in the panel).
+  // httpbin echoes the request back inside the response body, so you can
+  // compare both side by side in the expanded row. ---
+  Future<void> _sendPostWithBody() async {
+    _notify('POST sent — check the request/response body in the Network tab');
+    try {
+      await dio.post(
+        '/post',
+        data: {'name': 'corextra', 'feature': 'DevTools'},
+        options: Options(headers: {'Authorization': 'Bearer secret-token'}),
+      );
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- GET 400: a client error status, with a real (empty) response. ---
+  Future<void> _sendGet400() async {
+    _notify('GET 400 sent — check the Network tab');
+    try {
+      await dio.get('/status/400');
+    } on DioException {
+      // Expected — dio treats non-2xx as an error; shows up red, status 400.
+    }
+  }
+
+  // --- GET 500: a server error status. ---
+  Future<void> _sendGet500() async {
+    _notify('GET 500 sent — check the Network tab');
+    try {
+      await dio.get('/status/500');
+    } on DioException {
+      // Expected — shows up red, status 500.
+    }
+  }
+
+  // --- Network error: no response at all (DNS/connection failure),
+  // as opposed to the 400/500 cases above which do get a response. ---
+  Future<void> _sendNetworkError() async {
+    _notify('Sending a request that will fail to connect — check the '
+        'Network tab');
     final failingDio = Dio(
       BaseOptions(baseUrl: 'https://this-domain-does-not-exist.invalid'),
     );
@@ -101,7 +143,7 @@ class _DemoScreenState extends State<DemoScreen> {
     try {
       await failingDio.get('/x');
     } on DioException {
-      // Expected — shows up as an error entry in the Network tab.
+      // Expected — shows up red with no status code, just an error type.
     } finally {
       failingDio.close();
     }
@@ -137,8 +179,11 @@ class _DemoScreenState extends State<DemoScreen> {
                   AppLogger.logError('Something went wrong (demo)');
                   _notify('Logged — check the DevTools Logs tab');
                 },
-                onSendRequest: _sendSuccessfulRequest,
-                onSendFailingRequest: _sendFailingRequest,
+                onGet200: _sendGet200,
+                onPostWithBody: _sendPostWithBody,
+                onGet400: _sendGet400,
+                onGet500: _sendGet500,
+                onNetworkError: _sendNetworkError,
               ),
               const SizedBox(height: 16),
               _ResponsiveSection(constraints: constraints),
@@ -225,15 +270,21 @@ class _DevToolsSection extends StatelessWidget {
     required this.onLogInfo,
     required this.onLogWarning,
     required this.onLogError,
-    required this.onSendRequest,
-    required this.onSendFailingRequest,
+    required this.onGet200,
+    required this.onPostWithBody,
+    required this.onGet400,
+    required this.onGet500,
+    required this.onNetworkError,
   });
 
   final VoidCallback onLogInfo;
   final VoidCallback onLogWarning;
   final VoidCallback onLogError;
-  final VoidCallback onSendRequest;
-  final VoidCallback onSendFailingRequest;
+  final VoidCallback onGet200;
+  final VoidCallback onPostWithBody;
+  final VoidCallback onGet400;
+  final VoidCallback onGet500;
+  final VoidCallback onNetworkError;
 
   @override
   Widget build(BuildContext context) {
@@ -244,11 +295,19 @@ class _DevToolsSection extends StatelessWidget {
           'the buttons below and watch the Logs / Network / Performance '
           'tabs update live.',
       children: [
+        Text(
+          'Logs',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            OutlinedButton(onPressed: onLogInfo, child: const Text('Log info')),
+            OutlinedButton(
+              onPressed: onLogInfo,
+              child: const Text('Log info'),
+            ),
             OutlinedButton(
               onPressed: onLogWarning,
               child: const Text('Log warning'),
@@ -257,13 +316,37 @@ class _DevToolsSection extends StatelessWidget {
               onPressed: onLogError,
               child: const Text('Log error'),
             ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Network — every case the panel can show',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
             FilledButton(
-              onPressed: onSendRequest,
-              child: const Text('Send test request'),
+              onPressed: onGet200,
+              child: const Text('GET 200'),
+            ),
+            FilledButton(
+              onPressed: onPostWithBody,
+              child: const Text('POST (body)'),
             ),
             FilledButton.tonal(
-              onPressed: onSendFailingRequest,
-              child: const Text('Send failing request'),
+              onPressed: onGet400,
+              child: const Text('GET 400'),
+            ),
+            FilledButton.tonal(
+              onPressed: onGet500,
+              child: const Text('GET 500'),
+            ),
+            FilledButton.tonal(
+              onPressed: onNetworkError,
+              child: const Text('Network error'),
             ),
           ],
         ),

@@ -13,11 +13,11 @@ dependencies:
   flutter:
     sdk: flutter
 
-  dio: ^5.9.2
-  intl: ^0.20.2
-  lucide_icons_flutter: ^3.1.17
-  device_info_plus: ">=11.5.0 <14.0.0"
-  package_info_plus: ">=8.3.1 <11.0.0"
+  dio: ">=5.9.2"
+  intl: ">=0.20.2"
+  device_info_plus: ">=11.5.0"
+  package_info_plus: ">=8.3.1"
+  lucide_icons_flutter: ">=3.1.17"
 
 dev_dependencies:
   flutter_test:
