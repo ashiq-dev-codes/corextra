@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../devtools_controller.dart';
-import 'tabs/info_tab.dart';
-import 'tabs/logs_tab.dart';
-import 'tabs/network_tab.dart';
-import 'tabs/performance_tab.dart';
+import 'devtools_tabs.dart';
 
 /// The DevTools inspector panel: Network / Logs / Performance / Info
 /// tabs, plus a header with theme, minimize, "Clear all", and close
@@ -19,42 +16,21 @@ class DevToolsPanel extends StatelessWidget {
 
   final VoidCallback onClose;
 
-  /// Minimizes the panel to a small floating status chip instead of
-  /// closing it outright — see `DevToolsPipChip`.
+  /// Minimizes the panel to a small floating window instead of closing
+  /// it outright — see `DevToolsFloatingWindow`.
   final VoidCallback onMinimize;
-
-  static const _tabs = [
-    Tab(icon: Icon(LucideIcons.network), text: 'Network'),
-    Tab(icon: Icon(LucideIcons.fileText), text: 'Logs'),
-    Tab(icon: Icon(LucideIcons.gauge), text: 'Performance'),
-    Tab(icon: Icon(LucideIcons.info), text: 'Info'),
-  ];
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Theme.of(context).colorScheme.surface,
       child: SafeArea(
-        child: DefaultTabController(
-          length: _tabs.length,
-          child: Column(
-            children: [
-              _Header(onClose: onClose, onMinimize: onMinimize),
-              const Divider(height: 1),
-              const TabBar(tabs: _tabs),
-              const Divider(height: 1),
-              const Expanded(
-                child: TabBarView(
-                  children: [
-                    NetworkTab(),
-                    LogsTab(),
-                    PerformanceTab(),
-                    InfoTab(),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        child: Column(
+          children: [
+            _Header(onClose: onClose, onMinimize: onMinimize),
+            const Divider(height: 1),
+            const Expanded(child: DevToolsTabs()),
+          ],
         ),
       ),
     );

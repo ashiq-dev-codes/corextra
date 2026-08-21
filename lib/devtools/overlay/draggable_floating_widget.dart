@@ -1,24 +1,35 @@
 import 'package:flutter/material.dart';
 
-/// Positions [child] via an internally-managed, user-draggable offset —
-/// defaulting near the bottom-right corner of the screen, clamped so it
-/// can never be dragged off-screen. Shared by `DevToolsBubble` and the
-/// PiP status chip so both drag identically.
+/// Positions its content via an internally-managed, user-draggable
+/// offset — defaulting near the bottom-right corner of the screen (or
+/// wherever [defaultOffset] says), clamped so it can never be dragged
+/// off-screen. Shared by `DevToolsBubble` and `DevToolsFloatingWindow`
+/// so both drag identically.
 ///
 /// Must be used as a (possibly indirect) child of a [Stack] — it
-/// produces a [Positioned] from its own build method. [child] is
-/// responsible for its own tap handling (e.g. via `InkWell`) — this
-/// widget only ever attaches a pan (drag) gesture, so tap and drag don't
-/// fight over the same gesture recognizer.
+/// produces a [Positioned] from its own build method. [builder] gets a
+/// `onPanUpdate` callback to attach wherever dragging should be
+/// possible: the whole widget (a small bubble, say), or just a
+/// drag-handle sub-region (e.g. a header bar) so the rest of the content
+/// can scroll/tap normally without fighting the drag gesture.
 class DraggableFloatingWidget extends StatefulWidget {
   const DraggableFloatingWidget({
     super.key,
     required this.size,
-    required this.child,
+    required this.builder,
+    this.defaultOffset,
   });
 
   final Size size;
-  final Widget child;
+  final Widget Function(
+    BuildContext context,
+    GestureDragUpdateCallback onPanUpdate,
+  )
+  builder;
+
+  /// Computes the initial position from the screen size and this
+  /// widget's [size]; defaults to near the bottom-right corner.
+  final Offset Function(Size screenSize, Size widgetSize)? defaultOffset;
 
   @override
   State<DraggableFloatingWidget> createState() =>
@@ -29,6 +40,8 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget> {
   Offset? _offset;
 
   Offset _defaultOffset(Size screenSize) {
+    final custom = widget.defaultOffset;
+    if (custom != null) return custom(screenSize, widget.size);
     return Offset(
       screenSize.width - widget.size.width - 16,
       screenSize.height - widget.size.height - 96,
@@ -59,12 +72,12 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget> {
     return Positioned(
       left: offset.dx,
       top: offset.dy,
-      child: GestureDetector(
-        onPanUpdate: (details) => _onPanUpdate(details, screenSize),
-        child: SizedBox(
-          width: widget.size.width,
-          height: widget.size.height,
-          child: widget.child,
+      child: SizedBox(
+        width: widget.size.width,
+        height: widget.size.height,
+        child: widget.builder(
+          context,
+          (details) => _onPanUpdate(details, screenSize),
         ),
       ),
     );

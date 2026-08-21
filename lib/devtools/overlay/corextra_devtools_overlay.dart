@@ -9,10 +9,10 @@ import '../panel/devtools_panel.dart';
 import '../util/devtools_theme.dart';
 import '../util/memory_probe.dart';
 import 'devtools_bubble.dart';
-import 'devtools_pip_chip.dart';
+import 'devtools_floating_window.dart';
 
 /// The overlay's current visual state: a floating bubble, the full
-/// panel, or a minimized floating status chip.
+/// panel, or a minimized floating window.
 enum _DisplayMode { closed, open, pip }
 
 /// Wraps an app (or a subtree of one) with a floating DevTools bubble
@@ -140,7 +140,8 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay> {
         children: [
           widget.child,
           if (_mode == _DisplayMode.closed) DevToolsBubble(onTap: _openPanel),
-          if (_mode == _DisplayMode.pip) DevToolsPipChip(onTap: _openPanel),
+          if (_mode == _DisplayMode.pip)
+            DevToolsFloatingWindow(onExpand: _openPanel, onClose: _closePanel),
           if (_mode == _DisplayMode.open)
             _PanelHost(onClose: _closePanel, onMinimize: _minimizeToPip),
         ],

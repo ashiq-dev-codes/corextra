@@ -26,14 +26,17 @@ class DevToolsBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return DraggableFloatingWidget(
       size: const Size(_size, _size),
-      child: Material(
-        color: Colors.black87,
-        shape: const CircleBorder(),
-        elevation: 4,
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: const Icon(LucideIcons.bug, color: Colors.white, size: 24),
+      builder: (context, onPanUpdate) => GestureDetector(
+        onPanUpdate: onPanUpdate,
+        child: Material(
+          color: Colors.black87,
+          shape: const CircleBorder(),
+          elevation: 4,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: const Icon(LucideIcons.bug, color: Colors.white, size: 24),
+          ),
         ),
       ),
     );

@@ -150,8 +150,9 @@ void main() {
   );
 
   testWidgets(
-    'Minimize shows a PiP chip instead of the bubble; tapping the chip '
-    'reopens the panel; Close (not Minimize) goes back to the bubble',
+    'Minimize shows a floating window with the same tab content as the '
+    'full panel; Expand restores the panel; Close (not Minimize) goes '
+    'back to the bubble',
     (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -171,32 +172,78 @@ void main() {
 
       expect(find.byType(DevToolsPanel), findsNothing);
       expect(find.byType(DevToolsBubble), findsNothing);
-      expect(find.byType(DevToolsPipChip), findsOneWidget);
+      expect(find.byType(DevToolsFloatingWindow), findsOneWidget);
+      // Real tab content, not a stub — the same tabs the full panel has.
+      expect(find.text('Network'), findsOneWidget);
+      expect(find.text('Logs'), findsOneWidget);
+      expect(find.text('Performance'), findsOneWidget);
+      expect(find.text('Info'), findsOneWidget);
 
-      // Tapping the chip restores the full panel.
-      await tester.tap(find.byType(DevToolsPipChip));
+      // Tapping Expand (inside the draggable header) restores the full
+      // panel — proving the header's tap targets still work alongside
+      // its drag gesture.
+      await tester.tap(find.byTooltip('Expand'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(DevToolsPipChip), findsNothing);
+      expect(find.byType(DevToolsFloatingWindow), findsNothing);
       expect(find.byType(DevToolsPanel), findsOneWidget);
 
       // Closing (as opposed to minimizing) goes back to the plain
-      // bubble, not the PiP chip.
+      // bubble, not the floating window.
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
 
       expect(find.byType(DevToolsPanel), findsNothing);
-      expect(find.byType(DevToolsPipChip), findsNothing);
+      expect(find.byType(DevToolsFloatingWindow), findsNothing);
       expect(find.byType(DevToolsBubble), findsOneWidget);
     },
   );
 
-  testWidgets('the PiP chip reflects live network/log activity', (
+  testWidgets(
+    'the floating window shows live, interactive tab content — e.g. a '
+    'seeded log entry is visible after switching to its Logs tab',
+    (tester) async {
+      CorextraDevTools.instance.logs.add(
+        LogEntry(
+          message: 'hello from the floating window',
+          level: LogLevel.info,
+          timestamp: DateTime.now(),
+        ),
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Minimize'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Logs'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('hello from the floating window'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('dragging the floating window by its header moves it', (
     tester,
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: CorextraDevToolsOverlay(enabled: true, child: SizedBox.shrink()),
+        home: CorextraDevToolsOverlay(
+          enabled: true,
+          child: SizedBox.shrink(),
+        ),
       ),
     );
 
@@ -205,20 +252,11 @@ void main() {
     await tester.tap(find.byTooltip('Minimize'));
     await tester.pumpAndSettle();
 
-    // No issues yet: just the request count.
-    expect(find.text('0'), findsOneWidget);
+    final before = tester.getTopLeft(find.byType(DevToolsFloatingWindow));
+    await tester.drag(find.text('DevTools'), const Offset(40, 30));
+    await tester.pumpAndSettle();
+    final after = tester.getTopLeft(find.byType(DevToolsFloatingWindow));
 
-    final event = CorextraDevTools.instance.network.begin(
-      method: 'GET',
-      url: 'https://example.test/x',
-    );
-    event.statusCode = 500;
-    event.errorType = 'badResponse';
-    event.errorMessage = 'boom';
-    event.completedAt = DateTime.now();
-    CorextraDevTools.instance.network.complete(event);
-    await tester.pump();
-
-    expect(find.text('1'), findsNWidgets(2)); // 1 request, 1 issue
+    expect(after, isNot(equals(before)));
   });
 }
