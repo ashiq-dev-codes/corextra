@@ -67,6 +67,29 @@ Make your Dart and Flutter code cleaner, safer, and easier to read.
   - Supports directions: `top`, `bottom`, `left`, `right`, and `custom`
   - Built with `AnimatedSwitcher` for smooth transitions
 
+### DevTools Utilities
+An in-app inspector, styled after Flutter DevTools — no separate DevTools connection needed, and it's automatically disabled outside debug builds.
+
+```dart
+MaterialApp(
+  builder: (context, child) =>
+      CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
+  home: const HomeScreen(),
+)
+
+dio.interceptors.add(const CorextraDevToolsInterceptor());
+```
+
+A draggable bubble opens the panel, with four tabs:
+- **Network** — every request/response, searchable and filterable by method or status. Wide screens get a two-pane list + detail view. Redact sensitive headers with `hiddenHeaders`
+- **Logs** — every `debugLog`/`AppLogger` call, searchable and filterable by level — no extra wiring needed
+- **Performance** — a live FPS/frame-time chart with jank highlighting and tap-to-inspect frames
+- **Info** — app + device details via `package_info_plus`/`device_info_plus`
+
+Tap **Minimize** to shrink the panel into a small floating window you can keep an eye on while testing the rest of the app. Drag the bubble or the window to a screen edge to tuck it out of the way, or resize the window from its corner. Toggle everything at runtime with `CorextraDevTools.instance.enabled`.
+
+Planned for a future phase: a widget/layout inspector, memory heap snapshots, a storage (shared_preferences) viewer, and a route/navigation inspector.
+
 ---
 
 ## Getting Started
@@ -75,11 +98,22 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 
 ```yaml
 dependencies:
-  corextra: ^1.1.5
+  corextra: ^1.2.0
 ```
 
 Then import it in your Dart code:
 
 ```dart
 import 'package:corextra/corextra.dart';
+```
+
+## Example
+
+A runnable demo app lives in [`example/`](example/), including the
+DevTools panel. Run it with:
+
+```sh
+cd example
+flutter pub get
+flutter run
 ```
