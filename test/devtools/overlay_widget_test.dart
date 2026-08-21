@@ -236,6 +236,44 @@ void main() {
     },
   );
 
+  testWidgets(
+    "the floating window's Clear all button clears captured data, same "
+    'as the full panel',
+    (tester) async {
+      CorextraDevTools.instance.logs.add(
+        LogEntry(
+          message: 'will be cleared',
+          level: LogLevel.info,
+          timestamp: DateTime.now(),
+        ),
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Minimize'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Logs'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('will be cleared'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Clear all'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('will be cleared'), findsNothing);
+      expect(CorextraDevTools.instance.logs.entries, isEmpty);
+    },
+  );
+
   testWidgets('dragging the floating window by its header moves it', (
     tester,
   ) async {

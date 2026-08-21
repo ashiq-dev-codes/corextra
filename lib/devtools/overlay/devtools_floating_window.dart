@@ -114,6 +114,13 @@ class _WindowHeader extends StatelessWidget {
             ),
           ),
           IconButton(
+            tooltip: 'Clear all',
+            iconSize: 16,
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(LucideIcons.trash),
+            onPressed: () => CorextraDevTools.instance.resetAll(),
+          ),
+          IconButton(
             tooltip: 'Expand',
             iconSize: 16,
             visualDensity: VisualDensity.compact,
