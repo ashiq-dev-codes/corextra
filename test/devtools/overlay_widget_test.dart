@@ -296,7 +296,7 @@ void main() {
 
       // Grow it.
       await tester.drag(
-        find.byIcon(LucideIcons.moveDiagonal2),
+        find.byKey(const Key('devtools-resize-handle')),
         const Offset(60, 60),
       );
       await tester.pump();
@@ -306,7 +306,7 @@ void main() {
 
       // Shrink it far past the minimum — it should clamp, not vanish.
       await tester.drag(
-        find.byIcon(LucideIcons.moveDiagonal2),
+        find.byKey(const Key('devtools-resize-handle')),
         const Offset(-1000, -1000),
       );
       await tester.pump();

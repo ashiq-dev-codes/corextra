@@ -73,9 +73,7 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay> {
 
   @override
   void dispose() {
-    CorextraDevTools.instance.enabledNotifier.removeListener(
-      _onEnabledChanged,
-    );
+    CorextraDevTools.instance.enabledNotifier.removeListener(_onEnabledChanged);
     _stopCapture();
     super.dispose();
   }
@@ -180,21 +178,23 @@ class _PanelHost extends StatelessWidget {
         // toggled.
         child: ValueListenableBuilder<ThemeMode>(
           valueListenable: CorextraDevTools.instance.themeModeNotifier,
-          builder: (context, mode, _) => Theme(
-            data: buildDevToolsTheme(
-              mode == ThemeMode.dark ? Brightness.dark : Brightness.light,
-            ),
-            child: Overlay(
-              initialEntries: [
-                OverlayEntry(
-                  builder: (context) => DevToolsPanel(
-                    onClose: onClose,
-                    onMinimize: onMinimize,
-                  ),
+          builder:
+              (context, mode, _) => Theme(
+                data: buildDevToolsTheme(
+                  mode == ThemeMode.dark ? Brightness.dark : Brightness.light,
                 ),
-              ],
-            ),
-          ),
+                child: Overlay(
+                  initialEntries: [
+                    OverlayEntry(
+                      builder:
+                          (context) => DevToolsPanel(
+                            onClose: onClose,
+                            onMinimize: onMinimize,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
         ),
       ),
     );

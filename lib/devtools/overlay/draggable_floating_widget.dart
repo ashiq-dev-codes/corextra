@@ -44,6 +44,7 @@ class DraggableFloatingWidget extends StatefulWidget {
     this.defaultOffset,
     this.edgeSnapThreshold = 80,
     this.peekExtent = 28,
+    this.borderRadius = BorderRadius.zero,
   });
 
   final Size size;
@@ -65,6 +66,17 @@ class DraggableFloatingWidget extends StatefulWidget {
   /// How many pixels remain visible when peeking at an edge.
   final double peekExtent;
 
+  /// Clips the whole [size] bounding box to this shape. A rounded
+  /// `Material` sized to exactly fill that box (as the floating window
+  /// does) still leaves this box's own four corners uncovered — a
+  /// rounded shape inscribed in a same-sized square doesn't reach into
+  /// the square's corners — so anything painted behind it within this
+  /// widget (the `Overlay` beneath the window's content clips to a hard
+  /// rectangular edge by default) shows through there unless this outer
+  /// box is rounded to match. Defaults to no rounding, since the bubble
+  /// is already a circle with nothing behind it to leak through.
+  final BorderRadius borderRadius;
+
   @override
   State<DraggableFloatingWidget> createState() =>
       _DraggableFloatingWidgetState();
@@ -73,9 +85,10 @@ class DraggableFloatingWidget extends StatefulWidget {
 class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
     with SingleTickerProviderStateMixin {
   final ValueNotifier<Offset?> _offset = ValueNotifier(null);
-  late final AnimationController _settleController =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 220))
-        ..addListener(_onSettleTick);
+  late final AnimationController _settleController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  )..addListener(_onSettleTick);
 
   Tween<Offset>? _settleTween;
   _PeekSide _peekSide = _PeekSide.none;
@@ -144,25 +157,26 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
   void _onPanEnd(DragEndDetails details, Size screenSize) {
     final current = _offset.value ?? _defaultOffset(screenSize);
     final distanceToLeft = current.dx;
-    final distanceToRight =
-        screenSize.width - (current.dx + widget.size.width);
+    final distanceToRight = screenSize.width - (current.dx + widget.size.width);
     if (distanceToLeft > widget.edgeSnapThreshold &&
         distanceToRight > widget.edgeSnapThreshold) {
       return; // released away from both edges — leave it exactly there.
     }
     final peekLeft = distanceToLeft <= distanceToRight;
     setState(() => _peekSide = peekLeft ? _PeekSide.left : _PeekSide.right);
-    final peekedX = peekLeft
-        ? -(widget.size.width - widget.peekExtent)
-        : screenSize.width - widget.peekExtent;
+    final peekedX =
+        peekLeft
+            ? -(widget.size.width - widget.peekExtent)
+            : screenSize.width - widget.peekExtent;
     _animateTo(Offset(peekedX, current.dy));
   }
 
   void _reveal(Size screenSize) {
     final current = _offset.value ?? _defaultOffset(screenSize);
-    final dockedX = _peekSide == _PeekSide.left
-        ? 0.0
-        : screenSize.width - widget.size.width;
+    final dockedX =
+        _peekSide == _PeekSide.left
+            ? 0.0
+            : screenSize.width - widget.size.width;
     setState(() => _peekSide = _PeekSide.none);
     _animateTo(Offset(dockedX, current.dy));
   }
@@ -177,19 +191,23 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
       // on every drag frame, which is instead driven purely through the
       // ValueListenableBuilder above.
       child: RepaintBoundary(
-        child: SizedBox(
-          width: widget.size.width,
-          height: widget.size.height,
-          child: peekSide == _PeekSide.none
-              ? widget.builder(
-                  context,
-                  (details) => _onPanUpdate(details, screenSize),
-                  (details) => _onPanEnd(details, screenSize),
-                )
-              : _PeekNub(
-                  peekingLeft: peekSide == _PeekSide.left,
-                  onTap: () => _reveal(screenSize),
-                ),
+        child: ClipRRect(
+          borderRadius: widget.borderRadius,
+          child: SizedBox(
+            width: widget.size.width,
+            height: widget.size.height,
+            child:
+                peekSide == _PeekSide.none
+                    ? widget.builder(
+                      context,
+                      (details) => _onPanUpdate(details, screenSize),
+                      (details) => _onPanEnd(details, screenSize),
+                    )
+                    : _PeekNub(
+                      peekingLeft: peekSide == _PeekSide.left,
+                      onTap: () => _reveal(screenSize),
+                    ),
+          ),
         ),
       ),
       builder: (context, offset, child) {
