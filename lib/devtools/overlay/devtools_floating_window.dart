@@ -265,8 +265,8 @@ class _CornerBracketPainter extends CustomPainter {
 
   final Color color;
 
-  static const double _armLength = 10;
-  static const double _radius = 4.5;
+  static const double _armLength = 3;
+  static const double _radius = 11;
 
   @override
   void paint(Canvas canvas, Size size) {
