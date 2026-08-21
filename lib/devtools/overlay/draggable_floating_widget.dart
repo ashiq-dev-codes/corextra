@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -83,6 +85,17 @@ class DraggableFloatingWidget extends StatefulWidget {
   /// is already a circle with nothing behind it to leak through.
   final BorderRadius borderRadius;
 
+  /// Extra clearance kept beyond the system safe-area inset on the top
+  /// and bottom edges — dragging can never bring this widget closer to
+  /// either edge than that. The safe-area inset alone marks where the
+  /// OS's own status bar / home-indicator / Dynamic Island area ends,
+  /// but edge-swipe gesture recognition (pull down for notifications,
+  /// swipe up for home, Control Center's top-right corner) can reach
+  /// slightly past that boundary — sitting a widget flush against it
+  /// risks the OS intercepting drags meant for this widget instead,
+  /// leaving it effectively stuck with no way to grab it back.
+  static const double _verticalSafetyMargin = 12;
+
   @override
   State<DraggableFloatingWidget> createState() =>
       _DraggableFloatingWidgetState();
@@ -110,9 +123,10 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
     final current = _offset.value;
     if (oldWidget.size != widget.size && current != null) {
       final screenSize = MediaQuery.sizeOf(context);
+      final safePadding = MediaQuery.paddingOf(context);
       _offset.value = Offset(
         _clamp(current.dx, 0, screenSize.width - widget.size.width),
-        _clamp(current.dy, 0, screenSize.height - widget.size.height),
+        _clamp(current.dy, _minY(safePadding), _maxY(screenSize, safePadding)),
       );
     }
   }
@@ -139,6 +153,23 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
     return value;
   }
 
+  double _minY(EdgeInsets safePadding) =>
+      safePadding.top + DraggableFloatingWidget._verticalSafetyMargin;
+
+  double _maxY(Size screenSize, EdgeInsets safePadding) {
+    final min = _minY(safePadding);
+    final raw =
+        screenSize.height -
+        widget.size.height -
+        safePadding.bottom -
+        DraggableFloatingWidget._verticalSafetyMargin;
+    // On a short screen with generous safe-area insets there may not be
+    // enough room to honor both margins — prefer keeping clear of the
+    // top inset (where the OS's own gesture area actually lives) over
+    // the bottom one.
+    return math.max(min, raw);
+  }
+
   void _onSettleTick() {
     final tween = _settleTween;
     if (tween == null) return;
@@ -152,7 +183,11 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
     _settleController.forward(from: 0);
   }
 
-  void _onPanUpdate(DragUpdateDetails details, Size screenSize) {
+  void _onPanUpdate(
+    DragUpdateDetails details,
+    Size screenSize,
+    EdgeInsets safePadding,
+  ) {
     if (_settleController.isAnimating) _settleController.stop();
     final current = _offset.value ?? _defaultOffset(screenSize);
     final next = current + details.delta;
@@ -160,13 +195,18 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
     // [peekExtent] pixels remaining visible on either side — so
     // dragging it there visibly, continuously slides it off-screen in
     // real time instead of it staying invisibly pinned at the edge
-    // until release. Y still can't leave the screen at all; peeking is
-    // horizontal-only.
+    // until release. Peeking is horizontal-only: Y is instead kept
+    // clear of the top/bottom system safe area (status bar, Dynamic
+    // Island, home indicator) plus a small margin, so this widget can
+    // never be dragged into the strip where the OS's own edge-swipe
+    // gestures live — sitting there risks the OS intercepting drags
+    // meant for this widget instead, leaving it stuck with no way to
+    // grab it back.
     final minX = -(widget.size.width - widget.peekExtent);
     final maxX = screenSize.width - widget.peekExtent;
     _offset.value = Offset(
       _clamp(next.dx, minX, maxX),
-      _clamp(next.dy, 0, screenSize.height - widget.size.height),
+      _clamp(next.dy, _minY(safePadding), _maxY(screenSize, safePadding)),
     );
   }
 
@@ -219,6 +259,7 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
+    final safePadding = MediaQuery.paddingOf(context);
     final peekSide = _peekSide;
     return ValueListenableBuilder<Offset?>(
       valueListenable: _offset,
@@ -235,7 +276,7 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
                 peekSide == _PeekSide.none
                     ? widget.builder(
                       context,
-                      (details) => _onPanUpdate(details, screenSize),
+                      (details) => _onPanUpdate(details, screenSize, safePadding),
                       (details) => _onPanEnd(details, screenSize),
                     )
                     : _PeekNub(

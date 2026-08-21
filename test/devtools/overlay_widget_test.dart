@@ -548,4 +548,85 @@ void main() {
       expect(tester.getTopLeft(bubbleFinder).dx, 0);
     },
   );
+
+  testWidgets(
+    'dragging the bubble straight up on a device with a status bar / '
+    'notch never lets it cross into the top safe area, so it can never '
+    "end up stuck in the OS's own edge-gesture zone",
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(800, 600),
+              padding: EdgeInsets.only(top: 47, bottom: 34),
+            ),
+            child: const CorextraDevToolsOverlay(
+              enabled: true,
+              child: SizedBox.shrink(),
+            ),
+          ),
+        ),
+      );
+
+      final bubbleFinder = find.byType(DevToolsBubble);
+      final gesture = await tester.startGesture(
+        tester.getCenter(bubbleFinder),
+      );
+      await gesture.moveBy(const Offset(0, -50)); // accepting move, discarded
+      await tester.pump();
+      await gesture.moveBy(const Offset(0, -800)); // drag far past the top
+      await tester.pump();
+
+      // Still mid-drag, and already clamped well clear of the 47px status
+      // bar inset (47 + the 12px safety margin) rather than flush at 0.
+      expect(tester.getTopLeft(bubbleFinder).dy, 59);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(bubbleFinder).dy, 59);
+    },
+  );
+
+  testWidgets(
+    'dragging the floating window straight up on a device with a status '
+    'bar / notch never lets it cross into the top safe area either',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(800, 600),
+              padding: EdgeInsets.only(top: 47, bottom: 34),
+            ),
+            child: const CorextraDevToolsOverlay(
+              enabled: true,
+              child: SizedBox.shrink(),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Minimize'));
+      await tester.pumpAndSettle();
+
+      final headerFinder = find.text('DevTools');
+      final gesture = await tester.startGesture(
+        tester.getCenter(headerFinder),
+      );
+      await gesture.moveBy(const Offset(0, -50));
+      await tester.pump();
+      await gesture.moveBy(const Offset(0, -800));
+      await tester.pump();
+
+      final windowFinder = find.byType(DevToolsFloatingWindow);
+      expect(tester.getTopLeft(windowFinder).dy, 59);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(windowFinder).dy, 59);
+    },
+  );
 }
