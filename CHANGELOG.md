@@ -11,6 +11,7 @@
 - Added a runnable example app in `example/` (previously a doc-only snippet), demonstrating the DevTools panel end to end
 - The DevTools panel now has its own theme (dark by default), independent of the host app's theme, with a light/dark toggle in the header
 - Switched the DevTools panel's icons to `lucide_icons_flutter`
+- Redesigned the Network tab: colored method/status pills, the request path shown separately from its host/query, headers rendered as a readable key/value list instead of a raw map dump, and request/response bodies shown in a monospace code block with a one-tap copy button
 
 ## 1.1.5
 
