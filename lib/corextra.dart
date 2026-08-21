@@ -8,6 +8,8 @@ export 'devtools/models/log_entry.dart';
 export 'devtools/models/network_event.dart';
 export 'devtools/overlay/corextra_devtools_overlay.dart';
 export 'devtools/overlay/devtools_bubble.dart';
+export 'devtools/overlay/devtools_pip_chip.dart';
+export 'devtools/overlay/draggable_floating_widget.dart';
 export 'devtools/panel/devtools_panel.dart';
 export 'devtools/panel/empty_state.dart';
 export 'devtools/panel/tabs/info_tab.dart';

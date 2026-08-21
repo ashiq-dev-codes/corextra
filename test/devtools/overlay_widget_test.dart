@@ -148,4 +148,77 @@ void main() {
       expect(hostButtonTapped, isTrue);
     },
   );
+
+  testWidgets(
+    'Minimize shows a PiP chip instead of the bubble; tapping the chip '
+    'reopens the panel; Close (not Minimize) goes back to the bubble',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      expect(find.byType(DevToolsPanel), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Minimize'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DevToolsPanel), findsNothing);
+      expect(find.byType(DevToolsBubble), findsNothing);
+      expect(find.byType(DevToolsPipChip), findsOneWidget);
+
+      // Tapping the chip restores the full panel.
+      await tester.tap(find.byType(DevToolsPipChip));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DevToolsPipChip), findsNothing);
+      expect(find.byType(DevToolsPanel), findsOneWidget);
+
+      // Closing (as opposed to minimizing) goes back to the plain
+      // bubble, not the PiP chip.
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DevToolsPanel), findsNothing);
+      expect(find.byType(DevToolsPipChip), findsNothing);
+      expect(find.byType(DevToolsBubble), findsOneWidget);
+    },
+  );
+
+  testWidgets('the PiP chip reflects live network/log activity', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: CorextraDevToolsOverlay(enabled: true, child: SizedBox.shrink()),
+      ),
+    );
+
+    await tester.tap(find.byType(DevToolsBubble));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Minimize'));
+    await tester.pumpAndSettle();
+
+    // No issues yet: just the request count.
+    expect(find.text('0'), findsOneWidget);
+
+    final event = CorextraDevTools.instance.network.begin(
+      method: 'GET',
+      url: 'https://example.test/x',
+    );
+    event.statusCode = 500;
+    event.errorType = 'badResponse';
+    event.errorMessage = 'boom';
+    event.completedAt = DateTime.now();
+    CorextraDevTools.instance.network.complete(event);
+    await tester.pump();
+
+    expect(find.text('1'), findsNWidgets(2)); // 1 request, 1 issue
+  });
 }

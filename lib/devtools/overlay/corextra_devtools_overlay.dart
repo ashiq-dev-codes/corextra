@@ -9,6 +9,11 @@ import '../panel/devtools_panel.dart';
 import '../util/devtools_theme.dart';
 import '../util/memory_probe.dart';
 import 'devtools_bubble.dart';
+import 'devtools_pip_chip.dart';
+
+/// The overlay's current visual state: a floating bubble, the full
+/// panel, or a minimized floating status chip.
+enum _DisplayMode { closed, open, pip }
 
 /// Wraps an app (or a subtree of one) with a floating DevTools bubble
 /// that opens an in-app inspector panel (Network / Logs / Performance /
@@ -52,7 +57,7 @@ class CorextraDevToolsOverlay extends StatefulWidget {
 }
 
 class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay> {
-  bool _panelOpen = false;
+  _DisplayMode _mode = _DisplayMode.closed;
   bool _capturing = false;
   Timer? _memoryTimer;
 
@@ -118,9 +123,11 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay> {
     }
   }
 
-  void _openPanel() => setState(() => _panelOpen = true);
+  void _openPanel() => setState(() => _mode = _DisplayMode.open);
 
-  void _closePanel() => setState(() => _panelOpen = false);
+  void _closePanel() => setState(() => _mode = _DisplayMode.closed);
+
+  void _minimizeToPip() => setState(() => _mode = _DisplayMode.pip);
 
   @override
   Widget build(BuildContext context) {
@@ -132,8 +139,10 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay> {
       child: Stack(
         children: [
           widget.child,
-          DevToolsBubble(onTap: _openPanel),
-          if (_panelOpen) _PanelHost(onClose: _closePanel),
+          if (_mode == _DisplayMode.closed) DevToolsBubble(onTap: _openPanel),
+          if (_mode == _DisplayMode.pip) DevToolsPipChip(onTap: _openPanel),
+          if (_mode == _DisplayMode.open)
+            _PanelHost(onClose: _closePanel, onMinimize: _minimizeToPip),
         ],
       ),
     );
@@ -148,9 +157,10 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay> {
 /// every tap and scroll meant for the host app underneath, everywhere,
 /// all the time — not just while the panel is actually visible.
 class _PanelHost extends StatelessWidget {
-  const _PanelHost({required this.onClose});
+  const _PanelHost({required this.onClose, required this.onMinimize});
 
   final VoidCallback onClose;
+  final VoidCallback onMinimize;
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +186,10 @@ class _PanelHost extends StatelessWidget {
             child: Overlay(
               initialEntries: [
                 OverlayEntry(
-                  builder: (context) => DevToolsPanel(onClose: onClose),
+                  builder: (context) => DevToolsPanel(
+                    onClose: onClose,
+                    onMinimize: onMinimize,
+                  ),
                 ),
               ],
             ),

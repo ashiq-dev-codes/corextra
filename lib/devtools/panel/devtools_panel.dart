@@ -8,11 +8,20 @@ import 'tabs/network_tab.dart';
 import 'tabs/performance_tab.dart';
 
 /// The DevTools inspector panel: Network / Logs / Performance / Info
-/// tabs, plus a header with theme, "Clear all", and close controls.
+/// tabs, plus a header with theme, minimize, "Clear all", and close
+/// controls.
 class DevToolsPanel extends StatelessWidget {
-  const DevToolsPanel({super.key, required this.onClose});
+  const DevToolsPanel({
+    super.key,
+    required this.onClose,
+    required this.onMinimize,
+  });
 
   final VoidCallback onClose;
+
+  /// Minimizes the panel to a small floating status chip instead of
+  /// closing it outright — see `DevToolsPipChip`.
+  final VoidCallback onMinimize;
 
   static const _tabs = [
     Tab(icon: Icon(LucideIcons.network), text: 'Network'),
@@ -30,7 +39,7 @@ class DevToolsPanel extends StatelessWidget {
           length: _tabs.length,
           child: Column(
             children: [
-              _Header(onClose: onClose),
+              _Header(onClose: onClose, onMinimize: onMinimize),
               const Divider(height: 1),
               const TabBar(tabs: _tabs),
               const Divider(height: 1),
@@ -53,9 +62,10 @@ class DevToolsPanel extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onClose});
+  const _Header({required this.onClose, required this.onMinimize});
 
   final VoidCallback onClose;
+  final VoidCallback onMinimize;
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +83,11 @@ class _Header extends StatelessWidget {
             ),
           ),
           const _ThemeToggleButton(),
+          IconButton(
+            tooltip: 'Minimize',
+            icon: const Icon(LucideIcons.pictureInPicture2),
+            onPressed: onMinimize,
+          ),
           IconButton(
             tooltip: 'Clear all',
             icon: const Icon(LucideIcons.trash),
