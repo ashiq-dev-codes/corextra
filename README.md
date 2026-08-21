@@ -68,18 +68,27 @@ Make your Dart and Flutter code cleaner, safer, and easier to read.
   - Built with `AnimatedSwitcher` for smooth transitions
 
 ### DevTools Utilities
-An in-app inspector panel — no separate DevTools connection required, works in a running debug build.
-- **CorextraDevToolsOverlay**:
-  - Wraps your app (e.g. via `MaterialApp.builder`) with a floating, draggable bubble
-  - Tap it to open a panel with **Network**, **Logs**, **Performance**, and **Info** tabs
-  - Defaults to visible only in `kDebugMode`; toggle at runtime via `CorextraDevTools.instance.enabled`
-- **CorextraDevToolsInterceptor**:
-  - Dio interceptor that feeds the Network tab (method, URL, headers, body, status, duration)
-  - Purely observational — additive to `AppLoggerInterceptor`, safe to use both together
-- **Logs tab**: automatically populated by `debugLog`/`AppLogger` — no extra wiring needed
-- **Performance tab**: live FPS and jank monitoring via Flutter's own frame timings, plus an approximate memory (RSS) reading
-- **Info tab**: app + device details via `package_info_plus`/`device_info_plus`, and current capture-buffer counts
-- Planned for a future phase: widget/layout inspector, memory heap snapshots, a storage (shared_preferences) viewer, and a route/navigation inspector
+An in-app inspector, styled after Flutter DevTools — no separate DevTools connection needed, and it's automatically disabled outside debug builds.
+
+```dart
+MaterialApp(
+  builder: (context, child) =>
+      CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
+  home: const HomeScreen(),
+)
+
+dio.interceptors.add(const CorextraDevToolsInterceptor());
+```
+
+A draggable bubble opens the panel, with four tabs:
+- **Network** — every request/response, searchable and filterable by method or status. Wide screens get a two-pane list + detail view. Redact sensitive headers with `hiddenHeaders`
+- **Logs** — every `debugLog`/`AppLogger` call, searchable and filterable by level — no extra wiring needed
+- **Performance** — a live FPS/frame-time chart with jank highlighting and tap-to-inspect frames
+- **Info** — app + device details via `package_info_plus`/`device_info_plus`
+
+Tap **Minimize** to shrink the panel into a small floating window you can keep an eye on while testing the rest of the app. Drag the bubble or the window to a screen edge to tuck it out of the way, or resize the window from its corner. Toggle everything at runtime with `CorextraDevTools.instance.enabled`.
+
+Planned for a future phase: a widget/layout inspector, memory heap snapshots, a storage (shared_preferences) viewer, and a route/navigation inspector.
 
 ---
 

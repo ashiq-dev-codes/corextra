@@ -1,29 +1,32 @@
 ## 1.2.0
 
-- Redesigned the Performance tab, modeled on Flutter DevTools' own Performance view: a scrolling frame timeline that stacks each frame's UI (build) and Raster (GPU) time, with a dashed 60 FPS (16.7 ms) budget line and a small red marker on frames that cross it. Tapping or dragging across the chart selects a frame and shows its exact UI/Raster/Total breakdown below; a row of stat cards (FPS with a "Smooth"/"Some jank"/"Frequent jank" label, average frame time, janky-frame count, memory if available) and a UI-vs-Raster average split bar sit above it for an at-a-glance read without needing to study the chart
-- Added a search box to the Network tab (filters by method, URL, or status code) and to the Logs tab (filters by message, plus filter chips to toggle Info/Warning/Error levels on or off) — both show a dedicated "no matches" empty state instead of just an empty list when a filter excludes everything
-- Added method and status filters to the Network tab as two pill-shaped dropdown buttons below the search box — filled and tinted in the app's primary color once narrowed, with a filter icon and a live "All"/"N selected"/"None" summary — each opening a popup with a section header, a colored dot + checkbox per option (so the current selection reads at a glance, not just from checkbox state), and "Select all"/"Clear" quick actions. Replaces an earlier always-visible-chips design that read as a wall of small buttons once there were two filter dimensions with six options apiece. A "Reset" action appears next to them once any filter (search text included) is actually narrowing the list, restoring everything in one tap
-- Added an in-app DevTools panel (`CorextraDevToolsOverlay`) with Network, Logs, Performance, and Info tabs — no separate DevTools connection required
-- Added `CorextraDevToolsInterceptor`, a Dio interceptor that feeds the Network tab (additive to `AppLoggerInterceptor`)
-- `debugLog`/`AppLogger` now automatically feed the panel's Logs tab when DevTools capture is enabled
-- Added `device_info_plus` and `package_info_plus` dependencies for the Info tab
-- `CorextraDevToolsInterceptor` now accepts `hiddenHeaders` to redact sensitive header values (e.g. API keys, auth tokens) before they're stored
-- Fixed a crash ("No Overlay widget found") and layout overflow in the DevTools panel when `CorextraDevToolsOverlay` is mounted via `MaterialApp.builder` (the documented, recommended usage) — the panel now runs inside its own self-contained `Overlay`, only while it's actually open, giving tooltips an `Overlay` to attach to and the panel a concrete, finite size to lay out against
-- Fixed the DevTools bubble blocking all taps/scrolls to the host app: it had been kept inside an always-mounted, screen-sized `Overlay`/`Navigator`, which claims hit-testing across its entire bounds even where nothing is drawn. The bubble no longer has an ancestor `Overlay` (and no longer has a `Tooltip`, which requires one) — it now only ever occupies its own small hit-testable area
-- Polished the DevTools panel UI: icon-labeled tabs, consistent empty states, clearer log/network rows with timestamps, and a performance legend
-- Added a runnable example app in `example/` (previously a doc-only snippet), demonstrating the DevTools panel end to end
-- The DevTools panel now has its own theme (dark by default), independent of the host app's theme, with a light/dark toggle in the header
-- Switched the DevTools panel's icons to `lucide_icons_flutter`
-- Redesigned the Network tab: colored method/status pills, the request path shown separately from its host/query, headers rendered as a readable key/value list instead of a raw map dump, and request/response bodies shown in a monospace code block with a one-tap copy button
-- The Network tab is now responsive: on screens ≥700 logical pixels wide it splits into a master/detail view (a compact request list on the left, the selected request's full detail on the right) — the same layout Flutter's own DevTools Network view uses — while phone-sized screens keep the single-column expandable list
-- Added a "Minimize" button in the panel header: instead of closing the panel, it shrinks to a small draggable floating window showing the *same* Network/Logs/Performance/Info tab content as the full panel — not a stripped-down summary — so you can watch live activity while still freely interacting with (and testing) the rest of the app underneath, closer to inspecting a page in a browser. Drag the window by its header to move it; tap Expand to return to the full panel, or Close to dismiss back to the bubble
-- Made dragging the bubble and floating window smoother: the dragged content is now built once and reused every frame (only the position updates, via a `ValueListenableBuilder` instead of rebuilding the whole widget on every pixel of movement) and wrapped in a `RepaintBoundary` so moving it is a cheap compositor-level operation — most noticeable on the floating window, whose content is a full tab set
-- The bubble and floating window now dock and peek at the screen edge when dragged near one, Android floating-widget style — releasing a drag close enough to the left or right edge slides it mostly off-screen there, leaving a small "tap to bring back" tab, so it stays out of the way of the app you're testing. Releasing away from either edge leaves it exactly where dropped, as before
-- Added a "Clear all" button to the floating window's header, matching the full panel's
-- The floating window is now resizable via a bottom-right corner grip, styled as a small corner bracket (the same visual iOS uses for its Photos crop tool and Markup resize handles) rather than an arrow icon — clamped between a 280×360 minimum and a 480×640 maximum that's also capped to whatever actually fits the screen. Diagonal (corner) resize only, deliberately — no separate horizontal- or vertical-only edge handles
-- Fixed grey corners showing on both the floating window and the bubble: each is a non-square shape (a rounded rect, a circle) inscribed in a same-sized square bounding box, which it can't fully reach into at the corners — most likely leaking the `RepaintBoundary` + `Material` elevation shadow combination added for smoother dragging. `DraggableFloatingWidget` now takes an optional `borderRadius` and clips its own bounding box to match; the window passes its own corner radius, and the bubble passes half its size (a `ClipRRect` at half a square's side is a perfect circle)
-- Reworked the edge-peek/hide gesture to match Android's floating-widget behavior more closely: dragging the bubble or floating window past the screen edge now visibly, continuously slides it off-screen in real time as you drag — instead of staying invisibly pinned at the edge until release — and releasing only *commits* to hiding (leaving a small "tap to bring back" tab) if you've actually pushed it past the edge by at least half of its available peek travel; a smaller nudge past the edge springs it back to flush-at-the-edge, fully visible, instead of hiding
-- Fixed the bubble and floating window being able to get dragged flush against the top (or bottom) of the screen, where they'd overlap the OS's own status bar / Dynamic Island / home-indicator edge-gesture area — touches landing there can get intercepted by the system (pull-down for notifications, swipe-up for home) before ever reaching the app, leaving the widget stuck with no way to grab it back. Vertical dragging is now clamped to stay within the device's safe area (`MediaQuery.padding`) plus a small margin, on both edges
+### In-app DevTools panel
+
+A Flutter-DevTools-style inspector built right into your app — no separate DevTools connection, and it's automatically disabled outside debug builds.
+
+```dart
+MaterialApp(
+  builder: (context, child) =>
+      CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
+  home: const HomeScreen(),
+)
+
+dio.interceptors.add(const CorextraDevToolsInterceptor());
+```
+
+A draggable bubble opens the panel, with four tabs:
+
+- **Network** — every request and response via `CorextraDevToolsInterceptor` (safe to use alongside `AppLoggerInterceptor`). Search by method, URL, or status, and filter by method or status category. Wide screens get a two-pane list + detail view, the same layout Flutter's own DevTools Network tab uses. Redact sensitive headers with `hiddenHeaders`.
+- **Logs** — every `debugLog`/`AppLogger` call, live, with the same search and level filters.
+- **Performance** — a live FPS and frame-time chart modeled on DevTools' own Performance view: stacked UI/Raster bars, a 60 FPS budget line, jank highlighting, and tap-to-inspect any frame.
+- **Info** — app and device details via `package_info_plus`/`device_info_plus`.
+
+Tap **Minimize** to shrink the panel into a small floating window, so you can keep an eye on activity while still testing the rest of the app. Drag the bubble or the floating window to a screen edge to tuck it out of the way (Android-floating-widget style), or resize the floating window from its corner.
+
+### Other changes
+
+- Runtime dependencies (`dio`, `intl`, `device_info_plus`, `package_info_plus`, `lucide_icons_flutter`) now use unbounded `>=` version constraints, so this package never blocks your own dependency resolution.
+- Added a runnable example app in `example/`, including the DevTools panel end to end.
 
 ## 1.1.5
 
