@@ -37,6 +37,9 @@ import 'devtools_bubble.dart';
 /// popup menus) somewhere to attach, and the panel's Row/Column/Expanded
 /// layout a concrete, finite size to lay out against, regardless of
 /// where this widget sits relative to the host app's own Navigator.
+/// Individual tabs (see `NetworkTab`) adapt their own content to the
+/// available width — e.g. a master/detail split on larger screens —
+/// rather than the panel itself changing shape.
 class CorextraDevToolsOverlay extends StatefulWidget {
   const CorextraDevToolsOverlay({super.key, required this.child, this.enabled});
 

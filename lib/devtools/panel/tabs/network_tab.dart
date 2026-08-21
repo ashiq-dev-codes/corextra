@@ -8,10 +8,24 @@ import '../../models/network_event.dart';
 import '../../util/pretty_json.dart';
 import '../empty_state.dart';
 
-/// Lists captured HTTP exchanges from
-/// `CorextraDevTools.instance.network`.
-class NetworkTab extends StatelessWidget {
+/// Lists captured HTTP exchanges from `CorextraDevTools.instance.network`.
+///
+/// Below [_splitBreakpoint] this is a single-column, expandable list (the
+/// only way to fit both the list and its detail on a phone). Above it,
+/// it switches to a master/detail split — a compact list on the left,
+/// the selected request's full detail on the right — the same layout
+/// Flutter's own DevTools Network view uses once there's room for it.
+class NetworkTab extends StatefulWidget {
   const NetworkTab({super.key});
+
+  @override
+  State<NetworkTab> createState() => _NetworkTabState();
+}
+
+class _NetworkTabState extends State<NetworkTab> {
+  static const double _splitBreakpoint = 700;
+
+  NetworkEvent? _selected;
 
   @override
   Widget build(BuildContext context) {
@@ -29,15 +43,204 @@ class NetworkTab extends StatelessWidget {
                 'requests here.',
           );
         }
-        return ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          itemCount: events.length,
-          separatorBuilder: (context, index) =>
-              const Divider(height: 1, indent: 16, endIndent: 16),
-          itemBuilder: (context, index) =>
-              _NetworkEventTile(event: events[index]),
+
+        // The selected event may have scrolled out of the ring buffer
+        // since it was picked; treat that as "nothing selected" rather
+        // than pointing the detail pane at stale data.
+        final selected = (_selected != null && events.contains(_selected))
+            ? _selected
+            : null;
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= _splitBreakpoint) {
+              return _MasterDetailView(
+                events: events,
+                selected: selected,
+                onSelect: (event) => setState(() => _selected = event),
+              );
+            }
+            return ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              itemCount: events.length,
+              separatorBuilder: (context, index) =>
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+              itemBuilder: (context, index) =>
+                  _NetworkEventTile(event: events[index]),
+            );
+          },
         );
       },
+    );
+  }
+}
+
+/// The wide-screen layout: a compact request list on the left, the
+/// selected request's full detail on the right.
+class _MasterDetailView extends StatelessWidget {
+  const _MasterDetailView({
+    required this.events,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<NetworkEvent> events;
+  final NetworkEvent? selected;
+  final ValueChanged<NetworkEvent> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedEvent = selected;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          width: 320,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+                child: Row(
+                  children: [
+                    Text(
+                      'Requests',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '(${events.length})',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: events.length,
+                  separatorBuilder: (context, index) => const Divider(
+                    height: 1,
+                    indent: 12,
+                    endIndent: 12,
+                  ),
+                  itemBuilder: (context, index) {
+                    final event = events[index];
+                    return _CompactNetworkRow(
+                      event: event,
+                      selected: identical(event, selected),
+                      onTap: () => onSelect(event),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(
+          child: selectedEvent == null
+              ? const DevToolsEmptyState(
+                  icon: LucideIcons.mousePointerClick,
+                  message: 'Select a request to see its details',
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: _NetworkEventDetail(
+                    event: selectedEvent,
+                    showSummary: true,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A single-line row for the master/detail list: status dot, method
+/// pill, path, and a duration/time caption — enough to scan quickly
+/// without needing to expand it, since the detail pane already shows
+/// everything else.
+class _CompactNetworkRow extends StatelessWidget {
+  const _CompactNetworkRow({
+    required this.event,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final NetworkEvent event;
+  final bool selected;
+  final VoidCallback onTap;
+
+  static final _timeFormat = DateFormat('HH:mm:ss');
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final uri = Uri.tryParse(event.url);
+    final path = (uri != null && uri.path.isNotEmpty) ? uri.path : event.url;
+    final durationMs = event.duration?.inMilliseconds;
+
+    return Material(
+      color: selected
+          ? theme.colorScheme.primary.withValues(alpha: 0.12)
+          : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: _statusColorFor(event),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              _Pill(
+                text: event.method.toUpperCase(),
+                color: _methodColor(event.method),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      path,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      durationMs != null
+                          ? '${durationMs}ms  ·  ${_timeFormat.format(event.startedAt)}'
+                          : 'pending…',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -59,28 +262,30 @@ Color _methodColor(String method) {
   }
 }
 
+Color _statusColorFor(NetworkEvent event) {
+  if (event.isPending) return Colors.grey;
+  if (event.isError && event.statusCode == null) return Colors.red;
+  final code = event.statusCode ?? 0;
+  if (code >= 200 && code < 300) return Colors.green;
+  if (code >= 300 && code < 400) return Colors.blue;
+  if (code >= 400 && code < 500) return Colors.orange;
+  return Colors.red;
+}
+
+String _statusLabelFor(NetworkEvent event) {
+  if (event.isPending) return '···';
+  if (event.isError && event.statusCode == null) return 'ERR';
+  return '${event.statusCode}';
+}
+
+/// The narrow-screen (phone) row: an expandable tile showing the same
+/// detail inline, since there's no room for a separate detail pane.
 class _NetworkEventTile extends StatelessWidget {
   const _NetworkEventTile({required this.event});
 
   final NetworkEvent event;
 
   static final _timeFormat = DateFormat('HH:mm:ss');
-
-  Color _statusColor() {
-    if (event.isPending) return Colors.grey;
-    if (event.isError && event.statusCode == null) return Colors.red;
-    final code = event.statusCode ?? 0;
-    if (code >= 200 && code < 300) return Colors.green;
-    if (code >= 300 && code < 400) return Colors.blue;
-    if (code >= 400 && code < 500) return Colors.orange;
-    return Colors.red;
-  }
-
-  String _statusLabel() {
-    if (event.isPending) return '···';
-    if (event.isError && event.statusCode == null) return 'ERR';
-    return '${event.statusCode}';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +298,7 @@ class _NetworkEventTile extends StatelessWidget {
     final query = (uri != null && uri.query.isNotEmpty) ? '?${uri.query}' : '';
     final host = uri?.host ?? '';
     final durationMs = event.duration?.inMilliseconds;
-    final statusColor = _statusColor();
+    final statusColor = _statusColorFor(event);
 
     return Container(
       decoration: BoxDecoration(
@@ -124,7 +329,7 @@ class _NetworkEventTile extends StatelessWidget {
           child: Row(
             children: [
               Text(
-                _statusLabel(),
+                _statusLabelFor(event),
                 style: TextStyle(
                   color: statusColor,
                   fontWeight: FontWeight.bold,
@@ -153,31 +358,122 @@ class _NetworkEventTile extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (event.errorMessage != null) ...[
-                  _ErrorBanner(message: event.errorMessage!),
-                  const SizedBox(height: 16),
-                ],
-                const _GroupHeader(icon: LucideIcons.arrowUpRight, label: 'Request'),
-                const SizedBox(height: 8),
-                _KeyValueList(data: event.requestHeaders),
-                const SizedBox(height: 8),
-                _CodeBlock(content: prettyFormatBody(event.requestBody)),
-                const SizedBox(height: 16),
-                const Divider(height: 1),
-                const SizedBox(height: 16),
-                const _GroupHeader(icon: LucideIcons.arrowDownLeft, label: 'Response'),
-                const SizedBox(height: 8),
-                _KeyValueList(data: event.responseHeaders),
-                const SizedBox(height: 8),
-                _CodeBlock(content: prettyFormatBody(event.responseBody)),
-              ],
-            ),
+            child: _NetworkEventDetail(event: event),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The headers/body detail shared by the phone-sized expandable tile and
+/// the wide-screen detail pane.
+class _NetworkEventDetail extends StatelessWidget {
+  const _NetworkEventDetail({required this.event, this.showSummary = false});
+
+  final NetworkEvent event;
+
+  /// Whether to show a method/URL/status header above the detail —
+  /// needed in the master/detail pane, where (unlike the expandable
+  /// tile) there's no title row already showing that information.
+  final bool showSummary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showSummary) ...[
+          _DetailSummary(event: event),
+          const SizedBox(height: 16),
+        ],
+        if (event.errorMessage != null) ...[
+          _ErrorBanner(message: event.errorMessage!),
+          const SizedBox(height: 16),
+        ],
+        const _GroupHeader(icon: LucideIcons.arrowUpRight, label: 'Request'),
+        const SizedBox(height: 8),
+        _KeyValueList(data: event.requestHeaders),
+        const SizedBox(height: 8),
+        _CodeBlock(content: prettyFormatBody(event.requestBody)),
+        const SizedBox(height: 16),
+        const Divider(height: 1),
+        const SizedBox(height: 16),
+        const _GroupHeader(icon: LucideIcons.arrowDownLeft, label: 'Response'),
+        const SizedBox(height: 8),
+        _KeyValueList(data: event.responseHeaders),
+        const SizedBox(height: 8),
+        _CodeBlock(content: prettyFormatBody(event.responseBody)),
+      ],
+    );
+  }
+}
+
+/// Method + full URL + status/duration/time — the summary header shown
+/// above the detail pane in master/detail mode.
+class _DetailSummary extends StatelessWidget {
+  const _DetailSummary({required this.event});
+
+  final NetworkEvent event;
+
+  static final _timeFormat = DateFormat('HH:mm:ss');
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final statusColor = _statusColorFor(event);
+    final durationMs = event.duration?.inMilliseconds;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _Pill(
+              text: event.method.toUpperCase(),
+              color: _methodColor(event.method),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SelectableText(
+                event.url,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Text(
+              _statusLabelFor(event),
+              style: TextStyle(
+                color: statusColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              durationMs != null ? '${durationMs}ms' : 'pending…',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _timeFormat.format(event.startedAt),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

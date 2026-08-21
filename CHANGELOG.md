@@ -12,6 +12,7 @@
 - The DevTools panel now has its own theme (dark by default), independent of the host app's theme, with a light/dark toggle in the header
 - Switched the DevTools panel's icons to `lucide_icons_flutter`
 - Redesigned the Network tab: colored method/status pills, the request path shown separately from its host/query, headers rendered as a readable key/value list instead of a raw map dump, and request/response bodies shown in a monospace code block with a one-tap copy button
+- The Network tab is now responsive: on screens ≥700 logical pixels wide it splits into a master/detail view (a compact request list on the left, the selected request's full detail on the right) — the same layout Flutter's own DevTools Network view uses — while phone-sized screens keep the single-column expandable list
 
 ## 1.1.5
 
