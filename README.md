@@ -67,6 +67,20 @@ Make your Dart and Flutter code cleaner, safer, and easier to read.
   - Supports directions: `top`, `bottom`, `left`, `right`, and `custom`
   - Built with `AnimatedSwitcher` for smooth transitions
 
+### DevTools Utilities
+An in-app inspector panel — no separate DevTools connection required, works in a running debug build.
+- **CorextraDevToolsOverlay**:
+  - Wraps your app (e.g. via `MaterialApp.builder`) with a floating, draggable bubble
+  - Tap it to open a panel with **Network**, **Logs**, **Performance**, and **Info** tabs
+  - Defaults to visible only in `kDebugMode`; toggle at runtime via `CorextraDevTools.instance.enabled`
+- **CorextraDevToolsInterceptor**:
+  - Dio interceptor that feeds the Network tab (method, URL, headers, body, status, duration)
+  - Purely observational — additive to `AppLoggerInterceptor`, safe to use both together
+- **Logs tab**: automatically populated by `debugLog`/`AppLogger` — no extra wiring needed
+- **Performance tab**: live FPS and jank monitoring via Flutter's own frame timings, plus an approximate memory (RSS) reading
+- **Info tab**: app + device details via `package_info_plus`/`device_info_plus`, and current capture-buffer counts
+- Planned for a future phase: widget/layout inspector, memory heap snapshots, a storage (shared_preferences) viewer, and a route/navigation inspector
+
 ---
 
 ## Getting Started
@@ -75,11 +89,22 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 
 ```yaml
 dependencies:
-  corextra: ^1.1.5
+  corextra: ^1.2.0
 ```
 
 Then import it in your Dart code:
 
 ```dart
 import 'package:corextra/corextra.dart';
+```
+
+## Example
+
+A runnable demo app lives in [`example/`](example/), including the
+DevTools panel. Run it with:
+
+```sh
+cd example
+flutter pub get
+flutter run
 ```

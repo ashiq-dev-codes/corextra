@@ -1,6 +1,20 @@
 library;
 
 export 'animation/fade_slide_transition.dart';
+export 'devtools/devtools_controller.dart';
+export 'devtools/interceptors/corextra_devtools_interceptor.dart';
+export 'devtools/models/frame_sample.dart';
+export 'devtools/models/log_entry.dart';
+export 'devtools/models/network_event.dart';
+export 'devtools/overlay/corextra_devtools_overlay.dart';
+export 'devtools/overlay/devtools_bubble.dart';
+export 'devtools/panel/devtools_panel.dart';
+export 'devtools/panel/empty_state.dart';
+export 'devtools/panel/tabs/info_tab.dart';
+export 'devtools/panel/tabs/logs_tab.dart';
+export 'devtools/panel/tabs/network_tab.dart';
+export 'devtools/panel/tabs/performance_tab.dart';
+export 'devtools/util/pretty_json.dart';
 export 'exceptions/corextra_exceptions.dart';
 export 'extensions/date_time_extensions/nullable_date_time_extensions.dart';
 export 'extensions/double_extensions/double_extensions.dart';
