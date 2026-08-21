@@ -117,6 +117,13 @@ void main() {
     'alongside this widget, unlike the home: placement used above',
     (tester) async {
       var hostButtonTapped = false;
+      // The Network tab's filter bar (and MenuAnchor dropdowns within
+      // it, checked below) only renders once there's at least one
+      // captured request — otherwise the tab shows its empty state.
+      CorextraDevTools.instance.network.begin(
+        method: 'GET',
+        url: 'https://example.test',
+      );
       await tester.pumpWidget(
         MaterialApp(
           builder: (context, child) =>
@@ -137,6 +144,22 @@ void main() {
       await tester.tap(find.byType(DevToolsBubble));
       await tester.pumpAndSettle();
       expect(find.byType(DevToolsPanel), findsOneWidget);
+
+      // The Network tab's filter dropdowns are built on MenuAnchor
+      // specifically because it inserts into the nearest Overlay
+      // directly, unlike showMenu/showDialog/PopupMenuButton, which all
+      // require a Navigator — and this mounting style is exactly the
+      // case where CorextraDevToolsOverlay sits with no Navigator above
+      // it at all (only its own local Overlay). Confirm the dropdown
+      // still opens here, not just when placed at `home:` directly
+      // under a Navigator.
+      expect(find.text('Method'), findsOneWidget);
+      await tester.tap(find.text('Method'));
+      await tester.pumpAndSettle();
+      expect(find.text('GET'), findsWidgets);
+      // Close it again (tapping the same trigger) before moving on.
+      await tester.tap(find.text('Method'));
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();

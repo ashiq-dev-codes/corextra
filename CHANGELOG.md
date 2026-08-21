@@ -1,5 +1,7 @@
 ## 1.2.0
 
+- Added a search box to the Network tab (filters by method, URL, or status code) and to the Logs tab (filters by message, plus filter chips to toggle Info/Warning/Error levels on or off) — both show a dedicated "no matches" empty state instead of just an empty list when a filter excludes everything
+- Added method and status filters to the Network tab as two pill-shaped dropdown buttons below the search box — filled and tinted in the app's primary color once narrowed, with a filter icon and a live "All"/"N selected"/"None" summary — each opening a popup with a section header, a colored dot + checkbox per option (so the current selection reads at a glance, not just from checkbox state), and "Select all"/"Clear" quick actions. Replaces an earlier always-visible-chips design that read as a wall of small buttons once there were two filter dimensions with six options apiece. A "Reset" action appears next to them once any filter (search text included) is actually narrowing the list, restoring everything in one tap
 - Added an in-app DevTools panel (`CorextraDevToolsOverlay`) with Network, Logs, Performance, and Info tabs — no separate DevTools connection required
 - Added `CorextraDevToolsInterceptor`, a Dio interceptor that feeds the Network tab (additive to `AppLoggerInterceptor`)
 - `debugLog`/`AppLogger` now automatically feed the panel's Logs tab when DevTools capture is enabled
