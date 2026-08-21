@@ -14,6 +14,7 @@
 - Redesigned the Network tab: colored method/status pills, the request path shown separately from its host/query, headers rendered as a readable key/value list instead of a raw map dump, and request/response bodies shown in a monospace code block with a one-tap copy button
 - The Network tab is now responsive: on screens ≥700 logical pixels wide it splits into a master/detail view (a compact request list on the left, the selected request's full detail on the right) — the same layout Flutter's own DevTools Network view uses — while phone-sized screens keep the single-column expandable list
 - Added a "Minimize" button in the panel header: instead of closing the panel, it shrinks to a small draggable floating window showing the *same* Network/Logs/Performance/Info tab content as the full panel — not a stripped-down summary — so you can watch live activity while still freely interacting with (and testing) the rest of the app underneath, closer to inspecting a page in a browser. Drag the window by its header to move it; tap Expand to return to the full panel, or Close to dismiss back to the bubble
+- Made dragging the bubble and floating window smoother: the dragged content is now built once and reused every frame (only the position updates, via a `ValueListenableBuilder` instead of rebuilding the whole widget on every pixel of movement) and wrapped in a `RepaintBoundary` so moving it is a cheap compositor-level operation — most noticeable on the floating window, whose content is a full tab set
 
 ## 1.1.5
 
