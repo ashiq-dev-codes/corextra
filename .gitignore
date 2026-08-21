@@ -10,3 +10,6 @@ pubspec.lock
 # ...but the example is a runnable app, not a library — commit its lock
 # file for reproducible builds.
 !/example/pubspec.lock
+
+# Claude Code local settings
+.claude
