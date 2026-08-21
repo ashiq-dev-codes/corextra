@@ -1,6 +1,7 @@
 import 'package:corextra/corextra.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void main() {
   setUp(() => CorextraDevTools.instance.resetAll());
@@ -259,4 +260,102 @@ void main() {
 
     expect(after, isNot(equals(before)));
   });
+
+  testWidgets(
+    'dragging the bubble to the screen edge docks and peeks it there; '
+    'tapping the peek nub reveals it (without opening the panel), and '
+    'it opens normally again once revealed',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      expect(find.byIcon(LucideIcons.bug), findsOneWidget);
+
+      // Drag it far to the left, past the edge-snap threshold.
+      await tester.drag(find.byType(DevToolsBubble), const Offset(-700, 0));
+      await tester.pumpAndSettle();
+
+      // Peeked: the normal bubble icon is gone, replaced by a small
+      // "tap to bring back" chevron pointing back onto the screen.
+      expect(find.byIcon(LucideIcons.bug), findsNothing);
+      expect(find.byIcon(LucideIcons.chevronRight), findsOneWidget);
+
+      // Tapping the peek nub reveals it — but doesn't itself open the
+      // panel, since that risks firing by accident on the same tap
+      // that was really just "bring this back into view".
+      await tester.tap(find.byIcon(LucideIcons.chevronRight));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(LucideIcons.bug), findsOneWidget);
+      expect(find.byType(DevToolsPanel), findsNothing);
+
+      // Once revealed, tapping it opens the panel normally.
+      await tester.tap(find.byIcon(LucideIcons.bug));
+      await tester.pumpAndSettle();
+      expect(find.byType(DevToolsPanel), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'releasing a drag away from either screen edge leaves the bubble '
+    'exactly where it was dropped, without peeking',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      // Move it toward the middle of the screen, away from both edges.
+      await tester.drag(find.byType(DevToolsBubble), const Offset(-300, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(LucideIcons.bug), findsOneWidget);
+      expect(find.byIcon(LucideIcons.chevronLeft), findsNothing);
+      expect(find.byIcon(LucideIcons.chevronRight), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'dragging the floating window to the screen edge docks and peeks '
+    'it there; tapping the peek nub reveals its tab content again',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Minimize'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Network'), findsOneWidget);
+
+      // Drag the window (by its header) far to the right, past the edge.
+      await tester.drag(find.text('DevTools'), const Offset(700, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Network'), findsNothing);
+      expect(find.byIcon(LucideIcons.chevronLeft), findsOneWidget);
+
+      await tester.tap(find.byIcon(LucideIcons.chevronLeft));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Network'), findsOneWidget);
+    },
+  );
 }

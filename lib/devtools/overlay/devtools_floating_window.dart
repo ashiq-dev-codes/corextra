@@ -38,7 +38,7 @@ class DevToolsFloatingWindow extends StatelessWidget {
       // developer testing the app needs clear access to.
       defaultOffset: (screenSize, size) =>
           Offset(screenSize.width - size.width - 16, 64),
-      builder: (context, onPanUpdate) => ValueListenableBuilder<ThemeMode>(
+      builder: (context, onPanUpdate, onPanEnd) => ValueListenableBuilder<ThemeMode>(
         valueListenable: CorextraDevTools.instance.themeModeNotifier,
         builder: (context, mode, _) => Theme(
           data: buildDevToolsTheme(
@@ -63,6 +63,7 @@ class DevToolsFloatingWindow extends StatelessWidget {
                     children: [
                       GestureDetector(
                         onPanUpdate: onPanUpdate,
+                        onPanEnd: onPanEnd,
                         behavior: HitTestBehavior.opaque,
                         child: _WindowHeader(
                           onExpand: onExpand,

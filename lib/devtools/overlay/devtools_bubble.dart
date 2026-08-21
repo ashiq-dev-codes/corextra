@@ -26,8 +26,9 @@ class DevToolsBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return DraggableFloatingWidget(
       size: const Size(_size, _size),
-      builder: (context, onPanUpdate) => GestureDetector(
+      builder: (context, onPanUpdate, onPanEnd) => GestureDetector(
         onPanUpdate: onPanUpdate,
+        onPanEnd: onPanEnd,
         child: Material(
           color: Colors.black87,
           shape: const CircleBorder(),
