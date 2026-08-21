@@ -360,8 +360,10 @@ void main() {
 
       expect(find.byIcon(LucideIcons.bug), findsOneWidget);
 
-      // Drag it far to the left, past the edge-snap threshold.
-      await tester.drag(find.byType(DevToolsBubble), const Offset(-700, 0));
+      // Drag it flush to the left edge — the snap threshold now scales
+      // with the bubble's own (small) size, so it takes landing right
+      // at the edge, not just somewhere generally near it, to trigger.
+      await tester.drag(find.byType(DevToolsBubble), const Offset(-1000, 0));
       await tester.pumpAndSettle();
 
       // Peeked: the normal bubble icon is gone, replaced by a small
@@ -382,6 +384,31 @@ void main() {
       await tester.tap(find.byIcon(LucideIcons.bug));
       await tester.pumpAndSettle();
       expect(find.byType(DevToolsPanel), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'landing merely "somewhere near" an edge no longer peeks the '
+    "bubble — only landing within a quarter of its own (small) width "
+    'does, so it does not hide overeagerly on a small screen',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      // Lands 20px from the left edge: well within the old fixed 80px
+      // threshold, but outside the new one (25% of the 48px bubble's
+      // own width = 12px) — should stay fully visible, not peek.
+      await tester.drag(find.byType(DevToolsBubble), const Offset(-716, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(LucideIcons.bug), findsOneWidget);
+      expect(find.byIcon(LucideIcons.chevronRight), findsNothing);
     },
   );
 
@@ -439,6 +466,86 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Network'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'dragging the bubble past the edge without releasing visibly slides '
+    'it off-screen in real time, not just once released',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      final bubbleFinder = find.byType(DevToolsBubble);
+      final gesture = await tester.startGesture(
+        tester.getCenter(bubbleFinder),
+      );
+      // The very first move that exceeds the pan recognizer's touch
+      // slop is consumed entirely by gesture *acceptance* — it never
+      // reaches onPanUpdate, regardless of its own size. Only moves
+      // after that are reported as real position deltas, so a drag
+      // needs at least two moveBy calls to reliably land anywhere in
+      // particular: one throwaway "accepting" move, then the one that
+      // actually counts.
+      await gesture.moveBy(const Offset(-50, 0));
+      await tester.pump();
+      await gesture.moveBy(const Offset(-800, 0));
+      await tester.pump();
+
+      // Still mid-drag — the finger hasn't lifted yet — but it's
+      // already visibly past the true left edge (a negative x), not
+      // invisibly clamped flush against it until release.
+      expect(tester.getTopLeft(bubbleFinder).dx, lessThan(0));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'dragging the bubble past the edge but releasing before the commit '
+    'threshold springs it back to flush-at-the-edge, fully visible — '
+    'not peeked',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      final bubbleFinder = find.byType(DevToolsBubble);
+      final before = tester.getTopLeft(bubbleFinder);
+      final gesture = await tester.startGesture(
+        tester.getCenter(bubbleFinder),
+      );
+      // First move just triggers gesture acceptance (see the test
+      // above) and is discarded — the bubble is still exactly where it
+      // started until the *next* move.
+      await gesture.moveBy(const Offset(-50, 0));
+      await tester.pump();
+      // The bubble is 48px wide with a 28px peekExtent, so there's 20px
+      // of peek travel past the edge; committing needs >= 50% of that
+      // (10px). Land only 5px past the left edge — enough to visibly
+      // cross it, not enough to commit.
+      await gesture.moveBy(Offset(-5 - before.dx, 0));
+      await tester.pump();
+      expect(tester.getTopLeft(bubbleFinder).dx, -5);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(LucideIcons.bug), findsOneWidget);
+      expect(find.byIcon(LucideIcons.chevronRight), findsNothing);
+      expect(tester.getTopLeft(bubbleFinder).dx, 0);
     },
   );
 }

@@ -6,28 +6,33 @@ enum _PeekSide { none, left, right }
 
 /// Positions its content via an internally-managed, user-draggable
 /// offset — defaulting near the bottom-right corner of the screen (or
-/// wherever [defaultOffset] says), clamped so it can never be dragged
-/// off-screen. Shared by `DevToolsBubble` and `DevToolsFloatingWindow`
-/// so both drag (and edge-peek) identically.
+/// wherever [defaultOffset] says). Shared by `DevToolsBubble` and
+/// `DevToolsFloatingWindow` so both drag (and edge-peek) identically.
 ///
 /// Must be used as a (possibly indirect) child of a [Stack] — it
 /// produces a [Positioned] from its own build method, and relies on the
-/// Stack's default hard-edge clipping to visually hide the "peeked"
-/// portion that sits past the screen edge. [builder] gets `onPanUpdate`
-/// / `onPanEnd` callbacks to attach wherever dragging should be
-/// possible: the whole widget (a small bubble, say), or just a
-/// drag-handle sub-region (e.g. a header bar) so the rest of the content
-/// can scroll/tap normally without fighting the drag gesture.
+/// Stack's default hard-edge clipping to visually hide whatever part of
+/// it is dragged past the screen edge. [builder] gets `onPanUpdate` /
+/// `onPanEnd` callbacks to attach wherever dragging should be possible:
+/// the whole widget (a small bubble, say), or just a drag-handle
+/// sub-region (e.g. a header bar) so the rest of the content can
+/// scroll/tap normally without fighting the drag gesture.
 ///
-/// Releasing a drag within [edgeSnapThreshold] of the left or right
-/// screen edge slides the widget mostly off-screen at that edge — like
-/// Android's floating chat-bubble / floating-window widgets — leaving
-/// just [peekExtent] pixels visible so it stays out of the way. Tapping
-/// that peeking sliver slides it back to fully visible (it doesn't also
-/// trigger the widget's own tap action — that would risk firing it by
-/// accident on the same tap that was really just "bring this back").
-/// Dragging always works from the fully-visible state, regardless of
-/// which edge it's docked at.
+/// Dragging past the left or right screen edge is allowed — up to
+/// [peekExtent] pixels remaining visible — so it visibly, continuously
+/// slides off-screen as you drag it there, the same real-time feedback
+/// Android's floating chat-bubble / floating-window widgets give.
+/// Releasing the drag then *commits* to fully peeking (leaving just
+/// [peekExtent] pixels visible) only if you've pushed it past the edge
+/// by at least [commitThreshold] of the available peek travel;
+/// otherwise it springs back to flush-at-the-edge, fully visible — so
+/// merely nudging it near the edge, or a little past it, doesn't hide
+/// it. Never having crossed the edge at all leaves it exactly where
+/// dropped, with no snap either way. Tapping a peeked sliver slides it
+/// back to fully visible (it doesn't also trigger the widget's own tap
+/// action — that would risk firing it by accident on the same tap that
+/// was really just "bring this back"). Dragging always works from the
+/// fully-visible state, regardless of which edge it's docked at.
 ///
 /// The dragged content is built once and reused on every drag frame —
 /// only the [Positioned] offset itself updates per frame, via a
@@ -42,7 +47,7 @@ class DraggableFloatingWidget extends StatefulWidget {
     required this.size,
     required this.builder,
     this.defaultOffset,
-    this.edgeSnapThreshold = 80,
+    this.commitThreshold = 0.5,
     this.peekExtent = 28,
     this.borderRadius = BorderRadius.zero,
   });
@@ -59,9 +64,10 @@ class DraggableFloatingWidget extends StatefulWidget {
   /// widget's [size]; defaults to near the bottom-right corner.
   final Offset Function(Size screenSize, Size widgetSize)? defaultOffset;
 
-  /// How close to the left/right screen edge a drag has to end for the
-  /// widget to dock and peek there, in logical pixels.
-  final double edgeSnapThreshold;
+  /// How far past the edge a drag has to be released — as a fraction of
+  /// the available peek travel (`size.width - peekExtent`) — to commit
+  /// to fully peeking rather than springing back to flush-at-the-edge.
+  final double commitThreshold;
 
   /// How many pixels remain visible when peeking at an edge.
   final double peekExtent;
@@ -97,14 +103,16 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
   void didUpdateWidget(covariant DraggableFloatingWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     // If the caller resizes its content (e.g. the floating window's
-    // resize handle), re-clamp so growing it never leaves part of it
-    // hanging off the opposite screen edge from wherever it's docked.
+    // resize handle), re-clamp to the strict on-screen bounds — not the
+    // wider peek-travel ones drag uses — so growing it never leaves
+    // part of it hanging off the opposite screen edge from wherever
+    // it's docked. Resizing only happens while fully visible anyway.
     final current = _offset.value;
     if (oldWidget.size != widget.size && current != null) {
       final screenSize = MediaQuery.sizeOf(context);
       _offset.value = Offset(
-        _clamp(current.dx, screenSize.width - widget.size.width),
-        _clamp(current.dy, screenSize.height - widget.size.height),
+        _clamp(current.dx, 0, screenSize.width - widget.size.width),
+        _clamp(current.dy, 0, screenSize.height - widget.size.height),
       );
     }
   }
@@ -125,8 +133,8 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
     );
   }
 
-  double _clamp(double value, double max) {
-    if (value < 0) return 0;
+  double _clamp(double value, double min, double max) {
+    if (value < min) return min;
     if (value > max) return max;
     return value;
   }
@@ -148,27 +156,54 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
     if (_settleController.isAnimating) _settleController.stop();
     final current = _offset.value ?? _defaultOffset(screenSize);
     final next = current + details.delta;
+    // X is allowed to travel past the true screen edges — down to just
+    // [peekExtent] pixels remaining visible on either side — so
+    // dragging it there visibly, continuously slides it off-screen in
+    // real time instead of it staying invisibly pinned at the edge
+    // until release. Y still can't leave the screen at all; peeking is
+    // horizontal-only.
+    final minX = -(widget.size.width - widget.peekExtent);
+    final maxX = screenSize.width - widget.peekExtent;
     _offset.value = Offset(
-      _clamp(next.dx, screenSize.width - widget.size.width),
-      _clamp(next.dy, screenSize.height - widget.size.height),
+      _clamp(next.dx, minX, maxX),
+      _clamp(next.dy, 0, screenSize.height - widget.size.height),
     );
   }
 
   void _onPanEnd(DragEndDetails details, Size screenSize) {
     final current = _offset.value ?? _defaultOffset(screenSize);
-    final distanceToLeft = current.dx;
-    final distanceToRight = screenSize.width - (current.dx + widget.size.width);
-    if (distanceToLeft > widget.edgeSnapThreshold &&
-        distanceToRight > widget.edgeSnapThreshold) {
-      return; // released away from both edges — leave it exactly there.
+    final leftOverflow = current.dx < 0 ? -current.dx : 0.0;
+    final rightOverflow =
+        (current.dx + widget.size.width) > screenSize.width
+            ? (current.dx + widget.size.width) - screenSize.width
+            : 0.0;
+
+    if (leftOverflow <= 0 && rightOverflow <= 0) {
+      return; // never dragged past either edge — leave it exactly there.
     }
-    final peekLeft = distanceToLeft <= distanceToRight;
-    setState(() => _peekSide = peekLeft ? _PeekSide.left : _PeekSide.right);
-    final peekedX =
-        peekLeft
-            ? -(widget.size.width - widget.peekExtent)
-            : screenSize.width - widget.peekExtent;
-    _animateTo(Offset(peekedX, current.dy));
+
+    final peekingLeft = leftOverflow > rightOverflow;
+    final overflow = peekingLeft ? leftOverflow : rightOverflow;
+    final travel = widget.size.width - widget.peekExtent;
+    final commitFraction = travel > 0 ? overflow / travel : 1.0;
+
+    if (commitFraction >= widget.commitThreshold) {
+      // Pushed far enough past the edge — commit to fully peeking.
+      setState(
+        () => _peekSide = peekingLeft ? _PeekSide.left : _PeekSide.right,
+      );
+      final peekedX =
+          peekingLeft
+              ? -(widget.size.width - widget.peekExtent)
+              : screenSize.width - widget.peekExtent;
+      _animateTo(Offset(peekedX, current.dy));
+    } else {
+      // Nudged past the edge but not far enough — spring back to
+      // flush-at-the-edge, fully visible, rather than hiding.
+      final dockedX =
+          peekingLeft ? 0.0 : screenSize.width - widget.size.width;
+      _animateTo(Offset(dockedX, current.dy));
+    }
   }
 
   void _reveal(Size screenSize) {
