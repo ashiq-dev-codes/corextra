@@ -274,6 +274,51 @@ void main() {
     },
   );
 
+  testWidgets(
+    'dragging the bottom-right corner grip resizes the floating window, '
+    'clamped between its min and max size',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Minimize'));
+      await tester.pumpAndSettle();
+
+      final initialSize = tester.getSize(find.byType(DevToolsFloatingWindow));
+
+      // Grow it.
+      await tester.drag(
+        find.byIcon(LucideIcons.moveDiagonal2),
+        const Offset(60, 60),
+      );
+      await tester.pump();
+      final grownSize = tester.getSize(find.byType(DevToolsFloatingWindow));
+      expect(grownSize.width, greaterThan(initialSize.width));
+      expect(grownSize.height, greaterThan(initialSize.height));
+
+      // Shrink it far past the minimum — it should clamp, not vanish.
+      await tester.drag(
+        find.byIcon(LucideIcons.moveDiagonal2),
+        const Offset(-1000, -1000),
+      );
+      await tester.pump();
+      final shrunkSize = tester.getSize(find.byType(DevToolsFloatingWindow));
+      expect(shrunkSize.width, 280);
+      expect(shrunkSize.height, 360);
+
+      // Still fully functional at its minimum size.
+      expect(find.text('Network'), findsOneWidget);
+    },
+  );
+
   testWidgets('dragging the floating window by its header moves it', (
     tester,
   ) async {

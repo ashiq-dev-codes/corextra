@@ -17,6 +17,7 @@
 - Made dragging the bubble and floating window smoother: the dragged content is now built once and reused every frame (only the position updates, via a `ValueListenableBuilder` instead of rebuilding the whole widget on every pixel of movement) and wrapped in a `RepaintBoundary` so moving it is a cheap compositor-level operation — most noticeable on the floating window, whose content is a full tab set
 - The bubble and floating window now dock and peek at the screen edge when dragged near one, Android floating-widget style — releasing a drag within 80px of the left or right edge slides it mostly off-screen there, leaving a small "tap to bring back" tab, so it stays out of the way of the app you're testing. Releasing away from either edge leaves it exactly where dropped, as before
 - Added a "Clear all" button to the floating window's header, matching the full panel's
+- The floating window is now resizable via a bottom-right corner grip, iOS/macOS window style — clamped between a 280×360 minimum and a 480×640 maximum that's also capped to whatever actually fits the screen
 
 ## 1.1.5
 

@@ -81,6 +81,22 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
   _PeekSide _peekSide = _PeekSide.none;
 
   @override
+  void didUpdateWidget(covariant DraggableFloatingWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the caller resizes its content (e.g. the floating window's
+    // resize handle), re-clamp so growing it never leaves part of it
+    // hanging off the opposite screen edge from wherever it's docked.
+    final current = _offset.value;
+    if (oldWidget.size != widget.size && current != null) {
+      final screenSize = MediaQuery.sizeOf(context);
+      _offset.value = Offset(
+        _clamp(current.dx, screenSize.width - widget.size.width),
+        _clamp(current.dy, screenSize.height - widget.size.height),
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _settleController.dispose();
     _offset.dispose();
