@@ -315,7 +315,7 @@ class _MasterDetailView extends StatelessWidget {
 }
 
 /// A row for the master/detail list: status dot, method pill, path
-/// (wraps up to 2 lines, not 1, since a cut-off single line often
+/// (wraps up to 3 lines, not 1, since a cut-off single line often
 /// loses the part that distinguishes it), and a duration/time caption.
 class _CompactNetworkRow extends StatelessWidget {
   const _CompactNetworkRow({
@@ -367,7 +367,7 @@ class _CompactNetworkRow extends StatelessWidget {
                   children: [
                     Text(
                       path,
-                      maxLines: 2,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'monospace',
