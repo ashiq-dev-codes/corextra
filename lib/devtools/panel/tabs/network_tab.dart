@@ -314,10 +314,9 @@ class _MasterDetailView extends StatelessWidget {
   }
 }
 
-/// A single-line row for the master/detail list: status dot, method
-/// pill, path, and a duration/time caption — enough to scan quickly
-/// without needing to expand it, since the detail pane already shows
-/// everything else.
+/// A row for the master/detail list: status dot, method pill, path
+/// (wraps up to 2 lines, not 1, since a cut-off single line often
+/// loses the part that distinguishes it), and a duration/time caption.
 class _CompactNetworkRow extends StatelessWidget {
   const _CompactNetworkRow({
     required this.event,
@@ -368,7 +367,7 @@ class _CompactNetworkRow extends StatelessWidget {
                   children: [
                     Text(
                       path,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'monospace',
@@ -854,16 +853,17 @@ class _FilterOptionRow extends StatelessWidget {
 /// it can scroll independently without competing with anything else
 /// for the same drag.
 ///
-/// The summary shows the method, path, base URL, status, duration,
-/// and time — but the path and base URL, though they can be long, are
-/// each capped to one line with an ellipsis rather than left to wrap.
-/// That keeps this part of the screen a small, fixed number of lines
-/// no matter the window size, so it never needs (and never gets) a
-/// scrollbar of its own — two scroll regions stacked on one screen (a
-/// tiny one up top, a real one below) read as broken, not helpful.
-/// The unabridged, selectable URL and a long error message (if any)
-/// live inside the Headers tab instead, alongside request/response
-/// headers, where it's already expected to scroll.
+/// The summary shows the method, path, status, duration, and time —
+/// but the path, though it can be long, is capped to one line with
+/// an ellipsis rather than left to wrap. That keeps this part of the
+/// screen a small, fixed number of lines no matter the window size,
+/// so it never needs (and never gets) a scrollbar of its own — two
+/// scroll regions stacked on one screen (a tiny one up top, a real
+/// one below) read as broken, not helpful. The full URL (base URL
+/// included — no need to repeat it up here alongside the path) and a
+/// long error message (if any) live inside the Headers tab instead,
+/// alongside request/response headers, where it's already expected
+/// to scroll.
 class _NetworkEventDetail extends StatelessWidget {
   const _NetworkEventDetail({required this.event});
 
@@ -999,14 +999,14 @@ class _ResponseTab extends StatelessWidget {
   }
 }
 
-/// Method + path + status/duration/time, plus the base URL — a
-/// fixed-*height* block shown above the detail pane's tabs, even
-/// though the path and base URL can each be long: both are capped to
-/// one line with an ellipsis rather than left free to wrap, so this
-/// stays a small, constant number of lines no matter the window size
-/// or how long the URL is. The unabridged, selectable URL — worth
-/// reading in full, not just glancing at — lives in the Headers tab,
-/// where scrolling is already expected.
+/// Method + path + status/duration/time — a fixed-*height* block
+/// shown above the detail pane's tabs, even though the path itself
+/// can be long: it's capped to one line with an ellipsis rather than
+/// left free to wrap, so this stays a small, constant number of
+/// lines no matter the window size or how long the URL is. The full
+/// URL (base URL included) — worth reading in full, not just
+/// glancing at, and not worth repeating up here alongside the path —
+/// lives in the Headers tab, where scrolling is already expected.
 class _DetailSummary extends StatelessWidget {
   const _DetailSummary({required this.event});
 
@@ -1021,7 +1021,6 @@ class _DetailSummary extends StatelessWidget {
     final durationMs = event.duration?.inMilliseconds;
     final uri = Uri.tryParse(event.url);
     final path = (uri != null && uri.path.isNotEmpty) ? uri.path : event.url;
-    final baseUrl = uri != null ? '${uri.scheme}://${uri.authority}' : '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1046,31 +1045,6 @@ class _DetailSummary extends StatelessWidget {
             ),
           ],
         ),
-        if (baseUrl.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Row(
-            children: [
-              Text(
-                'Base URL: ',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  baseUrl,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
         const SizedBox(height: 6),
         Row(
           children: [
