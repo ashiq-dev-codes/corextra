@@ -1,3 +1,34 @@
+## 1.2.1
+
+### Network tab: query parameters, and a redesigned detail view
+
+Query parameters sent on a request are now captured and shown in their own **Query Parameters** block — previously they were silently dropped and never visible anywhere in the panel.
+
+The request/response detail view is now laid out browser-DevTools-style, with **Headers / Payload / Response** tabs instead of one long scrolling stack:
+
+- **Headers** — the full URL, any error message, and request/response headers.
+- **Payload** — query parameters and the request body.
+- **Response** — the response body on its own.
+
+Each tab scrolls independently, which also fixes two real bugs from the old single-stack layout:
+
+- A request/response body large enough to be truncated (past the interceptor's `maxBodyLength`) no longer collapses into a single unreadable line — the truncated text now stays properly indented JSON right up to the cutoff.
+- A long error message or URL could overflow the detail view, especially inside the floating (PIP) window at its minimum size. The fixed summary above the tabs is now capped to short, constant-height content (method, path, status, duration, time); the full URL and any error message live in the Headers tab instead.
+
+Binary response bodies (`Uint8List`, e.g. `ResponseType.bytes`) now show a byte count and hex preview instead of a JSON array of every byte value, and multipart `FormData` request bodies show their actual field values and file metadata instead of `Instance of 'FormData'`.
+
+On a phone-width screen, tapping a request now drills into a full-screen detail view with a Back button, instead of expanding inline in the same list — this removes a scroll conflict between the request list and a large response body.
+
+### Every DevTools tab now has a "scroll to top" button
+
+A small floating button appears once you've scrolled down a captured list (requests, logs, ...), and jumps back to the top in one tap.
+
+### Other changes
+
+- The floating (PIP) window's resize handle now requires a press-and-hold before dragging, so a bare tap-drag near the corner no longer resizes it by accident.
+- The request list's path text now wraps up to 3 lines with ellipsis overflow (previously 1), so a long path is easier to identify at a glance.
+- The example app now exercises every case above: query parameters, PUT/PATCH/DELETE, a raw text body, multipart `FormData`, a binary response, an HTML response, and a response guaranteed to trigger truncation.
+
 ## 1.2.0
 
 ### In-app DevTools panel
