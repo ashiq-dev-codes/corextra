@@ -175,19 +175,30 @@ class _DemoScreenState extends State<DemoScreen> {
     }
   }
 
-  // --- A response body large enough to be worth scrolling through, to
-  // see it rendered cleanly inside the Network tab's detail view's own
-  // "Response" tab — its own dedicated scroll, shared with nothing
-  // else on screen. httpbin's /anything echoes back whatever's posted,
-  // so the response ends up as large as the request. ---
+  // --- A body large enough to (a) be worth scrolling through, to see
+  // it rendered cleanly inside the Network tab's detail view's own
+  // Payload/Response tabs — each its own dedicated scroll, shared with
+  // nothing else on screen — and (b) comfortably exceed
+  // CorextraDevToolsInterceptor's default 20,000-char capture cap, so
+  // it's actually truncated, not just long. Even truncated, it should
+  // still render as properly indented JSON up to the cutoff point —
+  // not one long unreadable line — since truncation is decided against
+  // the pretty-printed form, not Dart's raw Map.toString(). Best seen
+  // on the *Payload* tab's "REQUEST BODY": that's our own clean Map,
+  // captured before Dio serializes it. The Response tab is large too,
+  // but httpbin's /anything wraps whatever's posted in extra fields
+  // (headers, args, url, and a raw-string duplicate of the body under
+  // "data") — genuinely part of that response, not a formatting bug,
+  // but it means the cutoff may land inside that plain string field
+  // rather than inside the nested list. ---
   Future<void> _sendLargeResponse() async {
-    _notify('Large response sent — tap it in the Network tab');
+    _notify('Large response sent — check the Payload tab in the Network tab');
     try {
       await dio.post(
         '/anything',
         data: {
           'items': List.generate(
-            150,
+            400,
             (i) =>
                 'Item #$i — lorem ipsum dolor sit amet, consectetur '
                 'adipiscing elit.',
@@ -406,7 +417,9 @@ class _DevToolsSection extends StatelessWidget {
           'floating window, then press and hold its bottom-right corner '
           'before dragging to resize it. Tap a Network row (try "Large '
           'response") to see its Headers / Payload / Response tabs — '
-          'each scrolls on its own.',
+          'each scrolls on its own. Its Payload tab is big enough to '
+          'get truncated, and still stays properly indented JSON even '
+          'once cut off.',
       children: [
         Text('Logs', style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 8),
