@@ -11,11 +11,17 @@ import '../search_field.dart';
 
 /// Lists captured HTTP exchanges from `CorextraDevTools.instance.network`.
 ///
-/// Below [_splitBreakpoint] this is a single-column, expandable list (the
-/// only way to fit both the list and its detail on a phone). Above it,
-/// it switches to a master/detail split — a compact list on the left,
-/// the selected request's full detail on the right — the same layout
-/// Flutter's own DevTools Network view uses once there's room for it.
+/// Above [_splitBreakpoint], this is a master/detail split — a compact
+/// list on the left, the selected request's full detail on the right.
+/// Below it, there's no room for both side by side, so tapping a row
+/// instead drills into a full-screen detail view (with a back button
+/// to return) rather than expanding inline in place. An inline
+/// accordion was tried first, but it nests a scrollable request body
+/// inside the same scroll region as the request list itself — on a
+/// large response, that pits the list's scroll against the body's,
+/// each capturing drags meant for the other. Drilling in, like the
+/// wide layout's detail pane, keeps exactly one scrollable on screen
+/// at a time.
 class NetworkTab extends StatefulWidget {
   const NetworkTab({super.key});
 
@@ -120,71 +126,115 @@ class _NetworkTabState extends State<NetworkTab> {
             _activeMethods.length != _MethodFilter.values.length ||
             _activeStatuses.length != _StatusFilter.values.length;
 
-        return Column(
-          children: [
-            DevToolsSearchField(
-              controller: _searchController,
-              hintText: 'Search by method, URL, or status',
-              onChanged: (value) => setState(() => _query = value),
-            ),
-            _NetworkFilterBar(
-              activeMethods: _activeMethods,
-              activeStatuses: _activeStatuses,
-              onMethodChanged: _toggleMethod,
-              onStatusChanged: _toggleStatus,
-              onReset: filtersActive ? _resetFilters : null,
-            ),
-            Expanded(
-              child: filtered.isEmpty
-                  ? DevToolsEmptyState(
-                      icon: LucideIcons.searchX,
-                      message: query.isEmpty
-                          ? 'No requests match the selected filters'
-                          : 'No requests match "${_query.trim()}"',
-                    )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        if (constraints.maxWidth >= _splitBreakpoint) {
-                          return _MasterDetailView(
-                            events: filtered,
-                            selected: selected,
-                            onSelect: (event) =>
-                                setState(() => _selected = event),
-                          );
-                        }
-                        return ValueListenableBuilder<int>(
-                          valueListenable:
-                              CorextraDevTools.instance.networkCollapseSignal,
-                          builder: (context, collapseGeneration, _) =>
-                              ListView.separated(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            itemCount: filtered.length,
-                            separatorBuilder: (context, index) =>
-                                const Divider(
-                              height: 1,
-                              indent: 16,
-                              endIndent: 16,
-                            ),
-                            itemBuilder: (context, index) => _NetworkEventTile(
-                              // Re-keying on the collapse generation forces
-                              // every tile to remount collapsed — an
-                              // ExpansionTile only reads `initiallyExpanded`
-                              // once, in initState, so changing it on an
-                              // already-mounted tile of the same key
-                              // wouldn't otherwise close it.
-                              key: ValueKey(
-                                '${filtered[index].id}-$collapseGeneration',
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= _splitBreakpoint;
+
+            if (!isWide && selected != null) {
+              return _NarrowDetailScreen(
+                event: selected,
+                onBack: () => setState(() => _selected = null),
+              );
+            }
+
+            return Column(
+              children: [
+                DevToolsSearchField(
+                  controller: _searchController,
+                  hintText: 'Search by method, URL, or status',
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+                _NetworkFilterBar(
+                  activeMethods: _activeMethods,
+                  activeStatuses: _activeStatuses,
+                  onMethodChanged: _toggleMethod,
+                  onStatusChanged: _toggleStatus,
+                  onReset: filtersActive ? _resetFilters : null,
+                ),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? DevToolsEmptyState(
+                          icon: LucideIcons.searchX,
+                          message: query.isEmpty
+                              ? 'No requests match the selected filters'
+                              : 'No requests match "${_query.trim()}"',
+                        )
+                      : isWide
+                          ? _MasterDetailView(
+                              events: filtered,
+                              selected: selected,
+                              onSelect: (event) =>
+                                  setState(() => _selected = event),
+                            )
+                          : ListView.separated(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 4),
+                              itemCount: filtered.length,
+                              separatorBuilder: (context, index) =>
+                                  const Divider(
+                                height: 1,
+                                indent: 16,
+                                endIndent: 16,
                               ),
-                              event: filtered[index],
+                              itemBuilder: (context, index) {
+                                final event = filtered[index];
+                                return _CompactNetworkRow(
+                                  event: event,
+                                  selected: false,
+                                  onTap: () =>
+                                      setState(() => _selected = event),
+                                );
+                              },
                             ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
+                ),
+              ],
+            );
+          },
         );
       },
+    );
+  }
+}
+
+/// The narrow-screen (phone) detail view: a back button over the
+/// selected request's full detail, filling the whole tab — the
+/// narrow-width counterpart to [_MasterDetailView]'s right-hand pane.
+class _NarrowDetailScreen extends StatelessWidget {
+  const _NarrowDetailScreen({required this.event, required this.onBack});
+
+  final NetworkEvent event;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Back to requests',
+                icon: const Icon(LucideIcons.arrowLeft),
+                onPressed: onBack,
+              ),
+              Text(
+                'Request detail',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: _NetworkEventDetail(event: event, showSummary: true),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -802,95 +852,7 @@ class _FilterOptionRow extends StatelessWidget {
   }
 }
 
-/// The narrow-screen (phone) row: an expandable tile showing the same
-/// detail inline, since there's no room for a separate detail pane.
-class _NetworkEventTile extends StatelessWidget {
-  const _NetworkEventTile({super.key, required this.event});
-
-  final NetworkEvent event;
-
-  static final _timeFormat = DateFormat('HH:mm:ss');
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final mutedStyle = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
-    final uri = Uri.tryParse(event.url);
-    final path = (uri != null && uri.path.isNotEmpty) ? uri.path : event.url;
-    final query = (uri != null && uri.query.isNotEmpty) ? '?${uri.query}' : '';
-    final host = uri?.host ?? '';
-    final durationMs = event.duration?.inMilliseconds;
-    final statusColor = _statusColorFor(event);
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: statusColor, width: 3)),
-      ),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.fromLTRB(13, 4, 16, 4),
-        title: Row(
-          children: [
-            _Pill(text: event.method.toUpperCase(), color: _methodColor(event.method)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '$path$query',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            children: [
-              Text(
-                _statusLabelFor(event),
-                style: TextStyle(
-                  color: statusColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                durationMs != null ? '${durationMs}ms' : 'pending…',
-                style: mutedStyle,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  host.isNotEmpty
-                      ? '$host  ·  ${_timeFormat.format(event.startedAt)}'
-                      : _timeFormat.format(event.startedAt),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: mutedStyle,
-                ),
-              ),
-            ],
-          ),
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: _NetworkEventDetail(event: event),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The headers/body detail shared by the phone-sized expandable tile and
+/// The headers/body detail shared by the narrow-screen detail view and
 /// the wide-screen detail pane.
 class _NetworkEventDetail extends StatelessWidget {
   const _NetworkEventDetail({required this.event, this.showSummary = false});
@@ -1134,7 +1096,11 @@ class _KeyValueList extends StatelessWidget {
 }
 
 /// A monospace "code block" used for request/response bodies, with a
-/// one-tap copy button.
+/// one-tap copy button. Renders at its natural height and relies on
+/// the surrounding screen's own scroll — every place this is used now
+/// has exactly one scrollable per screen (see [NetworkTab]'s doc
+/// comment on why an inline-expanding, independently-scrolling variant
+/// was deliberately not used instead).
 class _CodeBlock extends StatelessWidget {
   const _CodeBlock({required this.content});
 

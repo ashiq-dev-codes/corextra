@@ -61,15 +61,39 @@ void main() {
   tearDown(() => CorextraDevTools.instance.resetAll());
 
   testWidgets(
-    'on a narrow width, renders a single expandable list (no split)',
+    'on a narrow width, renders a plain tappable list (no split); '
+    'tapping a row drills into a full-screen detail with a back '
+    'button, and Back returns to the list',
     (tester) async {
       _seedTwoEvents();
 
       await tester.pumpWidget(_wrap(400));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
       expect(find.text('Requests'), findsNothing);
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
+
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      // The list (and its search/filter chrome) is gone — only the
+      // selected request's own detail screen is shown.
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('/todos/1'), findsNothing);
+      expect(
+        find.textContaining('https://example.test/todos/1'),
+        findsOneWidget,
+      );
+      expect(find.text('Request'), findsOneWidget);
+      expect(find.text('Response'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Back to requests'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
     },
   );
 
@@ -82,7 +106,6 @@ void main() {
       await tester.pumpWidget(_wrap(900));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsNothing);
       expect(find.text('Requests'), findsOneWidget);
       expect(find.text('(2)'), findsOneWidget);
       expect(find.text('Select a request to see its details'), findsOneWidget);
@@ -114,13 +137,14 @@ void main() {
 
       await tester.pumpWidget(_wrap(400));
       await tester.pumpAndSettle();
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
 
       await tester.enterText(find.byType(TextField), 'todos/1');
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsOneWidget);
-      expect(find.textContaining('/todos/1'), findsOneWidget);
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsNothing);
     },
   );
 
@@ -136,23 +160,15 @@ void main() {
       await tester.enterText(find.byType(TextField), '500');
       await tester.pumpAndSettle();
 
-      // The single remaining row should be the 500 one, not the 200 —
-      // visible on its collapsed status label already, no need to
-      // expand it.
-      expect(find.byType(ExpansionTile), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byType(ExpansionTile),
-          matching: find.text('500'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.textContaining('/todos/1'), findsNothing);
+      // The single remaining row should be the 500 one, not the 200.
+      expect(find.text('/todos'), findsOneWidget);
+      expect(find.text('/todos/1'), findsNothing);
 
       await tester.tap(find.byTooltip('Clear'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
     },
   );
 
@@ -168,7 +184,8 @@ void main() {
       await tester.enterText(find.byType(TextField), 'nothing-matches-this');
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsNothing);
+      expect(find.text('/todos/1'), findsNothing);
+      expect(find.text('/todos'), findsNothing);
       expect(find.textContaining('No requests match'), findsOneWidget);
     },
   );
@@ -181,7 +198,8 @@ void main() {
 
       await tester.pumpWidget(_wrap(400));
       await tester.pumpAndSettle();
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
       expect(find.text('Method'), findsOneWidget);
       // Both the Method and Status buttons show "All" by default.
       expect(find.text('All'), findsNWidgets(2));
@@ -189,9 +207,8 @@ void main() {
       await _openFilterMenu(tester, 'Method');
       await _tapFilterOption(tester, 'Method', 'GET');
 
-      expect(find.byType(ExpansionTile), findsOneWidget);
-      expect(find.textContaining('/todos/1'), findsNothing);
-      expect(find.textContaining('/todos'), findsOneWidget);
+      expect(find.text('/todos/1'), findsNothing);
+      expect(find.text('/todos'), findsOneWidget);
       // The Method button's summary reflects the narrowed selection;
       // the Status button is untouched and still shows "All".
       expect(find.text('5 selected'), findsOneWidget);
@@ -201,7 +218,8 @@ void main() {
       // list.
       await _tapFilterOption(tester, 'Method', 'GET');
 
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
       expect(find.text('All'), findsNWidgets(2));
     },
   );
@@ -222,7 +240,8 @@ void main() {
       // exercise the same onReset wiring the dropdowns also use.
       await tester.enterText(find.byType(TextField), 'todos/1');
       await tester.pumpAndSettle();
-      expect(find.byType(ExpansionTile), findsOneWidget);
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsNothing);
       expect(find.text('Reset'), findsOneWidget);
 
       // The filter row scrolls horizontally at narrow widths, so
@@ -232,7 +251,8 @@ void main() {
       await tester.tap(find.text('Reset'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
       expect(find.text('Reset'), findsNothing);
       expect(find.text('All'), findsNWidgets(2));
     },
@@ -251,14 +271,15 @@ void main() {
       await _openFilterMenu(tester, 'Status');
       await _tapFilterOption(tester, 'Status', 'Success');
 
-      expect(find.byType(ExpansionTile), findsOneWidget);
-      expect(find.textContaining('/todos/1'), findsNothing);
+      expect(find.text('/todos/1'), findsNothing);
+      expect(find.text('/todos'), findsOneWidget);
 
       // The dropdown is still open — deselect the remaining category
       // too, without reopening.
       await _tapFilterOption(tester, 'Status', 'Server Error');
 
-      expect(find.byType(ExpansionTile), findsNothing);
+      expect(find.text('/todos/1'), findsNothing);
+      expect(find.text('/todos'), findsNothing);
       expect(
         find.text('No requests match the selected filters'),
         findsOneWidget,
@@ -267,29 +288,27 @@ void main() {
   );
 
   testWidgets(
-    'bumping CorextraDevTools.instance.networkCollapseSignal collapses '
-    'every expanded row in the narrow-layout list',
+    'a large response body renders unbounded inside the detail screen '
+    '— no nested scrollable of its own to fight the page for drags',
     (tester) async {
-      _seedTwoEvents();
+      final store = CorextraDevTools.instance.network;
+      final big = store.begin(method: 'GET', url: 'https://example.test/big');
+      big.responseBody = List.generate(200, (i) => 'line $i').join('\n');
+      big.statusCode = 200;
+      big.completedAt = DateTime.now();
+      store.complete(big);
 
       await tester.pumpWidget(_wrap(400));
       await tester.pumpAndSettle();
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
 
-      // Expand both rows — their "Request"/"Response" detail (built
-      // only while expanded; see ExpansionTile's default
-      // `maintainState: false`) becomes visible.
-      for (final tile in find.byType(ExpansionTile).evaluate().toList()) {
-        await tester.tap(find.byWidget(tile.widget));
-      }
-      await tester.pumpAndSettle();
-      expect(find.text('Request'), findsNWidgets(2));
-
-      CorextraDevTools.instance.collapseAllNetworkRows();
+      await tester.tap(find.text('/big'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
-      expect(find.text('Request'), findsNothing);
+      expect(find.text('Response'), findsOneWidget);
+      expect(find.textContaining('line 0'), findsOneWidget);
+      // No per-body Scrollbar wrapper — the body isn't independently
+      // scrollable; the page's own scroll carries it.
+      expect(find.byType(Scrollbar), findsNothing);
     },
   );
 }

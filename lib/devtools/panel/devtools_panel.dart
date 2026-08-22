@@ -65,11 +65,6 @@ class _Header extends StatelessWidget {
             onPressed: onMinimize,
           ),
           IconButton(
-            tooltip: 'Collapse all',
-            icon: const Icon(LucideIcons.chevronsDownUp),
-            onPressed: () => CorextraDevTools.instance.collapseAllNetworkRows(),
-          ),
-          IconButton(
             tooltip: 'Clear all',
             icon: const Icon(LucideIcons.trash),
             onPressed: () => CorextraDevTools.instance.resetAll(),

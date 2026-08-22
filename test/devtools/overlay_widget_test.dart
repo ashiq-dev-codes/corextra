@@ -298,8 +298,8 @@ void main() {
   );
 
   testWidgets(
-    "the floating window's Collapse all button collapses an expanded "
-    'row in the Network tab, without clearing any captured data',
+    "in the floating window's narrow Network tab, tapping a row drills "
+    "into its detail, and Back returns to the list",
     (tester) async {
       final event = CorextraDevTools.instance.network.begin(
         method: 'GET',
@@ -324,14 +324,15 @@ void main() {
       await tester.pumpAndSettle();
 
       // Network is the first tab, so it's already showing.
-      await tester.tap(find.byType(ExpansionTile));
+      await tester.tap(find.text('/todos/1'));
       await tester.pumpAndSettle();
       expect(find.text('Request'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Collapse all'));
+      await tester.tap(find.byTooltip('Back to requests'));
       await tester.pumpAndSettle();
 
       expect(find.text('Request'), findsNothing);
+      expect(find.text('/todos/1'), findsOneWidget);
       expect(CorextraDevTools.instance.network.events, hasLength(1));
     },
   );

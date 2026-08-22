@@ -117,6 +117,30 @@ class _DemoScreenState extends State<DemoScreen> {
     }
   }
 
+  // --- A response body large enough to be worth scrolling through, to
+  // see it rendered cleanly inside the Network tab's detail view (on a
+  // phone-width screen, that's the drilled-into detail screen you reach
+  // by tapping the row — its own dedicated scroll, not shared with the
+  // request list). httpbin's /anything echoes back whatever's posted,
+  // so the response ends up as large as the request. ---
+  Future<void> _sendLargeResponse() async {
+    _notify('Large response sent — tap it in the Network tab');
+    try {
+      await dio.post(
+        '/anything',
+        data: {
+          'items': List.generate(
+            150,
+            (i) => 'Item #$i — lorem ipsum dolor sit amet, consectetur '
+                'adipiscing elit.',
+          ),
+        },
+      );
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
   // --- GET 400: a client error status, with a real (empty) response. ---
   Future<void> _sendGet400() async {
     _notify('GET 400 sent — check the Network tab');
@@ -187,6 +211,7 @@ class _DemoScreenState extends State<DemoScreen> {
                 },
                 onGet200: _sendGet200,
                 onPostWithBody: _sendPostWithBody,
+                onLargeResponse: _sendLargeResponse,
                 onGet400: _sendGet400,
                 onGet500: _sendGet500,
                 onNetworkError: _sendNetworkError,
@@ -278,6 +303,7 @@ class _DevToolsSection extends StatelessWidget {
     required this.onLogError,
     required this.onGet200,
     required this.onPostWithBody,
+    required this.onLargeResponse,
     required this.onGet400,
     required this.onGet500,
     required this.onNetworkError,
@@ -288,6 +314,7 @@ class _DevToolsSection extends StatelessWidget {
   final VoidCallback onLogError;
   final VoidCallback onGet200;
   final VoidCallback onPostWithBody;
+  final VoidCallback onLargeResponse;
   final VoidCallback onGet400;
   final VoidCallback onGet500;
   final VoidCallback onNetworkError;
@@ -299,9 +326,11 @@ class _DevToolsSection extends StatelessWidget {
       icon: Icons.bug_report,
       description: 'Tap the floating bubble to open the panel, then press '
           'the buttons below and watch the Logs / Network / Performance '
-          'tabs update live. Tip: tap Minimize to shrink the panel into a '
+          'tabs update live. Tips: tap Minimize to shrink the panel into a '
           'floating window, then press and hold its bottom-right corner '
-          'before dragging to resize it.',
+          'before dragging to resize it. On a phone-width screen, tap a '
+          'Network row (try "Large response") to drill into its detail — '
+          'Back returns to the list.',
       children: [
         Text(
           'Logs',
@@ -343,6 +372,10 @@ class _DevToolsSection extends StatelessWidget {
             FilledButton(
               onPressed: onPostWithBody,
               child: const Text('POST (body)'),
+            ),
+            FilledButton(
+              onPressed: onLargeResponse,
+              child: const Text('Large response'),
             ),
             FilledButton.tonal(
               onPressed: onGet400,

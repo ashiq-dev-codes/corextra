@@ -164,18 +164,6 @@ class CorextraDevTools {
   final LogEntryStore logs = LogEntryStore();
   final FrameSampleStore performance = FrameSampleStore();
 
-  /// Bumped by [collapseAllNetworkRows] to tell the Network tab's
-  /// (narrow-layout) request list to collapse every expanded row. A
-  /// signal rather than a boolean flag or shared expansion state,
-  /// since the header that hosts the "Collapse all" button and the
-  /// list that owns each row's own expand/collapse state live in
-  /// separate widget subtrees — this is the one piece of that state
-  /// that needs to cross between them, and only in one direction.
-  final ValueNotifier<int> networkCollapseSignal = ValueNotifier<int>(0);
-
-  /// Collapses every expanded row in the Network tab's request list.
-  void collapseAllNetworkRows() => networkCollapseSignal.value++;
-
   /// Clears all captured data. Does not change [enabled].
   void resetAll() {
     network.clear();

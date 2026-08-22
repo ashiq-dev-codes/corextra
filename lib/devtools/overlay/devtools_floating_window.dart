@@ -172,13 +172,6 @@ class _WindowHeader extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Collapse all',
-            iconSize: 16,
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(LucideIcons.chevronsDownUp),
-            onPressed: () => CorextraDevTools.instance.collapseAllNetworkRows(),
-          ),
-          IconButton(
             tooltip: 'Clear all',
             iconSize: 16,
             visualDensity: VisualDensity.compact,
