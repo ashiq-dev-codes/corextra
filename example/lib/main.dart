@@ -86,12 +86,23 @@ class _DemoScreenState extends State<DemoScreen> {
       );
   }
 
-  // --- GET 200: a plain successful request, to see a full response body —
-  // and, with a few query parameters attached, the Network tab's
-  // "Query Parameters" block (pretty-printed, with its own copy button,
-  // right above the request headers). ---
+  // --- GET 200: a plain successful request, to see a full response
+  // body. ---
   Future<void> _sendGet200() async {
     _notify('GET 200 sent — check the Network tab');
+    try {
+      await dio.get('/get');
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- GET with query parameters attached: shows up in the Network
+  // tab's Payload tab as its own "Query Parameters" block, pretty-
+  // printed with its own copy button, above the (empty, since there's
+  // no body on a GET) request body. ---
+  Future<void> _sendGetWithQueryParams() async {
+    _notify('GET (query params) sent — check the Payload tab');
     try {
       await dio.get(
         '/get',
@@ -261,6 +272,7 @@ class _DemoScreenState extends State<DemoScreen> {
                   _notify('Logged — check the DevTools Logs tab');
                 },
                 onGet200: _sendGet200,
+                onGetWithQueryParams: _sendGetWithQueryParams,
                 onPostWithBody: _sendPostWithBody,
                 onPutWithBody: _sendPutWithBody,
                 onPatchWithRawBody: _sendPatchWithRawBody,
@@ -357,6 +369,7 @@ class _DevToolsSection extends StatelessWidget {
     required this.onLogWarning,
     required this.onLogError,
     required this.onGet200,
+    required this.onGetWithQueryParams,
     required this.onPostWithBody,
     required this.onPutWithBody,
     required this.onPatchWithRawBody,
@@ -371,6 +384,7 @@ class _DevToolsSection extends StatelessWidget {
   final VoidCallback onLogWarning;
   final VoidCallback onLogError;
   final VoidCallback onGet200;
+  final VoidCallback onGetWithQueryParams;
   final VoidCallback onPostWithBody;
   final VoidCallback onPutWithBody;
   final VoidCallback onPatchWithRawBody;
@@ -422,6 +436,10 @@ class _DevToolsSection extends StatelessWidget {
           runSpacing: 8,
           children: [
             FilledButton(onPressed: onGet200, child: const Text('GET 200')),
+            FilledButton(
+              onPressed: onGetWithQueryParams,
+              child: const Text('GET (query params)'),
+            ),
             FilledButton(
               onPressed: onPostWithBody,
               child: const Text('POST (body)'),
