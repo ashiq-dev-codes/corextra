@@ -48,19 +48,11 @@ class _DevToolsFloatingWindowState extends State<DevToolsFloatingWindow> {
     return value;
   }
 
-  void _onResizePanUpdate(DragUpdateDetails details, Size maxAllowed) {
+  void _onResizeDelta(Offset delta, Size maxAllowed) {
     setState(() {
       _size = Size(
-        _clamp(
-          _size.width + details.delta.dx,
-          _minSize.width,
-          maxAllowed.width,
-        ),
-        _clamp(
-          _size.height + details.delta.dy,
-          _minSize.height,
-          maxAllowed.height,
-        ),
+        _clamp(_size.width + delta.dx, _minSize.width, maxAllowed.width),
+        _clamp(_size.height + delta.dy, _minSize.height, maxAllowed.height),
       );
     });
   }
@@ -134,11 +126,9 @@ class _DevToolsFloatingWindowState extends State<DevToolsFloatingWindow> {
                                   right: 0,
                                   bottom: 0,
                                   child: _ResizeHandle(
-                                    onPanUpdate:
-                                        (details) => _onResizePanUpdate(
-                                          details,
-                                          maxAllowed,
-                                        ),
+                                    onResizeDelta:
+                                        (delta) =>
+                                            _onResizeDelta(delta, maxAllowed),
                                   ),
                                 ),
                               ],
@@ -208,15 +198,38 @@ class _WindowHeader extends StatelessWidget {
   }
 }
 
-/// The bottom-right resize grip — drag to resize the window. Diagonal
-/// (corner) resize only, deliberately: no separate horizontal- or
-/// vertical-only edge handles. Styled as a small corner bracket rather
-/// than an arrow icon or a dot — the same visual iOS uses for its
-/// Photos crop tool and Markup resize handles.
-class _ResizeHandle extends StatelessWidget {
-  const _ResizeHandle({required this.onPanUpdate});
+/// The bottom-right resize grip — press and hold, then drag, to resize
+/// the window. Deliberately gated behind a long press rather than a
+/// bare tap-drag: this handle sits right at the corner of the window,
+/// a screen region a developer routinely swipes through while dragging
+/// the header to reposition the window or just interacting with the app
+/// underneath, and an instant-drag handle there fires accidental
+/// resizes. Requiring a hold first — the same affordance iOS uses for
+/// drag handles that share space with ordinary touches — makes the
+/// resize a deliberate act. Diagonal (corner) resize only, deliberately:
+/// no separate horizontal- or vertical-only edge handles. Styled as a
+/// small corner bracket rather than an arrow icon or a dot — the same
+/// visual iOS uses for its Photos crop tool and Markup resize handles.
+class _ResizeHandle extends StatefulWidget {
+  const _ResizeHandle({required this.onResizeDelta});
 
-  final GestureDragUpdateCallback onPanUpdate;
+  final ValueChanged<Offset> onResizeDelta;
+
+  @override
+  State<_ResizeHandle> createState() => _ResizeHandleState();
+}
+
+class _ResizeHandleState extends State<_ResizeHandle> {
+  Offset _lastOffset = Offset.zero;
+
+  void _onLongPressStart(LongPressStartDetails details) {
+    _lastOffset = Offset.zero;
+  }
+
+  void _onLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
+    widget.onResizeDelta(details.localOffsetFromOrigin - _lastOffset);
+    _lastOffset = details.localOffsetFromOrigin;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +237,8 @@ class _ResizeHandle extends StatelessWidget {
       cursor: SystemMouseCursors.resizeUpLeftDownRight,
       child: GestureDetector(
         key: const Key('devtools-resize-handle'),
-        onPanUpdate: onPanUpdate,
+        onLongPressStart: _onLongPressStart,
+        onLongPressMoveUpdate: _onLongPressMoveUpdate,
         behavior: HitTestBehavior.opaque,
         // A generous hit area even though the visible bracket is small.
         child: const SizedBox(

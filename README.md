@@ -81,12 +81,12 @@ dio.interceptors.add(const CorextraDevToolsInterceptor());
 ```
 
 A draggable bubble opens the panel, with four tabs:
-- **Network** — every request/response, searchable and filterable by method or status. Wide screens get a two-pane list + detail view. Redact sensitive headers with `hiddenHeaders`
+- **Network** — every request/response, searchable and filterable by method or status. Query parameters, headers, and body each get their own **Headers / Payload / Response** tab in the detail view, so a large body scrolls on its own without pushing anything else out of reach. Wide screens get a two-pane list + detail view; narrow screens drill into a full-screen detail with a Back button. Redact sensitive headers with `hiddenHeaders`
 - **Logs** — every `debugLog`/`AppLogger` call, searchable and filterable by level — no extra wiring needed
 - **Performance** — a live FPS/frame-time chart with jank highlighting and tap-to-inspect frames
 - **Info** — app + device details via `package_info_plus`/`device_info_plus`
 
-Tap **Minimize** to shrink the panel into a small floating window you can keep an eye on while testing the rest of the app. Drag the bubble or the window to a screen edge to tuck it out of the way, or resize the window from its corner. Toggle everything at runtime with `CorextraDevTools.instance.enabled`.
+Every list in the panel gets a floating "scroll to top" button once you've scrolled down. Tap **Minimize** to shrink the panel into a small floating window you can keep an eye on while testing the rest of the app — press and hold its corner before dragging to resize it. Drag the bubble or the window to a screen edge to tuck it out of the way. Toggle everything at runtime with `CorextraDevTools.instance.enabled`.
 
 Planned for a future phase: a widget/layout inspector, memory heap snapshots, a storage (shared_preferences) viewer, and a route/navigation inspector.
 
@@ -98,7 +98,7 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 
 ```yaml
 dependencies:
-  corextra: ^1.2.0
+  corextra: ^1.2.1
 ```
 
 Then import it in your Dart code:

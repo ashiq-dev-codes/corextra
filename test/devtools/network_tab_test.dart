@@ -19,10 +19,14 @@ void _seedTwoEvents() {
   store.complete(second);
 }
 
-Widget _wrap(double width) {
+Widget _wrap(double width, {double height = 600}) {
   return MaterialApp(
     home: Scaffold(
-      body: SizedBox(width: width, height: 600, child: const NetworkTab()),
+      body: SizedBox(
+        width: width,
+        height: height,
+        child: const NetworkTab(),
+      ),
     ),
   );
 }
@@ -61,15 +65,47 @@ void main() {
   tearDown(() => CorextraDevTools.instance.resetAll());
 
   testWidgets(
-    'on a narrow width, renders a single expandable list (no split)',
+    'on a narrow width, renders a plain tappable list (no split); '
+    'tapping a row drills into a full-screen detail with a back '
+    'button, and Back returns to the list',
     (tester) async {
       _seedTwoEvents();
 
       await tester.pumpWidget(_wrap(400));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
       expect(find.text('Requests'), findsNothing);
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
+
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      // The list (and its search/filter chrome) is gone — only the
+      // selected request's own detail screen is shown. Its fixed
+      // summary shows the same path the list row did (that's expected
+      // — it's now findsOneWidget instead of the list's own copy).
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(
+        find.textContaining('https://example.test/todos/1'),
+        findsOneWidget,
+      );
+      expect(find.text('Headers'), findsOneWidget);
+      expect(find.text('Payload'), findsOneWidget);
+      expect(find.text('Response'), findsOneWidget);
+
+      // The response body lives behind the "Response" tab.
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('"id": 1'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Back to requests'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
     },
   );
 
@@ -82,7 +118,6 @@ void main() {
       await tester.pumpWidget(_wrap(900));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsNothing);
       expect(find.text('Requests'), findsOneWidget);
       expect(find.text('(2)'), findsOneWidget);
       expect(find.text('Select a request to see its details'), findsOneWidget);
@@ -92,11 +127,22 @@ void main() {
 
       expect(find.text('Select a request to see its details'), findsNothing);
       expect(find.textContaining('https://example.test/todos/1'), findsOneWidget);
-      expect(find.text('Request'), findsOneWidget);
+      expect(find.text('Headers'), findsOneWidget);
+      expect(find.text('Payload'), findsOneWidget);
       expect(find.text('Response'), findsOneWidget);
+
+      // The response body lives behind the "Response" tab.
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('"id": 1'), findsOneWidget);
 
       // Switching selection updates the detail pane.
       await tester.tap(find.text('/todos'));
+      await tester.pumpAndSettle();
+
+      // Still on the "Response" tab from the previous selection — its
+      // error, like the URL, lives on the "Headers" tab instead.
+      await tester.tap(find.text('Headers'));
       await tester.pumpAndSettle();
 
       expect(
@@ -114,13 +160,14 @@ void main() {
 
       await tester.pumpWidget(_wrap(400));
       await tester.pumpAndSettle();
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
 
       await tester.enterText(find.byType(TextField), 'todos/1');
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsOneWidget);
-      expect(find.textContaining('/todos/1'), findsOneWidget);
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsNothing);
     },
   );
 
@@ -136,23 +183,15 @@ void main() {
       await tester.enterText(find.byType(TextField), '500');
       await tester.pumpAndSettle();
 
-      // The single remaining row should be the 500 one, not the 200 —
-      // visible on its collapsed status label already, no need to
-      // expand it.
-      expect(find.byType(ExpansionTile), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byType(ExpansionTile),
-          matching: find.text('500'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.textContaining('/todos/1'), findsNothing);
+      // The single remaining row should be the 500 one, not the 200.
+      expect(find.text('/todos'), findsOneWidget);
+      expect(find.text('/todos/1'), findsNothing);
 
       await tester.tap(find.byTooltip('Clear'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
     },
   );
 
@@ -168,7 +207,8 @@ void main() {
       await tester.enterText(find.byType(TextField), 'nothing-matches-this');
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsNothing);
+      expect(find.text('/todos/1'), findsNothing);
+      expect(find.text('/todos'), findsNothing);
       expect(find.textContaining('No requests match'), findsOneWidget);
     },
   );
@@ -181,7 +221,8 @@ void main() {
 
       await tester.pumpWidget(_wrap(400));
       await tester.pumpAndSettle();
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
       expect(find.text('Method'), findsOneWidget);
       // Both the Method and Status buttons show "All" by default.
       expect(find.text('All'), findsNWidgets(2));
@@ -189,9 +230,8 @@ void main() {
       await _openFilterMenu(tester, 'Method');
       await _tapFilterOption(tester, 'Method', 'GET');
 
-      expect(find.byType(ExpansionTile), findsOneWidget);
-      expect(find.textContaining('/todos/1'), findsNothing);
-      expect(find.textContaining('/todos'), findsOneWidget);
+      expect(find.text('/todos/1'), findsNothing);
+      expect(find.text('/todos'), findsOneWidget);
       // The Method button's summary reflects the narrowed selection;
       // the Status button is untouched and still shows "All".
       expect(find.text('5 selected'), findsOneWidget);
@@ -201,7 +241,8 @@ void main() {
       // list.
       await _tapFilterOption(tester, 'Method', 'GET');
 
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
       expect(find.text('All'), findsNWidgets(2));
     },
   );
@@ -222,7 +263,8 @@ void main() {
       // exercise the same onReset wiring the dropdowns also use.
       await tester.enterText(find.byType(TextField), 'todos/1');
       await tester.pumpAndSettle();
-      expect(find.byType(ExpansionTile), findsOneWidget);
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsNothing);
       expect(find.text('Reset'), findsOneWidget);
 
       // The filter row scrolls horizontally at narrow widths, so
@@ -232,7 +274,8 @@ void main() {
       await tester.tap(find.text('Reset'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExpansionTile), findsNWidgets(2));
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
       expect(find.text('Reset'), findsNothing);
       expect(find.text('All'), findsNWidgets(2));
     },
@@ -251,18 +294,98 @@ void main() {
       await _openFilterMenu(tester, 'Status');
       await _tapFilterOption(tester, 'Status', 'Success');
 
-      expect(find.byType(ExpansionTile), findsOneWidget);
-      expect(find.textContaining('/todos/1'), findsNothing);
+      expect(find.text('/todos/1'), findsNothing);
+      expect(find.text('/todos'), findsOneWidget);
 
       // The dropdown is still open — deselect the remaining category
       // too, without reopening.
       await _tapFilterOption(tester, 'Status', 'Server Error');
 
-      expect(find.byType(ExpansionTile), findsNothing);
+      expect(find.text('/todos/1'), findsNothing);
+      expect(find.text('/todos'), findsNothing);
       expect(
         find.text('No requests match the selected filters'),
         findsOneWidget,
       );
+    },
+  );
+
+  testWidgets(
+    'a large response body scrolls cleanly within its own Response tab '
+    '— no separate list sharing that scroll to fight it for drags',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final big = store.begin(method: 'GET', url: 'https://example.test/big');
+      big.responseBody = List.generate(200, (i) => 'line $i').join('\n');
+      big.statusCode = 200;
+      big.completedAt = DateTime.now();
+      store.complete(big);
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('/big'));
+      await tester.pumpAndSettle();
+
+      // The request list — the giant body's would-be scroll rival in
+      // the old accordion design — isn't part of this screen at all;
+      // its search box is a reliable proxy for its absence, since the
+      // detail view's own fixed summary repeats the tapped row's path.
+      expect(find.byType(TextField), findsNothing);
+
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('line 0'), findsOneWidget);
+      expect(find.textContaining('line 199'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a long error message (e.g. the default DioException validateStatus '
+    'text) does not overflow the detail view at the PIP floating '
+    "window's minimum height — the fixed summary above the tabs never "
+    'holds it in the first place, only the scrollable Headers tab does',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/status/400',
+      );
+      event.statusCode = 400;
+      // The real message DioException produces for a validateStatus
+      // failure — several wrapped lines even at a comfortable width,
+      // let alone the ~250px available inside a minimized PIP window.
+      event.errorMessage =
+          'This exception was thrown because the response has a status '
+          'code of 400 and RequestOptions.validateStatus was configured '
+          'to throw for this status code.\n'
+          'The status code of 400 has the following meaning: "Client '
+          'error - the request contains bad syntax or cannot be '
+          'fulfilled"\n'
+          'Read more about status codes at '
+          'https://developer.mozilla.org/en-US/docs/Web/HTTP/Status\n'
+          'In order to resolve this exception you typically have either '
+          'to verify and fix your request code or you have to fix the '
+          'server code.';
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      // Roughly what's left for NetworkTab inside a floating window at
+      // its minimum size (280x360), after the window's own header and
+      // the outer Network/Logs/Performance/Info tab bar.
+      await tester.pumpWidget(_wrap(280, height: 220));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('/status/400'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      // "Headers" is the default tab, so the error is visible without
+      // any extra tap — it's just rendered inside that tab's own
+      // scroll, not in the fixed summary above the tabs.
+      expect(find.text('Headers'), findsOneWidget);
+      expect(find.textContaining('This exception was thrown'), findsOneWidget);
     },
   );
 }

@@ -54,6 +54,18 @@ void main() {
     },
   );
 
+  test('captures query parameters separately from the url', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+      ..httpClientAdapter = _FakeAdapter()
+      ..interceptors.add(const CorextraDevToolsInterceptor());
+
+    await dio.get('/search', queryParameters: {'q': 'flutter', 'page': 2});
+
+    final event = CorextraDevTools.instance.network.events.single;
+    expect(event.url, 'https://example.test/search');
+    expect(event.queryParameters, {'q': 'flutter', 'page': '2'});
+  });
+
   test('does not capture when disabled', () async {
     CorextraDevTools.instance.enabled = false;
 

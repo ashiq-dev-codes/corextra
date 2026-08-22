@@ -13,6 +13,7 @@ export 'devtools/overlay/draggable_floating_widget.dart';
 export 'devtools/panel/devtools_panel.dart';
 export 'devtools/panel/devtools_tabs.dart';
 export 'devtools/panel/empty_state.dart';
+export 'devtools/panel/scroll_to_top_fab.dart';
 export 'devtools/panel/tabs/info_tab.dart';
 export 'devtools/panel/tabs/logs_tab.dart';
 export 'devtools/panel/tabs/network_tab.dart';

@@ -7,15 +7,22 @@ import '../../devtools_controller.dart';
 import '../../models/network_event.dart';
 import '../../util/pretty_json.dart';
 import '../empty_state.dart';
+import '../scroll_to_top_fab.dart';
 import '../search_field.dart';
 
 /// Lists captured HTTP exchanges from `CorextraDevTools.instance.network`.
 ///
-/// Below [_splitBreakpoint] this is a single-column, expandable list (the
-/// only way to fit both the list and its detail on a phone). Above it,
-/// it switches to a master/detail split — a compact list on the left,
-/// the selected request's full detail on the right — the same layout
-/// Flutter's own DevTools Network view uses once there's room for it.
+/// Above [_splitBreakpoint], this is a master/detail split — a compact
+/// list on the left, the selected request's full detail on the right.
+/// Below it, there's no room for both side by side, so tapping a row
+/// instead drills into a full-screen detail view (with a back button
+/// to return) rather than expanding inline in place. An inline
+/// accordion was tried first, but it nests a scrollable request body
+/// inside the same scroll region as the request list itself — on a
+/// large response, that pits the list's scroll against the body's,
+/// each capturing drags meant for the other. Drilling in, like the
+/// wide layout's detail pane, keeps exactly one scrollable on screen
+/// at a time.
 class NetworkTab extends StatefulWidget {
   const NetworkTab({super.key});
 
@@ -111,64 +118,128 @@ class _NetworkTabState extends State<NetworkTab> {
         // or been filtered out by the search box or filters; treat
         // either as "nothing selected" rather than pointing the detail
         // pane at something no longer in view.
-        final selected = (_selected != null && filtered.contains(_selected))
-            ? _selected
-            : null;
+        final selected =
+            (_selected != null && filtered.contains(_selected))
+                ? _selected
+                : null;
 
         final filtersActive =
             query.isNotEmpty ||
             _activeMethods.length != _MethodFilter.values.length ||
             _activeStatuses.length != _StatusFilter.values.length;
 
-        return Column(
-          children: [
-            DevToolsSearchField(
-              controller: _searchController,
-              hintText: 'Search by method, URL, or status',
-              onChanged: (value) => setState(() => _query = value),
-            ),
-            _NetworkFilterBar(
-              activeMethods: _activeMethods,
-              activeStatuses: _activeStatuses,
-              onMethodChanged: _toggleMethod,
-              onStatusChanged: _toggleStatus,
-              onReset: filtersActive ? _resetFilters : null,
-            ),
-            Expanded(
-              child: filtered.isEmpty
-                  ? DevToolsEmptyState(
-                      icon: LucideIcons.searchX,
-                      message: query.isEmpty
-                          ? 'No requests match the selected filters'
-                          : 'No requests match "${_query.trim()}"',
-                    )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        if (constraints.maxWidth >= _splitBreakpoint) {
-                          return _MasterDetailView(
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= _splitBreakpoint;
+
+            if (!isWide && selected != null) {
+              return _NarrowDetailScreen(
+                event: selected,
+                onBack: () => setState(() => _selected = null),
+              );
+            }
+
+            return Column(
+              children: [
+                DevToolsSearchField(
+                  controller: _searchController,
+                  hintText: 'Search by method, URL, or status',
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+                _NetworkFilterBar(
+                  activeMethods: _activeMethods,
+                  activeStatuses: _activeStatuses,
+                  onMethodChanged: _toggleMethod,
+                  onStatusChanged: _toggleStatus,
+                  onReset: filtersActive ? _resetFilters : null,
+                ),
+                Expanded(
+                  child:
+                      filtered.isEmpty
+                          ? DevToolsEmptyState(
+                            icon: LucideIcons.searchX,
+                            message:
+                                query.isEmpty
+                                    ? 'No requests match the selected filters'
+                                    : 'No requests match "${_query.trim()}"',
+                          )
+                          : isWide
+                          ? _MasterDetailView(
                             events: filtered,
                             selected: selected,
-                            onSelect: (event) =>
-                                setState(() => _selected = event),
-                          );
-                        }
-                        return ListView.separated(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          itemCount: filtered.length,
-                          separatorBuilder: (context, index) => const Divider(
-                            height: 1,
-                            indent: 16,
-                            endIndent: 16,
+                            onSelect:
+                                (event) => setState(() => _selected = event),
+                          )
+                          : DevToolsScrollToTop(
+                            builder:
+                                (context, controller) => ListView.separated(
+                                  controller: controller,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  itemCount: filtered.length,
+                                  separatorBuilder:
+                                      (context, index) => const Divider(
+                                        height: 1,
+                                        indent: 16,
+                                        endIndent: 16,
+                                      ),
+                                  itemBuilder: (context, index) {
+                                    final event = filtered[index];
+                                    return _CompactNetworkRow(
+                                      event: event,
+                                      selected: false,
+                                      onTap:
+                                          () =>
+                                              setState(() => _selected = event),
+                                    );
+                                  },
+                                ),
                           ),
-                          itemBuilder: (context, index) =>
-                              _NetworkEventTile(event: filtered[index]),
-                        );
-                      },
-                    ),
-            ),
-          ],
+                ),
+              ],
+            );
+          },
         );
       },
+    );
+  }
+}
+
+/// The narrow-screen (phone) detail view: a back button over the
+/// selected request's full detail, filling the whole tab — the
+/// narrow-width counterpart to [_MasterDetailView]'s right-hand pane.
+class _NarrowDetailScreen extends StatelessWidget {
+  const _NarrowDetailScreen({required this.event, required this.onBack});
+
+  final NetworkEvent event;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Back to requests',
+                icon: const Icon(LucideIcons.arrowLeft),
+                onPressed: onBack,
+              ),
+              Text(
+                'Request detail',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(child: _NetworkEventDetail(event: event)),
+      ],
     );
   }
 }
@@ -219,21 +290,26 @@ class _MasterDetailView extends StatelessWidget {
               ),
               const Divider(height: 1),
               Expanded(
-                child: ListView.separated(
-                  itemCount: events.length,
-                  separatorBuilder: (context, index) => const Divider(
-                    height: 1,
-                    indent: 12,
-                    endIndent: 12,
-                  ),
-                  itemBuilder: (context, index) {
-                    final event = events[index];
-                    return _CompactNetworkRow(
-                      event: event,
-                      selected: identical(event, selected),
-                      onTap: () => onSelect(event),
-                    );
-                  },
+                child: DevToolsScrollToTop(
+                  builder:
+                      (context, controller) => ListView.separated(
+                        controller: controller,
+                        itemCount: events.length,
+                        separatorBuilder:
+                            (context, index) => const Divider(
+                              height: 1,
+                              indent: 12,
+                              endIndent: 12,
+                            ),
+                        itemBuilder: (context, index) {
+                          final event = events[index];
+                          return _CompactNetworkRow(
+                            event: event,
+                            selected: identical(event, selected),
+                            onTap: () => onSelect(event),
+                          );
+                        },
+                      ),
                 ),
               ),
             ],
@@ -241,28 +317,22 @@ class _MasterDetailView extends StatelessWidget {
         ),
         const VerticalDivider(width: 1),
         Expanded(
-          child: selectedEvent == null
-              ? const DevToolsEmptyState(
-                  icon: LucideIcons.mousePointerClick,
-                  message: 'Select a request to see its details',
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: _NetworkEventDetail(
-                    event: selectedEvent,
-                    showSummary: true,
-                  ),
-                ),
+          child:
+              selectedEvent == null
+                  ? const DevToolsEmptyState(
+                    icon: LucideIcons.mousePointerClick,
+                    message: 'Select a request to see its details',
+                  )
+                  : _NetworkEventDetail(event: selectedEvent),
         ),
       ],
     );
   }
 }
 
-/// A single-line row for the master/detail list: status dot, method
-/// pill, path, and a duration/time caption — enough to scan quickly
-/// without needing to expand it, since the detail pane already shows
-/// everything else.
+/// A row for the master/detail list: status dot, method pill, path
+/// (wraps up to 3 lines, not 1, since a cut-off single line often
+/// loses the part that distinguishes it), and a duration/time caption.
 class _CompactNetworkRow extends StatelessWidget {
   const _CompactNetworkRow({
     required this.event,
@@ -284,9 +354,10 @@ class _CompactNetworkRow extends StatelessWidget {
     final durationMs = event.duration?.inMilliseconds;
 
     return Material(
-      color: selected
-          ? theme.colorScheme.primary.withValues(alpha: 0.12)
-          : Colors.transparent,
+      color:
+          selected
+              ? theme.colorScheme.primary.withValues(alpha: 0.12)
+              : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -313,7 +384,7 @@ class _CompactNetworkRow extends StatelessWidget {
                   children: [
                     Text(
                       path,
-                      maxLines: 1,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'monospace',
@@ -413,7 +484,14 @@ _MethodFilter _methodFilterFor(String method) {
 /// [_statusColorFor] already color-codes, split into distinct filters
 /// rather than left as one color, so e.g. "only server errors" is a
 /// single tap.
-enum _StatusFilter { success, redirect, clientError, serverError, pending, failed }
+enum _StatusFilter {
+  success,
+  redirect,
+  clientError,
+  serverError,
+  pending,
+  failed,
+}
 
 extension on _StatusFilter {
   String get label => switch (this) {
@@ -560,11 +638,12 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
     final theme = Theme.of(context);
     final allActive = widget.active.length == widget.values.length;
     final noneActive = widget.active.isEmpty;
-    final summary = allActive
-        ? 'All'
-        : noneActive
-        ? 'None'
-        : '${widget.active.length} selected';
+    final summary =
+        allActive
+            ? 'All'
+            : noneActive
+            ? 'None'
+            : '${widget.active.length} selected';
     final tintColor = theme.colorScheme.primary;
 
     return MenuAnchor(
@@ -574,7 +653,9 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         elevation: const WidgetStatePropertyAll(4),
-        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(vertical: 6),
+        ),
       ),
       menuChildren: [
         SizedBox(
@@ -602,18 +683,24 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
                   // unambiguously — its label can otherwise also
                   // appear elsewhere, e.g. as a method pill on an
                   // already-visible row underneath this open popup.
-                  key: ValueKey('filter-option-${widget.label}-${widget.labelOf(value)}'),
+                  key: ValueKey(
+                    'filter-option-${widget.label}-${widget.labelOf(value)}',
+                  ),
                   label: widget.labelOf(value),
                   color: widget.colorOf(value),
                   active: widget.active.contains(value),
-                  onTap: () => widget.onChanged(
-                    value,
-                    !widget.active.contains(value),
-                  ),
+                  onTap:
+                      () => widget.onChanged(
+                        value,
+                        !widget.active.contains(value),
+                      ),
                 ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
-                child: Divider(height: 1, color: theme.colorScheme.outlineVariant),
+                child: Divider(
+                  height: 1,
+                  color: theme.colorScheme.outlineVariant,
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(6, 4, 6, 0),
@@ -656,13 +743,16 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
       ],
       builder: (context, controller, child) {
         return Material(
-          color: allActive
-              ? theme.colorScheme.surfaceContainerHighest
-              : tintColor.withValues(alpha: 0.14),
+          color:
+              allActive
+                  ? theme.colorScheme.surfaceContainerHighest
+                  : tintColor.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(18),
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
-            onTap: () => controller.isOpen ? controller.close() : controller.open(),
+            onTap:
+                () =>
+                    controller.isOpen ? controller.close() : controller.open(),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
               child: Row(
@@ -671,9 +761,10 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
                   Icon(
                     LucideIcons.listFilter,
                     size: 13,
-                    color: allActive
-                        ? theme.colorScheme.onSurfaceVariant
-                        : tintColor,
+                    color:
+                        allActive
+                            ? theme.colorScheme.onSurfaceVariant
+                            : tintColor,
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -681,9 +772,8 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: allActive
-                          ? theme.colorScheme.onSurface
-                          : tintColor,
+                      color:
+                          allActive ? theme.colorScheme.onSurface : tintColor,
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -691,9 +781,10 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
                     summary,
                     style: TextStyle(
                       fontSize: 12,
-                      color: allActive
-                          ? theme.colorScheme.onSurfaceVariant
-                          : tintColor,
+                      color:
+                          allActive
+                              ? theme.colorScheme.onSurfaceVariant
+                              : tintColor,
                     ),
                   ),
                   const SizedBox(width: 2),
@@ -702,9 +793,10 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
                         ? LucideIcons.chevronUp
                         : LucideIcons.chevronDown,
                     size: 14,
-                    color: allActive
-                        ? theme.colorScheme.onSurfaceVariant
-                        : tintColor,
+                    color:
+                        allActive
+                            ? theme.colorScheme.onSurfaceVariant
+                            : tintColor,
                   ),
                 ],
               ),
@@ -773,9 +865,10 @@ class _FilterOptionRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                  color: active
-                      ? theme.colorScheme.onSurface
-                      : theme.colorScheme.onSurfaceVariant,
+                  color:
+                      active
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
@@ -786,139 +879,188 @@ class _FilterOptionRow extends StatelessWidget {
   }
 }
 
-/// The narrow-screen (phone) row: an expandable tile showing the same
-/// detail inline, since there's no room for a separate detail pane.
-class _NetworkEventTile extends StatelessWidget {
-  const _NetworkEventTile({required this.event});
-
-  final NetworkEvent event;
-
-  static final _timeFormat = DateFormat('HH:mm:ss');
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final mutedStyle = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
-    final uri = Uri.tryParse(event.url);
-    final path = (uri != null && uri.path.isNotEmpty) ? uri.path : event.url;
-    final query = (uri != null && uri.query.isNotEmpty) ? '?${uri.query}' : '';
-    final host = uri?.host ?? '';
-    final durationMs = event.duration?.inMilliseconds;
-    final statusColor = _statusColorFor(event);
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: statusColor, width: 3)),
-      ),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.fromLTRB(13, 4, 16, 4),
-        title: Row(
-          children: [
-            _Pill(text: event.method.toUpperCase(), color: _methodColor(event.method)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '$path$query',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            children: [
-              Text(
-                _statusLabelFor(event),
-                style: TextStyle(
-                  color: statusColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                durationMs != null ? '${durationMs}ms' : 'pending…',
-                style: mutedStyle,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  host.isNotEmpty
-                      ? '$host  ·  ${_timeFormat.format(event.startedAt)}'
-                      : _timeFormat.format(event.startedAt),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: mutedStyle,
-                ),
-              ),
-            ],
-          ),
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: _NetworkEventDetail(event: event),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The headers/body detail shared by the phone-sized expandable tile and
-/// the wide-screen detail pane.
+/// The method/status summary, request/response detail shared by the
+/// narrow-screen detail view and the wide-screen detail pane — laid
+/// out browser-devtools-style: a fixed one-line summary up top, then
+/// Headers / Payload / Response tabs below, each scrolling on its own.
+///
+/// Deliberately not one long stack of every section — the previous
+/// design put query params, request headers+body, and response
+/// headers+body all in one column, which meant a single huge response
+/// pushed everything else minutes of scrolling away. Tabs isolate each
+/// concern; only one tab's content occupies the screen at a time, so
+/// it can scroll independently without competing with anything else
+/// for the same drag.
+///
+/// The summary shows the method, path, status, duration, and time —
+/// but the path, though it can be long, is capped to one line with
+/// an ellipsis rather than left to wrap. That keeps this part of the
+/// screen a small, fixed number of lines no matter the window size,
+/// so it never needs (and never gets) a scrollbar of its own — two
+/// scroll regions stacked on one screen (a tiny one up top, a real
+/// one below) read as broken, not helpful. The full URL (base URL
+/// included — no need to repeat it up here alongside the path) and a
+/// long error message (if any) live inside the Headers tab instead,
+/// alongside request/response headers, where it's already expected
+/// to scroll.
 class _NetworkEventDetail extends StatelessWidget {
-  const _NetworkEventDetail({required this.event, this.showSummary = false});
+  const _NetworkEventDetail({required this.event});
 
   final NetworkEvent event;
-
-  /// Whether to show a method/URL/status header above the detail —
-  /// needed in the master/detail pane, where (unlike the expandable
-  /// tile) there's no title row already showing that information.
-  final bool showSummary;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showSummary) ...[
-          _DetailSummary(event: event),
-          const SizedBox(height: 16),
-        ],
-        if (event.errorMessage != null) ...[
-          _ErrorBanner(message: event.errorMessage!),
-          const SizedBox(height: 16),
-        ],
-        const _GroupHeader(icon: LucideIcons.arrowUpRight, label: 'Request'),
-        const SizedBox(height: 8),
-        _KeyValueList(data: event.requestHeaders),
-        const SizedBox(height: 8),
-        _CodeBlock(content: prettyFormatBody(event.requestBody)),
-        const SizedBox(height: 16),
-        const Divider(height: 1),
-        const SizedBox(height: 16),
-        const _GroupHeader(icon: LucideIcons.arrowDownLeft, label: 'Response'),
-        const SizedBox(height: 8),
-        _KeyValueList(data: event.responseHeaders),
-        const SizedBox(height: 8),
-        _CodeBlock(content: prettyFormatBody(event.responseBody)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: _DetailSummary(event: event),
+        ),
+        Expanded(
+          child: DefaultTabController(
+            length: 3,
+            child: Column(
+              children: [
+                const Divider(height: 1),
+                const TabBar(
+                  tabs: [
+                    Tab(text: 'Headers'),
+                    Tab(text: 'Payload'),
+                    Tab(text: 'Response'),
+                  ],
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _HeadersTab(event: event),
+                      _PayloadTab(event: event),
+                      _ResponseTab(event: event),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
 }
 
-/// Method + full URL + status/duration/time — the summary header shown
-/// above the detail pane in master/detail mode.
+/// The full URL, the error (if any), and request/response headers —
+/// everything about *how* the exchange was framed, as opposed to what
+/// was actually sent/received. The URL and error message live here,
+/// not in the fixed summary above the tabs, because either can run
+/// long (a verbose DioException message, an unusually long URL) and
+/// this tab already scrolls to accommodate that.
+class _HeadersTab extends StatelessWidget {
+  const _HeadersTab({required this.event});
+
+  final NetworkEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    return DevToolsScrollToTop(
+      builder:
+          (context, controller) => SingleChildScrollView(
+            controller: controller,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SubsectionLabel('URL'),
+                const SizedBox(height: 4),
+                SelectableText(
+                  event.url,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12.5,
+                  ),
+                ),
+                if (event.errorMessage != null) ...[
+                  const SizedBox(height: 20),
+                  const _SubsectionLabel('ERROR'),
+                  const SizedBox(height: 4),
+                  _ErrorBanner(message: event.errorMessage!),
+                ],
+                const SizedBox(height: 20),
+                const _SubsectionLabel('REQUEST HEADERS'),
+                const SizedBox(height: 4),
+                _KeyValueList(data: event.requestHeaders),
+                const SizedBox(height: 20),
+                const _SubsectionLabel('RESPONSE HEADERS'),
+                const SizedBox(height: 4),
+                _KeyValueList(data: event.responseHeaders),
+              ],
+            ),
+          ),
+    );
+  }
+}
+
+/// Query parameters and the request body — everything that was sent
+/// *to* the server.
+class _PayloadTab extends StatelessWidget {
+  const _PayloadTab({required this.event});
+
+  final NetworkEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    return DevToolsScrollToTop(
+      builder:
+          (context, controller) => SingleChildScrollView(
+            controller: controller,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (event.queryParameters.isNotEmpty) ...[
+                  const _SubsectionLabel('QUERY PARAMETERS'),
+                  const SizedBox(height: 4),
+                  _CodeBlock(content: prettyFormatBody(event.queryParameters)),
+                  const SizedBox(height: 20),
+                ],
+                const _SubsectionLabel('REQUEST BODY'),
+                const SizedBox(height: 4),
+                _CodeBlock(content: prettyFormatBody(event.requestBody)),
+              ],
+            ),
+          ),
+    );
+  }
+}
+
+/// The response body on its own — the thing most worth a full tab to
+/// itself, since it's the one most likely to be large.
+class _ResponseTab extends StatelessWidget {
+  const _ResponseTab({required this.event});
+
+  final NetworkEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    return DevToolsScrollToTop(
+      builder:
+          (context, controller) => SingleChildScrollView(
+            controller: controller,
+            padding: const EdgeInsets.all(16),
+            child: _CodeBlock(content: prettyFormatBody(event.responseBody)),
+          ),
+    );
+  }
+}
+
+/// Method + path + status/duration/time — a fixed-*height* block
+/// shown above the detail pane's tabs, even though the path itself
+/// can be long: it's capped to one line with an ellipsis rather than
+/// left free to wrap, so this stays a small, constant number of
+/// lines no matter the window size or how long the URL is. The full
+/// URL (base URL included) — worth reading in full, not just
+/// glancing at, and not worth repeating up here alongside the path —
+/// lives in the Headers tab, where scrolling is already expected.
 class _DetailSummary extends StatelessWidget {
   const _DetailSummary({required this.event});
 
@@ -931,11 +1073,12 @@ class _DetailSummary extends StatelessWidget {
     final theme = Theme.of(context);
     final statusColor = _statusColorFor(event);
     final durationMs = event.duration?.inMilliseconds;
+    final uri = Uri.tryParse(event.url);
+    final path = (uri != null && uri.path.isNotEmpty) ? uri.path : event.url;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _Pill(
               text: event.method.toUpperCase(),
@@ -943,8 +1086,10 @@ class _DetailSummary extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: SelectableText(
-                event.url,
+              child: Text(
+                path,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 13,
@@ -954,7 +1099,7 @@ class _DetailSummary extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Row(
           children: [
             Text(
@@ -1004,31 +1149,34 @@ class _Pill extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
       ),
     );
   }
 }
 
-/// A small "Request" / "Response" group header with a leading icon.
-class _GroupHeader extends StatelessWidget {
-  const _GroupHeader({required this.icon, required this.label});
+/// A small muted small-caps label distinguishing sub-parts of a tab
+/// (e.g. "QUERY PARAMETERS" vs. "REQUEST BODY" within the Payload tab).
+class _SubsectionLabel extends StatelessWidget {
+  const _SubsectionLabel(this.text);
 
-  final IconData icon;
-  final String label;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: theme.colorScheme.primary),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
-        ),
-      ],
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.6,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
     );
   }
 }
@@ -1054,41 +1202,46 @@ class _KeyValueList extends StatelessWidget {
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: data.entries
-          .map(
-            (entry) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 130,
-                    child: Text(
-                      entry.key,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
+      children:
+          data.entries
+              .map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 130,
+                        child: Text(
+                          entry.key,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  Expanded(
-                    child: SelectableText(
-                      entry.value,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
+                      Expanded(
+                        child: SelectableText(
+                          entry.value,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          )
-          .toList(),
+                ),
+              )
+              .toList(),
     );
   }
 }
 
 /// A monospace "code block" used for request/response bodies, with a
-/// one-tap copy button.
+/// one-tap copy button. Renders at its natural height and relies on
+/// the surrounding screen's own scroll — every place this is used now
+/// has exactly one scrollable per screen (see [NetworkTab]'s doc
+/// comment on why an inline-expanding, independently-scrolling variant
+/// was deliberately not used instead).
 class _CodeBlock extends StatelessWidget {
   const _CodeBlock({required this.content});
 

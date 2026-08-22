@@ -81,14 +81,33 @@ class _DemoScreenState extends State<DemoScreen> {
   void _notify(String message) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 2)));
+      ..showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+      );
   }
 
-  // --- GET 200: a plain successful request, to see a full response body. ---
+  // --- GET 200: a plain successful request, to see a full response
+  // body. ---
   Future<void> _sendGet200() async {
     _notify('GET 200 sent — check the Network tab');
     try {
-      await dio.get('/get', queryParameters: {'demo': 'corextra'});
+      await dio.get('/get');
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- GET with query parameters attached: shows up in the Network
+  // tab's Payload tab as its own "Query Parameters" block, pretty-
+  // printed with its own copy button, above the (empty, since there's
+  // no body on a GET) request body. ---
+  Future<void> _sendGetWithQueryParams() async {
+    _notify('GET (query params) sent — check the Payload tab');
+    try {
+      await dio.get(
+        '/get',
+        queryParameters: {'demo': 'corextra', 'page': '2', 'sort': 'desc'},
+      );
     } on DioException {
       // Not expected to fail, but surfaced in the Network tab either way.
     }
@@ -105,6 +124,145 @@ class _DemoScreenState extends State<DemoScreen> {
         '/post',
         data: {'name': 'corextra', 'feature': 'DevTools'},
         options: Options(headers: {'Authorization': 'Bearer secret-token'}),
+      );
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- PUT with a JSON body: same shape as the POST case above, but
+  // exercising a different HTTP method (PUT is typically used for a
+  // full replace of a resource). ---
+  Future<void> _sendPutWithBody() async {
+    _notify('PUT sent — check the Payload tab in the Network tab');
+    try {
+      await dio.put('/put', data: {'name': 'corextra', 'version': '2.0.0'});
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- PATCH with a raw (non-JSON) body: unlike the POST/PUT cases
+  // above, which send a Map that Dio JSON-encodes automatically, this
+  // sends a plain String with an explicit text/plain content type — a
+  // "raw body" request, the kind you'd send for a text payload, a
+  // pre-serialized document, or anything else that isn't a Dart
+  // Map/List. Shows that the Payload tab's body view isn't JSON-only:
+  // `prettyFormatBody` falls back to rendering it as plain text when
+  // it isn't valid JSON. ---
+  Future<void> _sendPatchWithRawBody() async {
+    _notify('PATCH (raw body) sent — check the Payload tab');
+    try {
+      await dio.patch(
+        '/patch',
+        data: 'raw text payload, not JSON — line one\nline two',
+        options: Options(contentType: Headers.textPlainContentType),
+      );
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- DELETE with no body at all: exercises a method that typically
+  // carries neither a request body nor query parameters, so the
+  // Payload tab's "no data" empty states are worth seeing too. ---
+  Future<void> _sendDelete() async {
+    _notify('DELETE sent — check the Network tab');
+    try {
+      await dio.delete('/delete');
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- A multipart/form-data request: a mix of plain text fields and
+  // an attached file, the kind you'd send for a file upload. Dio's
+  // FormData doesn't have a useful toString() of its own, so the
+  // Payload tab shows the actual field values and file metadata
+  // (name, filename, content type, byte length) instead of the
+  // unhelpful "Instance of 'FormData'" that a naive fallback would. ---
+  Future<void> _sendMultipartFormData() async {
+    _notify('Multipart form sent — check the Payload tab');
+    try {
+      final form = FormData.fromMap({'name': 'corextra', 'version': '2.0.0'});
+      form.files.add(
+        MapEntry(
+          'avatar',
+          MultipartFile.fromBytes(
+            List.generate(64, (i) => i % 256),
+            filename: 'avatar.png',
+            contentType: DioMediaType('image', 'png'),
+          ),
+        ),
+      );
+      await dio.post('/post', data: form);
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- A binary response (ResponseType.bytes): the response body is
+  // raw bytes, not JSON — a real PNG file, in this case. Naively
+  // JSON-encoding a byte list would produce a technically-valid but
+  // useless wall of numbers, one per line; the Response tab instead
+  // shows a byte count and a short hex preview (its "89 50 4e 47"
+  // opening is the actual PNG magic number). ---
+  Future<void> _sendBinaryResponse() async {
+    _notify('Binary response sent — check the Response tab');
+    try {
+      await dio.get(
+        '/image/png',
+        options: Options(responseType: ResponseType.bytes),
+      );
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- A non-JSON *response* (the PATCH case above covers a non-JSON
+  // *request*): httpbin's /html returns real HTML with a text/html
+  // content type, so Dio hands it back as a plain String rather than
+  // decoding it as JSON. `prettyFormatBody` can't (and shouldn't) try
+  // to indent HTML as if it were JSON — it just shows the markup
+  // as-is in the Response tab, unmangled. ---
+  Future<void> _sendHtmlResponse() async {
+    _notify('HTML response sent — check the Response tab');
+    try {
+      await dio.get('/html');
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- A body large enough to (a) be worth scrolling through, to see
+  // it rendered cleanly inside the Network tab's detail view's own
+  // Payload/Response tabs — each its own dedicated scroll, shared with
+  // nothing else on screen — and (b) comfortably exceed
+  // CorextraDevToolsInterceptor's default 20,000-char capture cap, so
+  // it's actually truncated, not just long. Even truncated, it should
+  // still render as properly indented JSON up to the cutoff point —
+  // not one long unreadable line — since truncation is decided against
+  // the pretty-printed form, not Dart's raw Map.toString(). Best seen
+  // on the *Payload* tab's "REQUEST BODY": that's our own clean Map,
+  // captured before Dio serializes it. The Response tab is large too,
+  // but httpbin's /anything wraps whatever's posted in extra fields
+  // (headers, args, url, and a raw-string duplicate of the body under
+  // "data") — genuinely part of that response, not a formatting bug,
+  // but it means the cutoff may land inside that plain string field
+  // rather than inside the nested list. ---
+  Future<void> _sendLargeResponse() async {
+    _notify('Large response sent — check the Payload tab in the Network tab');
+    try {
+      await dio.post(
+        '/anything',
+        data: {
+          'items': List.generate(
+            400,
+            (i) =>
+                'Item #$i — lorem ipsum dolor sit amet, consectetur '
+                'adipiscing elit.',
+          ),
+        },
       );
     } on DioException {
       // Not expected to fail, but surfaced in the Network tab either way.
@@ -134,8 +292,10 @@ class _DemoScreenState extends State<DemoScreen> {
   // --- Network error: no response at all (DNS/connection failure),
   // as opposed to the 400/500 cases above which do get a response. ---
   Future<void> _sendNetworkError() async {
-    _notify('Sending a request that will fail to connect — check the '
-        'Network tab');
+    _notify(
+      'Sending a request that will fail to connect — check the '
+      'Network tab',
+    );
     final failingDio = Dio(
       BaseOptions(baseUrl: 'https://this-domain-does-not-exist.invalid'),
     );
@@ -151,7 +311,9 @@ class _DemoScreenState extends State<DemoScreen> {
 
   void _validateForm() {
     final isValid = _formKey.currentState?.validate() ?? false;
-    _notify(isValid ? 'Form is valid ✓' : 'Form has errors — see the fields above');
+    _notify(
+      isValid ? 'Form is valid ✓' : 'Form has errors — see the fields above',
+    );
   }
 
   @override
@@ -180,7 +342,15 @@ class _DemoScreenState extends State<DemoScreen> {
                   _notify('Logged — check the DevTools Logs tab');
                 },
                 onGet200: _sendGet200,
+                onGetWithQueryParams: _sendGetWithQueryParams,
                 onPostWithBody: _sendPostWithBody,
+                onPutWithBody: _sendPutWithBody,
+                onPatchWithRawBody: _sendPatchWithRawBody,
+                onDelete: _sendDelete,
+                onMultipartFormData: _sendMultipartFormData,
+                onBinaryResponse: _sendBinaryResponse,
+                onHtmlResponse: _sendHtmlResponse,
+                onLargeResponse: _sendLargeResponse,
                 onGet400: _sendGet400,
                 onGet500: _sendGet500,
                 onNetworkError: _sendNetworkError,
@@ -193,7 +363,8 @@ class _DemoScreenState extends State<DemoScreen> {
                 showAnimatedText: showAnimatedText,
                 onUpdateState: () {
                   safeSetState(() {
-                    stateMessage = 'State updated safely at '
+                    stateMessage =
+                        'State updated safely at '
                         '${TimeOfDay.now().format(context)}';
                   });
                 },
@@ -271,7 +442,15 @@ class _DevToolsSection extends StatelessWidget {
     required this.onLogWarning,
     required this.onLogError,
     required this.onGet200,
+    required this.onGetWithQueryParams,
     required this.onPostWithBody,
+    required this.onPutWithBody,
+    required this.onPatchWithRawBody,
+    required this.onDelete,
+    required this.onMultipartFormData,
+    required this.onBinaryResponse,
+    required this.onHtmlResponse,
+    required this.onLargeResponse,
     required this.onGet400,
     required this.onGet500,
     required this.onNetworkError,
@@ -281,7 +460,15 @@ class _DevToolsSection extends StatelessWidget {
   final VoidCallback onLogWarning;
   final VoidCallback onLogError;
   final VoidCallback onGet200;
+  final VoidCallback onGetWithQueryParams;
   final VoidCallback onPostWithBody;
+  final VoidCallback onPutWithBody;
+  final VoidCallback onPatchWithRawBody;
+  final VoidCallback onDelete;
+  final VoidCallback onMultipartFormData;
+  final VoidCallback onBinaryResponse;
+  final VoidCallback onHtmlResponse;
+  final VoidCallback onLargeResponse;
   final VoidCallback onGet400;
   final VoidCallback onGet500;
   final VoidCallback onNetworkError;
@@ -291,23 +478,24 @@ class _DevToolsSection extends StatelessWidget {
     return _SectionCard(
       title: 'DevTools panel',
       icon: Icons.bug_report,
-      description: 'Tap the floating bubble to open the panel, then press '
+      description:
+          'Tap the floating bubble to open the panel, then press '
           'the buttons below and watch the Logs / Network / Performance '
-          'tabs update live.',
+          'tabs update live. Tips: tap Minimize to shrink the panel into a '
+          'floating window, then press and hold its bottom-right corner '
+          'before dragging to resize it. Tap a Network row (try "Large '
+          'response") to see its Headers / Payload / Response tabs — '
+          'each scrolls on its own. Its Payload tab is big enough to '
+          'get truncated, and still stays properly indented JSON even '
+          'once cut off.',
       children: [
-        Text(
-          'Logs',
-          style: Theme.of(context).textTheme.labelLarge,
-        ),
+        Text('Logs', style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            OutlinedButton(
-              onPressed: onLogInfo,
-              child: const Text('Log info'),
-            ),
+            OutlinedButton(onPressed: onLogInfo, child: const Text('Log info')),
             OutlinedButton(
               onPressed: onLogWarning,
               child: const Text('Log warning'),
@@ -328,13 +516,39 @@ class _DevToolsSection extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
+            FilledButton(onPressed: onGet200, child: const Text('GET 200')),
             FilledButton(
-              onPressed: onGet200,
-              child: const Text('GET 200'),
+              onPressed: onGetWithQueryParams,
+              child: const Text('GET (query params)'),
             ),
             FilledButton(
               onPressed: onPostWithBody,
               child: const Text('POST (body)'),
+            ),
+            FilledButton(
+              onPressed: onPutWithBody,
+              child: const Text('PUT (body)'),
+            ),
+            FilledButton(
+              onPressed: onPatchWithRawBody,
+              child: const Text('PATCH (raw body)'),
+            ),
+            FilledButton(onPressed: onDelete, child: const Text('DELETE')),
+            FilledButton(
+              onPressed: onMultipartFormData,
+              child: const Text('Multipart (FormData)'),
+            ),
+            FilledButton(
+              onPressed: onBinaryResponse,
+              child: const Text('Binary response'),
+            ),
+            FilledButton(
+              onPressed: onHtmlResponse,
+              child: const Text('HTML response'),
+            ),
+            FilledButton(
+              onPressed: onLargeResponse,
+              child: const Text('Large response'),
             ),
             FilledButton.tonal(
               onPressed: onGet400,
@@ -490,8 +704,7 @@ class _FormValidatorsSection extends StatelessWidget {
                   border: OutlineInputBorder(),
                 ),
                 obscureText: true,
-                validator: (val) =>
-                    FormValidators.password(val, minLength: 6),
+                validator: (val) => FormValidators.password(val, minLength: 6),
               ),
               const SizedBox(height: 12),
               TextFormField(
