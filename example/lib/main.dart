@@ -175,6 +175,65 @@ class _DemoScreenState extends State<DemoScreen> {
     }
   }
 
+  // --- A multipart/form-data request: a mix of plain text fields and
+  // an attached file, the kind you'd send for a file upload. Dio's
+  // FormData doesn't have a useful toString() of its own, so the
+  // Payload tab shows the actual field values and file metadata
+  // (name, filename, content type, byte length) instead of the
+  // unhelpful "Instance of 'FormData'" that a naive fallback would. ---
+  Future<void> _sendMultipartFormData() async {
+    _notify('Multipart form sent — check the Payload tab');
+    try {
+      final form = FormData.fromMap({'name': 'corextra', 'version': '2.0.0'});
+      form.files.add(
+        MapEntry(
+          'avatar',
+          MultipartFile.fromBytes(
+            List.generate(64, (i) => i % 256),
+            filename: 'avatar.png',
+            contentType: DioMediaType('image', 'png'),
+          ),
+        ),
+      );
+      await dio.post('/post', data: form);
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- A binary response (ResponseType.bytes): the response body is
+  // raw bytes, not JSON — a real PNG file, in this case. Naively
+  // JSON-encoding a byte list would produce a technically-valid but
+  // useless wall of numbers, one per line; the Response tab instead
+  // shows a byte count and a short hex preview (its "89 50 4e 47"
+  // opening is the actual PNG magic number). ---
+  Future<void> _sendBinaryResponse() async {
+    _notify('Binary response sent — check the Response tab');
+    try {
+      await dio.get(
+        '/image/png',
+        options: Options(responseType: ResponseType.bytes),
+      );
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
+  // --- A non-JSON *response* (the PATCH case above covers a non-JSON
+  // *request*): httpbin's /html returns real HTML with a text/html
+  // content type, so Dio hands it back as a plain String rather than
+  // decoding it as JSON. `prettyFormatBody` can't (and shouldn't) try
+  // to indent HTML as if it were JSON — it just shows the markup
+  // as-is in the Response tab, unmangled. ---
+  Future<void> _sendHtmlResponse() async {
+    _notify('HTML response sent — check the Response tab');
+    try {
+      await dio.get('/html');
+    } on DioException {
+      // Not expected to fail, but surfaced in the Network tab either way.
+    }
+  }
+
   // --- A body large enough to (a) be worth scrolling through, to see
   // it rendered cleanly inside the Network tab's detail view's own
   // Payload/Response tabs — each its own dedicated scroll, shared with
@@ -288,6 +347,9 @@ class _DemoScreenState extends State<DemoScreen> {
                 onPutWithBody: _sendPutWithBody,
                 onPatchWithRawBody: _sendPatchWithRawBody,
                 onDelete: _sendDelete,
+                onMultipartFormData: _sendMultipartFormData,
+                onBinaryResponse: _sendBinaryResponse,
+                onHtmlResponse: _sendHtmlResponse,
                 onLargeResponse: _sendLargeResponse,
                 onGet400: _sendGet400,
                 onGet500: _sendGet500,
@@ -385,6 +447,9 @@ class _DevToolsSection extends StatelessWidget {
     required this.onPutWithBody,
     required this.onPatchWithRawBody,
     required this.onDelete,
+    required this.onMultipartFormData,
+    required this.onBinaryResponse,
+    required this.onHtmlResponse,
     required this.onLargeResponse,
     required this.onGet400,
     required this.onGet500,
@@ -400,6 +465,9 @@ class _DevToolsSection extends StatelessWidget {
   final VoidCallback onPutWithBody;
   final VoidCallback onPatchWithRawBody;
   final VoidCallback onDelete;
+  final VoidCallback onMultipartFormData;
+  final VoidCallback onBinaryResponse;
+  final VoidCallback onHtmlResponse;
   final VoidCallback onLargeResponse;
   final VoidCallback onGet400;
   final VoidCallback onGet500;
@@ -466,6 +534,18 @@ class _DevToolsSection extends StatelessWidget {
               child: const Text('PATCH (raw body)'),
             ),
             FilledButton(onPressed: onDelete, child: const Text('DELETE')),
+            FilledButton(
+              onPressed: onMultipartFormData,
+              child: const Text('Multipart (FormData)'),
+            ),
+            FilledButton(
+              onPressed: onBinaryResponse,
+              child: const Text('Binary response'),
+            ),
+            FilledButton(
+              onPressed: onHtmlResponse,
+              child: const Text('HTML response'),
+            ),
             FilledButton(
               onPressed: onLargeResponse,
               child: const Text('Large response'),
