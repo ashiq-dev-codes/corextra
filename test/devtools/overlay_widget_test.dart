@@ -326,12 +326,14 @@ void main() {
       // Network is the first tab, so it's already showing.
       await tester.tap(find.text('/todos/1'));
       await tester.pumpAndSettle();
-      expect(find.text('Request'), findsOneWidget);
+      expect(find.text('Headers'), findsOneWidget);
+      expect(find.text('Payload'), findsOneWidget);
+      expect(find.text('Response'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Back to requests'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Request'), findsNothing);
+      expect(find.text('Headers'), findsNothing);
       expect(find.text('/todos/1'), findsOneWidget);
       expect(CorextraDevTools.instance.network.events, hasLength(1));
     },

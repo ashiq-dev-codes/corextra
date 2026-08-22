@@ -85,8 +85,14 @@ void main() {
         find.textContaining('https://example.test/todos/1'),
         findsOneWidget,
       );
-      expect(find.text('Request'), findsOneWidget);
+      expect(find.text('Headers'), findsOneWidget);
+      expect(find.text('Payload'), findsOneWidget);
       expect(find.text('Response'), findsOneWidget);
+
+      // The response body lives behind the "Response" tab.
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('"id": 1'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Back to requests'));
       await tester.pumpAndSettle();
@@ -115,8 +121,14 @@ void main() {
 
       expect(find.text('Select a request to see its details'), findsNothing);
       expect(find.textContaining('https://example.test/todos/1'), findsOneWidget);
-      expect(find.text('Request'), findsOneWidget);
+      expect(find.text('Headers'), findsOneWidget);
+      expect(find.text('Payload'), findsOneWidget);
       expect(find.text('Response'), findsOneWidget);
+
+      // The response body lives behind the "Response" tab.
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('"id": 1'), findsOneWidget);
 
       // Switching selection updates the detail pane.
       await tester.tap(find.text('/todos'));
@@ -288,8 +300,8 @@ void main() {
   );
 
   testWidgets(
-    'a large response body renders unbounded inside the detail screen '
-    '— no nested scrollable of its own to fight the page for drags',
+    'a large response body scrolls cleanly within its own Response tab '
+    '— no separate list sharing that scroll to fight it for drags',
     (tester) async {
       final store = CorextraDevTools.instance.network;
       final big = store.begin(method: 'GET', url: 'https://example.test/big');
@@ -304,11 +316,15 @@ void main() {
       await tester.tap(find.text('/big'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Response'), findsOneWidget);
+      // The request list — the giant body's would-be scroll rival in
+      // the old accordion design — isn't part of this screen at all.
+      expect(find.text('/big'), findsNothing);
+
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
       expect(find.textContaining('line 0'), findsOneWidget);
-      // No per-body Scrollbar wrapper — the body isn't independently
-      // scrollable; the page's own scroll carries it.
-      expect(find.byType(Scrollbar), findsNothing);
+      expect(find.textContaining('line 199'), findsOneWidget);
     },
   );
 }

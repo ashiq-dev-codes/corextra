@@ -228,12 +228,7 @@ class _NarrowDetailScreen extends StatelessWidget {
           ),
         ),
         const Divider(height: 1),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: _NetworkEventDetail(event: event, showSummary: true),
-          ),
-        ),
+        Expanded(child: _NetworkEventDetail(event: event)),
       ],
     );
   }
@@ -312,13 +307,7 @@ class _MasterDetailView extends StatelessWidget {
                   icon: LucideIcons.mousePointerClick,
                   message: 'Select a request to see its details',
                 )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: _NetworkEventDetail(
-                    event: selectedEvent,
-                    showSummary: true,
-                  ),
-                ),
+              : _NetworkEventDetail(event: selectedEvent),
         ),
       ],
     );
@@ -852,51 +841,139 @@ class _FilterOptionRow extends StatelessWidget {
   }
 }
 
-/// The headers/body detail shared by the narrow-screen detail view and
-/// the wide-screen detail pane.
+/// The method/URL/status summary, request/response detail shared by
+/// the narrow-screen detail view and the wide-screen detail pane —
+/// laid out browser-devtools-style: a fixed summary up top, then
+/// Headers / Payload / Response tabs below, each scrolling on its own.
+///
+/// Deliberately not one long stack of every section — the previous
+/// design put query params, request headers+body, and response
+/// headers+body all in one column, which meant a single huge response
+/// pushed everything else minutes of scrolling away. Tabs isolate each
+/// concern; only one tab's content occupies the screen at a time, so
+/// it can scroll independently without competing with anything else
+/// for the same drag (unlike a body scrolling inside the very list it
+/// sits in, there's nothing else sharing this space to compete with).
 class _NetworkEventDetail extends StatelessWidget {
-  const _NetworkEventDetail({required this.event, this.showSummary = false});
+  const _NetworkEventDetail({required this.event});
 
   final NetworkEvent event;
-
-  /// Whether to show a method/URL/status header above the detail —
-  /// needed in the master/detail pane, where (unlike the expandable
-  /// tile) there's no title row already showing that information.
-  final bool showSummary;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showSummary) ...[
-          _DetailSummary(event: event),
-          const SizedBox(height: 16),
-        ],
-        if (event.errorMessage != null) ...[
-          _ErrorBanner(message: event.errorMessage!),
-          const SizedBox(height: 16),
-        ],
-        const _GroupHeader(icon: LucideIcons.arrowUpRight, label: 'Request'),
-        const SizedBox(height: 8),
-        if (event.queryParameters.isNotEmpty) ...[
-          const _SubsectionLabel('QUERY PARAMETERS'),
-          const SizedBox(height: 4),
-          _CodeBlock(content: prettyFormatBody(event.queryParameters)),
-          const SizedBox(height: 12),
-        ],
-        _KeyValueList(data: event.requestHeaders),
-        const SizedBox(height: 8),
-        _CodeBlock(content: prettyFormatBody(event.requestBody)),
-        const SizedBox(height: 16),
-        const Divider(height: 1),
-        const SizedBox(height: 16),
-        const _GroupHeader(icon: LucideIcons.arrowDownLeft, label: 'Response'),
-        const SizedBox(height: 8),
-        _KeyValueList(data: event.responseHeaders),
-        const SizedBox(height: 8),
-        _CodeBlock(content: prettyFormatBody(event.responseBody)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: _DetailSummary(event: event),
+        ),
+        if (event.errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: _ErrorBanner(message: event.errorMessage!),
+          ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: DefaultTabController(
+            length: 3,
+            child: Column(
+              children: [
+                const Divider(height: 1),
+                const TabBar(
+                  tabs: [
+                    Tab(text: 'Headers'),
+                    Tab(text: 'Payload'),
+                    Tab(text: 'Response'),
+                  ],
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _HeadersTab(event: event),
+                      _PayloadTab(event: event),
+                      _ResponseTab(event: event),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+/// Request headers and response headers — everything about *how* the
+/// exchange was framed, as opposed to what was actually sent/received.
+class _HeadersTab extends StatelessWidget {
+  const _HeadersTab({required this.event});
+
+  final NetworkEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SubsectionLabel('REQUEST HEADERS'),
+          const SizedBox(height: 4),
+          _KeyValueList(data: event.requestHeaders),
+          const SizedBox(height: 20),
+          const _SubsectionLabel('RESPONSE HEADERS'),
+          const SizedBox(height: 4),
+          _KeyValueList(data: event.responseHeaders),
+        ],
+      ),
+    );
+  }
+}
+
+/// Query parameters and the request body — everything that was sent
+/// *to* the server.
+class _PayloadTab extends StatelessWidget {
+  const _PayloadTab({required this.event});
+
+  final NetworkEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (event.queryParameters.isNotEmpty) ...[
+            const _SubsectionLabel('QUERY PARAMETERS'),
+            const SizedBox(height: 4),
+            _CodeBlock(content: prettyFormatBody(event.queryParameters)),
+            const SizedBox(height: 20),
+          ],
+          const _SubsectionLabel('REQUEST BODY'),
+          const SizedBox(height: 4),
+          _CodeBlock(content: prettyFormatBody(event.requestBody)),
+        ],
+      ),
+    );
+  }
+}
+
+/// The response body on its own — the thing most worth a full tab to
+/// itself, since it's the one most likely to be large.
+class _ResponseTab extends StatelessWidget {
+  const _ResponseTab({required this.event});
+
+  final NetworkEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: _CodeBlock(content: prettyFormatBody(event.responseBody)),
     );
   }
 }
@@ -994,33 +1071,8 @@ class _Pill extends StatelessWidget {
   }
 }
 
-/// A small "Request" / "Response" group header with a leading icon.
-class _GroupHeader extends StatelessWidget {
-  const _GroupHeader({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: theme.colorScheme.primary),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
-        ),
-      ],
-    );
-  }
-}
-
-/// A small muted small-caps label distinguishing sub-parts of a group
-/// (e.g. "QUERY PARAMETERS" vs. "HEADERS" within "Request") — lighter
-/// weight than [_GroupHeader], which is reserved for the top-level
-/// Request/Response split.
+/// A small muted small-caps label distinguishing sub-parts of a tab
+/// (e.g. "QUERY PARAMETERS" vs. "REQUEST BODY" within the Payload tab).
 class _SubsectionLabel extends StatelessWidget {
   const _SubsectionLabel(this.text);
 
