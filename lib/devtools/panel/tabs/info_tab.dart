@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../devtools_controller.dart';
+import '../scroll_to_top_fab.dart';
 
 /// App + device details, plus current capture-buffer counts, sourced
 /// from `package_info_plus`/`device_info_plus` and
@@ -67,23 +68,33 @@ class _InfoTabState extends State<InfoTab> {
         }
         final data = snapshot.data!;
         final devtools = CorextraDevTools.instance;
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const _SectionHeader('App', icon: LucideIcons.layoutGrid),
-            _row('App name', data.packageInfo.appName),
-            _row('Package', data.packageInfo.packageName),
-            _row(
-              'Version',
-              '${data.packageInfo.version} (${data.packageInfo.buildNumber})',
-            ),
-            _row('Device', data.deviceLabel),
-            const Divider(height: 32),
-            const _SectionHeader('Capture buffers', icon: LucideIcons.database),
-            _row('Network events', '${devtools.network.events.length}'),
-            _row('Log entries', '${devtools.logs.entries.length}'),
-            _row('Frame samples', '${devtools.performance.samples.length}'),
-          ],
+        return DevToolsScrollToTop(
+          builder:
+              (context, controller) => ListView(
+                controller: controller,
+                padding: const EdgeInsets.all(16),
+                children: [
+                  const _SectionHeader('App', icon: LucideIcons.layoutGrid),
+                  _row('App name', data.packageInfo.appName),
+                  _row('Package', data.packageInfo.packageName),
+                  _row(
+                    'Version',
+                    '${data.packageInfo.version} (${data.packageInfo.buildNumber})',
+                  ),
+                  _row('Device', data.deviceLabel),
+                  const Divider(height: 32),
+                  const _SectionHeader(
+                    'Capture buffers',
+                    icon: LucideIcons.database,
+                  ),
+                  _row('Network events', '${devtools.network.events.length}'),
+                  _row('Log entries', '${devtools.logs.entries.length}'),
+                  _row(
+                    'Frame samples',
+                    '${devtools.performance.samples.length}',
+                  ),
+                ],
+              ),
         );
       },
     );

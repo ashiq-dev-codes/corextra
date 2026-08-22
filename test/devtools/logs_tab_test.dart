@@ -110,4 +110,36 @@ void main() {
       expect(find.textContaining('No logs match'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'with a long list, scrolling down reveals a scroll-to-top button '
+    'that jumps back to the first entry',
+    (tester) async {
+      final store = CorextraDevTools.instance.logs;
+      for (var i = 0; i < 60; i++) {
+        store.add(
+          LogEntry(
+            message: 'entry #$i',
+            level: LogLevel.info,
+            timestamp: DateTime.now(),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(_wrap());
+      await tester.pumpAndSettle();
+
+      // Newest-first: entry #59 (added last) starts at the top.
+      expect(find.text('entry #59'), findsOneWidget);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      expect(find.text('entry #59'), findsNothing);
+
+      await tester.tap(find.byTooltip('Scroll to top'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('entry #59'), findsOneWidget);
+    },
+  );
 }

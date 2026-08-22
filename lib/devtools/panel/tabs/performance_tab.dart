@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../devtools_controller.dart';
 import '../../models/frame_sample.dart';
 import '../empty_state.dart';
+import '../scroll_to_top_fab.dart';
 
 const _uiColor = Colors.blue;
 const _rasterColor = Colors.deepPurpleAccent;
@@ -50,19 +51,20 @@ class _PerformanceTabState extends State<PerformanceTab> {
           );
         }
 
-        final visible = samples.length > 100
-            ? samples.sublist(samples.length - 100)
-            : samples;
+        final visible =
+            samples.length > 100
+                ? samples.sublist(samples.length - 100)
+                : samples;
         final fps = store.currentFps;
         final jankyCount = store.recentJankyCount();
         final rss = store.lastRssBytes;
         final avgBuildMs = _averageMs(visible.map((s) => s.buildDuration));
         final avgRasterMs = _averageMs(visible.map((s) => s.rasterDuration));
 
-        final selectedIndex = (_selectedIndex != null &&
-                _selectedIndex! < visible.length)
-            ? _selectedIndex!
-            : visible.length - 1;
+        final selectedIndex =
+            (_selectedIndex != null && _selectedIndex! < visible.length)
+                ? _selectedIndex!
+                : visible.length - 1;
         final selected = visible[selectedIndex];
 
         // The PiP window's minimum size (280×360, most of it taken by
@@ -74,107 +76,113 @@ class _PerformanceTabState extends State<PerformanceTab> {
         return LayoutBuilder(
           builder: (context, viewport) {
             final chartHeight = (viewport.maxHeight * 0.4).clamp(120.0, 260.0);
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _StatCard(
-                        icon: LucideIcons.gauge,
-                        label: 'FPS',
-                        value: fps.toStringAsFixed(0),
-                        valueColor: _fpsColor(fps),
-                        caption: _fpsLabel(fps),
-                      ),
-                      _StatCard(
-                        icon: LucideIcons.timer,
-                        label: 'Frame time',
-                        value:
-                            '${(avgBuildMs + avgRasterMs).toStringAsFixed(1)} ms',
-                      ),
-                      _StatCard(
-                        icon: LucideIcons.triangleAlert,
-                        label: 'Janky frames',
-                        value: '$jankyCount / ${visible.length}',
-                        valueColor: jankyCount == 0
-                            ? Colors.green
-                            : Colors.red,
-                      ),
-                      if (rss != null)
-                        _StatCard(
-                          icon: LucideIcons.memoryStick,
-                          label: 'Memory (RSS)',
-                          value:
-                              '${(rss / (1024 * 1024)).toStringAsFixed(1)} MB',
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _ThreadSplitBar(buildMs: avgBuildMs, rasterMs: avgRasterMs),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 12,
-                    runSpacing: 4,
-                    children: [
-                      Text(
-                        'Frame times',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const _Legend(color: _uiColor, label: 'UI'),
-                      const _Legend(color: _rasterColor, label: 'Raster'),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Tap or drag the chart to inspect a frame. Frames past '
-                    'the dashed 16.7 ms (60 FPS) line are janky.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: chartHeight,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final size = Size(
-                          constraints.maxWidth,
-                          constraints.maxHeight,
-                        );
-                        void handle(Offset local) =>
-                            _selectAt(local, size.width, visible.length);
-                        return GestureDetector(
-                          onTapDown: (details) =>
-                              handle(details.localPosition),
-                          onPanUpdate: (details) =>
-                              handle(details.localPosition),
-                          child: CustomPaint(
-                            key: const Key('performance-frame-chart'),
-                            size: size,
-                            painter: _FrameTimelinePainter(
-                              samples: visible,
-                              selectedIndex: selectedIndex,
-                              gridColor: theme.colorScheme.outlineVariant,
+            return DevToolsScrollToTop(
+              builder:
+                  (context, controller) => SingleChildScrollView(
+                    controller: controller,
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _StatCard(
+                              icon: LucideIcons.gauge,
+                              label: 'FPS',
+                              value: fps.toStringAsFixed(0),
+                              valueColor: _fpsColor(fps),
+                              caption: _fpsLabel(fps),
                             ),
+                            _StatCard(
+                              icon: LucideIcons.timer,
+                              label: 'Frame time',
+                              value:
+                                  '${(avgBuildMs + avgRasterMs).toStringAsFixed(1)} ms',
+                            ),
+                            _StatCard(
+                              icon: LucideIcons.triangleAlert,
+                              label: 'Janky frames',
+                              value: '$jankyCount / ${visible.length}',
+                              valueColor:
+                                  jankyCount == 0 ? Colors.green : Colors.red,
+                            ),
+                            if (rss != null)
+                              _StatCard(
+                                icon: LucideIcons.memoryStick,
+                                label: 'Memory (RSS)',
+                                value:
+                                    '${(rss / (1024 * 1024)).toStringAsFixed(1)} MB',
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _ThreadSplitBar(
+                          buildMs: avgBuildMs,
+                          rasterMs: avgRasterMs,
+                        ),
+                        const SizedBox(height: 20),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          runSpacing: 4,
+                          children: [
+                            Text(
+                              'Frame times',
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const _Legend(color: _uiColor, label: 'UI'),
+                            const _Legend(color: _rasterColor, label: 'Raster'),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Tap or drag the chart to inspect a frame. Frames past '
+                          'the dashed 16.7 ms (60 FPS) line are janky.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
-                        );
-                      },
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: chartHeight,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final size = Size(
+                                constraints.maxWidth,
+                                constraints.maxHeight,
+                              );
+                              void handle(Offset local) =>
+                                  _selectAt(local, size.width, visible.length);
+                              return GestureDetector(
+                                onTapDown:
+                                    (details) => handle(details.localPosition),
+                                onPanUpdate:
+                                    (details) => handle(details.localPosition),
+                                child: CustomPaint(
+                                  key: const Key('performance-frame-chart'),
+                                  size: size,
+                                  painter: _FrameTimelinePainter(
+                                    samples: visible,
+                                    selectedIndex: selectedIndex,
+                                    gridColor: theme.colorScheme.outlineVariant,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _SelectedFrameDetail(
+                          sample: selected,
+                          isPinned: _selectedIndex != null,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  _SelectedFrameDetail(
-                    sample: selected,
-                    isPinned: _selectedIndex != null,
-                  ),
-                ],
-              ),
             );
           },
         );
@@ -303,7 +311,10 @@ class _ThreadSplitBar extends StatelessWidget {
             height: 6,
             child: Row(
               children: [
-                Expanded(flex: (buildFraction * 1000).round().clamp(1, 999), child: Container(color: _uiColor)),
+                Expanded(
+                  flex: (buildFraction * 1000).round().clamp(1, 999),
+                  child: Container(color: _uiColor),
+                ),
                 Expanded(
                   flex: ((1 - buildFraction) * 1000).round().clamp(1, 999),
                   child: Container(color: _rasterColor),
@@ -443,10 +454,7 @@ class _FrameTimelinePainter extends CustomPainter {
       final totalMicros = sample.totalDuration.inMicroseconds;
       if (totalMicros <= 0) continue;
 
-      final totalFraction = (totalMicros / _chartBudgetMicros).clamp(
-        0.05,
-        1.0,
-      );
+      final totalFraction = (totalMicros / _chartBudgetMicros).clamp(0.05, 1.0);
       final totalBarHeight = size.height * totalFraction;
       final buildShare = sample.buildDuration.inMicroseconds / totalMicros;
       final buildHeight = totalBarHeight * buildShare;
@@ -460,21 +468,11 @@ class _FrameTimelinePainter extends CustomPainter {
       }
 
       canvas.drawRect(
-        Rect.fromLTWH(
-          x,
-          size.height - buildHeight,
-          barW,
-          buildHeight,
-        ),
+        Rect.fromLTWH(x, size.height - buildHeight, barW, buildHeight),
         Paint()..color = _uiColor,
       );
       canvas.drawRect(
-        Rect.fromLTWH(
-          x,
-          size.height - totalBarHeight,
-          barW,
-          rasterHeight,
-        ),
+        Rect.fromLTWH(x, size.height - totalBarHeight, barW, rasterHeight),
         Paint()..color = _rasterColor,
       );
 
@@ -492,7 +490,11 @@ class _FrameTimelinePainter extends CustomPainter {
     const gap = 3.0;
     var x = 0.0;
     while (x < width) {
-      canvas.drawLine(Offset(x, y), Offset((x + dash).clamp(0, width), y), paint);
+      canvas.drawLine(
+        Offset(x, y),
+        Offset((x + dash).clamp(0, width), y),
+        paint,
+      );
       x += dash + gap;
     }
   }
