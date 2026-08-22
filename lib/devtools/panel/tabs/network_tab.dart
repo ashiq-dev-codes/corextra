@@ -901,6 +901,12 @@ class _NetworkEventDetail extends StatelessWidget {
         ],
         const _GroupHeader(icon: LucideIcons.arrowUpRight, label: 'Request'),
         const SizedBox(height: 8),
+        if (event.queryParameters.isNotEmpty) ...[
+          const _SubsectionLabel('QUERY PARAMETERS'),
+          const SizedBox(height: 4),
+          _CodeBlock(content: prettyFormatBody(event.queryParameters)),
+          const SizedBox(height: 12),
+        ],
         _KeyValueList(data: event.requestHeaders),
         const SizedBox(height: 8),
         _CodeBlock(content: prettyFormatBody(event.requestBody)),
@@ -1029,6 +1035,30 @@ class _GroupHeader extends StatelessWidget {
           style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
       ],
+    );
+  }
+}
+
+/// A small muted small-caps label distinguishing sub-parts of a group
+/// (e.g. "QUERY PARAMETERS" vs. "HEADERS" within "Request") — lighter
+/// weight than [_GroupHeader], which is reserved for the top-level
+/// Request/Response split.
+class _SubsectionLabel extends StatelessWidget {
+  const _SubsectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.6,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
     );
   }
 }

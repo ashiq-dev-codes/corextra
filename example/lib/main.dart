@@ -84,11 +84,17 @@ class _DemoScreenState extends State<DemoScreen> {
       ..showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 2)));
   }
 
-  // --- GET 200: a plain successful request, to see a full response body. ---
+  // --- GET 200: a plain successful request, to see a full response body —
+  // and, with a few query parameters attached, the Network tab's
+  // "Query Parameters" block (pretty-printed, with its own copy button,
+  // right above the request headers). ---
   Future<void> _sendGet200() async {
     _notify('GET 200 sent — check the Network tab');
     try {
-      await dio.get('/get', queryParameters: {'demo': 'corextra'});
+      await dio.get(
+        '/get',
+        queryParameters: {'demo': 'corextra', 'page': '2', 'sort': 'desc'},
+      );
     } on DioException {
       // Not expected to fail, but surfaced in the Network tab either way.
     }
@@ -293,7 +299,9 @@ class _DevToolsSection extends StatelessWidget {
       icon: Icons.bug_report,
       description: 'Tap the floating bubble to open the panel, then press '
           'the buttons below and watch the Logs / Network / Performance '
-          'tabs update live.',
+          'tabs update live. Tip: tap Minimize to shrink the panel into a '
+          'floating window, then press and hold its bottom-right corner '
+          'before dragging to resize it.',
       children: [
         Text(
           'Logs',

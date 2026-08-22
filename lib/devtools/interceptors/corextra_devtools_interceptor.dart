@@ -52,6 +52,9 @@ class CorextraDevToolsInterceptor extends Interceptor {
       final event = CorextraDevTools.instance.network.begin(
         method: options.method,
         url: '${options.baseUrl}${options.path}',
+        queryParameters: options.queryParameters.map(
+          (key, value) => MapEntry(key, value.toString()),
+        ),
         requestHeaders: _redactHeaders(
           options.headers.map((key, value) => MapEntry(key, value.toString())),
         ),

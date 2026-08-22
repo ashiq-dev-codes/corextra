@@ -21,6 +21,7 @@ class NetworkEventStore extends ChangeNotifier {
   NetworkEvent begin({
     required String method,
     required String url,
+    Map<String, String> queryParameters = const {},
     Map<String, String> requestHeaders = const {},
     Object? requestBody,
   }) {
@@ -29,6 +30,7 @@ class NetworkEventStore extends ChangeNotifier {
       method: method,
       url: url,
       startedAt: DateTime.now(),
+      queryParameters: queryParameters,
       requestHeaders: requestHeaders,
       requestBody: requestBody,
     );

@@ -317,28 +317,63 @@ void main() {
 
       final initialSize = tester.getSize(find.byType(DevToolsFloatingWindow));
 
-      // Grow it.
-      await tester.drag(
+      // Grow it: the handle only starts resizing after a long press, so
+      // a bare `tester.drag` (an instant tap-drag) no longer applies —
+      // hold first, then move.
+      await _longPressDrag(
+        tester,
         find.byKey(const Key('devtools-resize-handle')),
         const Offset(60, 60),
       );
-      await tester.pump();
       final grownSize = tester.getSize(find.byType(DevToolsFloatingWindow));
       expect(grownSize.width, greaterThan(initialSize.width));
       expect(grownSize.height, greaterThan(initialSize.height));
 
       // Shrink it far past the minimum — it should clamp, not vanish.
-      await tester.drag(
+      await _longPressDrag(
+        tester,
         find.byKey(const Key('devtools-resize-handle')),
         const Offset(-1000, -1000),
       );
-      await tester.pump();
       final shrunkSize = tester.getSize(find.byType(DevToolsFloatingWindow));
       expect(shrunkSize.width, 280);
       expect(shrunkSize.height, 360);
 
       // Still fully functional at its minimum size.
       expect(find.text('Network'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a bare tap-drag on the resize handle, without holding first, does '
+    'not resize the floating window',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Minimize'));
+      await tester.pumpAndSettle();
+
+      final initialSize = tester.getSize(find.byType(DevToolsFloatingWindow));
+
+      await tester.drag(
+        find.byKey(const Key('devtools-resize-handle')),
+        const Offset(60, 60),
+      );
+      await tester.pump();
+
+      expect(
+        tester.getSize(find.byType(DevToolsFloatingWindow)),
+        initialSize,
+      );
     },
   );
 
@@ -652,4 +687,21 @@ void main() {
       expect(tester.getTopLeft(windowFinder).dy, 59);
     },
   );
+}
+
+/// Simulates the resize handle's required gesture: press and hold long
+/// enough for `onLongPressStart` to fire, then drag by [offset] before
+/// releasing — a bare `tester.drag` only performs the up-front move and
+/// never triggers the long press in the first place.
+Future<void> _longPressDrag(
+  WidgetTester tester,
+  Finder finder,
+  Offset offset,
+) async {
+  final gesture = await tester.startGesture(tester.getCenter(finder));
+  await tester.pump(const Duration(milliseconds: 600));
+  await gesture.moveBy(offset);
+  await tester.pump();
+  await gesture.up();
+  await tester.pump();
 }

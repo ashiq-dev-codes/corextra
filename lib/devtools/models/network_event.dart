@@ -5,6 +5,7 @@ class NetworkEvent {
     required this.method,
     required this.url,
     required this.startedAt,
+    this.queryParameters = const {},
     this.requestHeaders = const {},
     this.requestBody,
   });
@@ -13,6 +14,7 @@ class NetworkEvent {
   final String method;
   final String url;
   final DateTime startedAt;
+  final Map<String, String> queryParameters;
   final Map<String, String> requestHeaders;
   final Object? requestBody;
 
