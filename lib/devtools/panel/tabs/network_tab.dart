@@ -841,9 +841,9 @@ class _FilterOptionRow extends StatelessWidget {
   }
 }
 
-/// The method/URL/status summary, request/response detail shared by
-/// the narrow-screen detail view and the wide-screen detail pane —
-/// laid out browser-devtools-style: a fixed summary up top, then
+/// The method/status summary, request/response detail shared by the
+/// narrow-screen detail view and the wide-screen detail pane — laid
+/// out browser-devtools-style: a fixed one-line summary up top, then
 /// Headers / Payload / Response tabs below, each scrolling on its own.
 ///
 /// Deliberately not one long stack of every section — the previous
@@ -852,8 +852,18 @@ class _FilterOptionRow extends StatelessWidget {
 /// pushed everything else minutes of scrolling away. Tabs isolate each
 /// concern; only one tab's content occupies the screen at a time, so
 /// it can scroll independently without competing with anything else
-/// for the same drag (unlike a body scrolling inside the very list it
-/// sits in, there's nothing else sharing this space to compete with).
+/// for the same drag.
+///
+/// The summary shows the method, path, base URL, status, duration,
+/// and time — but the path and base URL, though they can be long, are
+/// each capped to one line with an ellipsis rather than left to wrap.
+/// That keeps this part of the screen a small, fixed number of lines
+/// no matter the window size, so it never needs (and never gets) a
+/// scrollbar of its own — two scroll regions stacked on one screen (a
+/// tiny one up top, a real one below) read as broken, not helpful.
+/// The unabridged, selectable URL and a long error message (if any)
+/// live inside the Headers tab instead, alongside request/response
+/// headers, where it's already expected to scroll.
 class _NetworkEventDetail extends StatelessWidget {
   const _NetworkEventDetail({required this.event});
 
@@ -865,15 +875,9 @@ class _NetworkEventDetail extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: _DetailSummary(event: event),
         ),
-        if (event.errorMessage != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: _ErrorBanner(message: event.errorMessage!),
-          ),
-        const SizedBox(height: 4),
         Expanded(
           child: DefaultTabController(
             length: 3,
@@ -906,8 +910,12 @@ class _NetworkEventDetail extends StatelessWidget {
   }
 }
 
-/// Request headers and response headers — everything about *how* the
-/// exchange was framed, as opposed to what was actually sent/received.
+/// The full URL, the error (if any), and request/response headers —
+/// everything about *how* the exchange was framed, as opposed to what
+/// was actually sent/received. The URL and error message live here,
+/// not in the fixed summary above the tabs, because either can run
+/// long (a verbose DioException message, an unusually long URL) and
+/// this tab already scrolls to accommodate that.
 class _HeadersTab extends StatelessWidget {
   const _HeadersTab({required this.event});
 
@@ -920,6 +928,19 @@ class _HeadersTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const _SubsectionLabel('URL'),
+          const SizedBox(height: 4),
+          SelectableText(
+            event.url,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+          ),
+          if (event.errorMessage != null) ...[
+            const SizedBox(height: 20),
+            const _SubsectionLabel('ERROR'),
+            const SizedBox(height: 4),
+            _ErrorBanner(message: event.errorMessage!),
+          ],
+          const SizedBox(height: 20),
           const _SubsectionLabel('REQUEST HEADERS'),
           const SizedBox(height: 4),
           _KeyValueList(data: event.requestHeaders),
@@ -978,8 +999,14 @@ class _ResponseTab extends StatelessWidget {
   }
 }
 
-/// Method + full URL + status/duration/time — the summary header shown
-/// above the detail pane in master/detail mode.
+/// Method + path + status/duration/time, plus the base URL — a
+/// fixed-*height* block shown above the detail pane's tabs, even
+/// though the path and base URL can each be long: both are capped to
+/// one line with an ellipsis rather than left free to wrap, so this
+/// stays a small, constant number of lines no matter the window size
+/// or how long the URL is. The unabridged, selectable URL — worth
+/// reading in full, not just glancing at — lives in the Headers tab,
+/// where scrolling is already expected.
 class _DetailSummary extends StatelessWidget {
   const _DetailSummary({required this.event});
 
@@ -992,11 +1019,13 @@ class _DetailSummary extends StatelessWidget {
     final theme = Theme.of(context);
     final statusColor = _statusColorFor(event);
     final durationMs = event.duration?.inMilliseconds;
+    final uri = Uri.tryParse(event.url);
+    final path = (uri != null && uri.path.isNotEmpty) ? uri.path : event.url;
+    final baseUrl = uri != null ? '${uri.scheme}://${uri.authority}' : '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _Pill(
               text: event.method.toUpperCase(),
@@ -1004,8 +1033,10 @@ class _DetailSummary extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: SelectableText(
-                event.url,
+              child: Text(
+                path,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 13,
@@ -1015,7 +1046,32 @@ class _DetailSummary extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        if (baseUrl.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Text(
+                'Base URL: ',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  baseUrl,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 6),
         Row(
           children: [
             Text(
