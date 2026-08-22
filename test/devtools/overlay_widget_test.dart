@@ -298,6 +298,45 @@ void main() {
   );
 
   testWidgets(
+    "the floating window's Collapse all button collapses an expanded "
+    'row in the Network tab, without clearing any captured data',
+    (tester) async {
+      final event = CorextraDevTools.instance.network.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+      );
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      CorextraDevTools.instance.network.complete(event);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Minimize'));
+      await tester.pumpAndSettle();
+
+      // Network is the first tab, so it's already showing.
+      await tester.tap(find.byType(ExpansionTile));
+      await tester.pumpAndSettle();
+      expect(find.text('Request'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Collapse all'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Request'), findsNothing);
+      expect(CorextraDevTools.instance.network.events, hasLength(1));
+    },
+  );
+
+  testWidgets(
     'dragging the bottom-right corner grip resizes the floating window, '
     'clamped between its min and max size',
     (tester) async {

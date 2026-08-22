@@ -265,4 +265,31 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'bumping CorextraDevTools.instance.networkCollapseSignal collapses '
+    'every expanded row in the narrow-layout list',
+    (tester) async {
+      _seedTwoEvents();
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+      expect(find.byType(ExpansionTile), findsNWidgets(2));
+
+      // Expand both rows — their "Request"/"Response" detail (built
+      // only while expanded; see ExpansionTile's default
+      // `maintainState: false`) becomes visible.
+      for (final tile in find.byType(ExpansionTile).evaluate().toList()) {
+        await tester.tap(find.byWidget(tile.widget));
+      }
+      await tester.pumpAndSettle();
+      expect(find.text('Request'), findsNWidgets(2));
+
+      CorextraDevTools.instance.collapseAllNetworkRows();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ExpansionTile), findsNWidgets(2));
+      expect(find.text('Request'), findsNothing);
+    },
+  );
 }

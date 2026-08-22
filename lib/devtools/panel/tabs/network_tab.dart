@@ -152,16 +152,32 @@ class _NetworkTabState extends State<NetworkTab> {
                                 setState(() => _selected = event),
                           );
                         }
-                        return ListView.separated(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          itemCount: filtered.length,
-                          separatorBuilder: (context, index) => const Divider(
-                            height: 1,
-                            indent: 16,
-                            endIndent: 16,
+                        return ValueListenableBuilder<int>(
+                          valueListenable:
+                              CorextraDevTools.instance.networkCollapseSignal,
+                          builder: (context, collapseGeneration, _) =>
+                              ListView.separated(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            itemCount: filtered.length,
+                            separatorBuilder: (context, index) =>
+                                const Divider(
+                              height: 1,
+                              indent: 16,
+                              endIndent: 16,
+                            ),
+                            itemBuilder: (context, index) => _NetworkEventTile(
+                              // Re-keying on the collapse generation forces
+                              // every tile to remount collapsed — an
+                              // ExpansionTile only reads `initiallyExpanded`
+                              // once, in initState, so changing it on an
+                              // already-mounted tile of the same key
+                              // wouldn't otherwise close it.
+                              key: ValueKey(
+                                '${filtered[index].id}-$collapseGeneration',
+                              ),
+                              event: filtered[index],
+                            ),
                           ),
-                          itemBuilder: (context, index) =>
-                              _NetworkEventTile(event: filtered[index]),
                         );
                       },
                     ),
@@ -789,7 +805,7 @@ class _FilterOptionRow extends StatelessWidget {
 /// The narrow-screen (phone) row: an expandable tile showing the same
 /// detail inline, since there's no room for a separate detail pane.
 class _NetworkEventTile extends StatelessWidget {
-  const _NetworkEventTile({required this.event});
+  const _NetworkEventTile({super.key, required this.event});
 
   final NetworkEvent event;
 
