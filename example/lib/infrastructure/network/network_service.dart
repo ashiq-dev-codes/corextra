@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:corextra/corextra.dart';
 
+import 'fake_scenario_interceptor.dart';
+
 /// Network service that provides Dio instance configured with interceptors
 class NetworkService {
   NetworkService() {
@@ -9,6 +11,8 @@ class NetworkService {
     _dio.interceptors.add(
       const CorextraDevToolsInterceptor(hiddenHeaders: {'authorization'}),
     );
+    // Added last so the interceptors above still observe the faked response/error.
+    _dio.interceptors.add(const FakeScenarioInterceptor());
   }
 
   late final Dio _dio;

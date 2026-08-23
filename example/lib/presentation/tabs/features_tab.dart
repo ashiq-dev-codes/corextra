@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:corextra/corextra.dart';
+import 'package:flutter/material.dart';
+
 import '../../application/demo_controller.dart';
 import '../widgets/section_card.dart';
 
@@ -83,10 +84,14 @@ class FeaturesTab extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(controller.stateMessage, style: Theme.of(context).textTheme.bodyMedium),
+            child: Text(
+              controller.stateMessage,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -124,11 +129,16 @@ class FeaturesTab extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.celebration_rounded, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                    Icon(
+                      Icons.celebration_rounded,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
                     const SizedBox(width: 10),
                     Text(
                       'Hello from Corextra!',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
                     ),
                   ],
                 ),
@@ -213,14 +223,26 @@ class _StatChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: TextStyle(fontSize: 11, color: onColor.withValues(alpha: 0.8))),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: onColor.withValues(alpha: 0.8),
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: onColor)),
+          Text(
+            value,
+            style: TextStyle(fontWeight: FontWeight.w700, color: onColor),
+          ),
         ],
       ),
     );

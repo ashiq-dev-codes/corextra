@@ -73,13 +73,9 @@ extension NonNullableStringExtensions on String {
   /// 'hello WORLD'.capitalize(); // returns 'Hello World'
   /// ```
   String capitalize() {
-    return split(' ')
-        .map(
-          (word) =>
-              word.isNotEmpty
-                  ? word[0].toUpperCase() + word.substring(1).toLowerCase()
-                  : '',
-        )
+    return split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
         .join(' ');
   }
 

@@ -22,6 +22,18 @@ class DemoController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void logInfo() {
+    debugLog('User tapped the checkout button');
+  }
+
+  void logWarning() {
+    debugLog('Cache miss for key "user_profile_42" — refetching', level: LogLevel.warning);
+  }
+
+  void logError() {
+    AppLogger.logError('Failed to decode push notification payload');
+  }
+
   Future<void> sendGet200() async {
     try {
       await networkService.dio.get('/get');
@@ -138,7 +150,7 @@ class DemoController extends ChangeNotifier {
 
   Future<void> sendGet400() async {
     try {
-      await networkService.dio.get('/status/400');
+      await networkService.dio.get('/simulate/400');
     } on DioException {
       /* ignore */
     }
@@ -146,7 +158,7 @@ class DemoController extends ChangeNotifier {
 
   Future<void> sendUnauthorized() async {
     try {
-      await networkService.dio.get('/status/401');
+      await networkService.dio.get('/simulate/401');
     } on DioException {
       /* ignore */
     }
@@ -154,7 +166,42 @@ class DemoController extends ChangeNotifier {
 
   Future<void> sendForbidden() async {
     try {
-      await networkService.dio.get('/status/403');
+      await networkService.dio.get('/simulate/403');
+    } on DioException {
+      /* ignore */
+    }
+  }
+
+  Future<void> sendNotFound() async {
+    try {
+      await networkService.dio.get('/simulate/404');
+    } on DioException {
+      /* ignore */
+    }
+  }
+
+  Future<void> sendConflict() async {
+    try {
+      await networkService.dio.post('/simulate/409', data: {'email': 'jane@example.com'});
+    } on DioException {
+      /* ignore */
+    }
+  }
+
+  Future<void> sendValidationError() async {
+    try {
+      await networkService.dio.post(
+        '/simulate/422',
+        data: {'email': 'not-an-email', 'password': '123'},
+      );
+    } on DioException {
+      /* ignore */
+    }
+  }
+
+  Future<void> sendRateLimited() async {
+    try {
+      await networkService.dio.get('/simulate/429');
     } on DioException {
       /* ignore */
     }
@@ -162,7 +209,55 @@ class DemoController extends ChangeNotifier {
 
   Future<void> sendGet500() async {
     try {
-      await networkService.dio.get('/status/500');
+      await networkService.dio.get('/simulate/500');
+    } on DioException {
+      /* ignore */
+    }
+  }
+
+  Future<void> sendBadGateway() async {
+    try {
+      await networkService.dio.get('/simulate/502');
+    } on DioException {
+      /* ignore */
+    }
+  }
+
+  Future<void> sendMaintenanceMode() async {
+    try {
+      await networkService.dio.get('/simulate/503');
+    } on DioException {
+      /* ignore */
+    }
+  }
+
+  Future<void> sendGatewayTimeout() async {
+    try {
+      await networkService.dio.get('/simulate/504');
+    } on DioException {
+      /* ignore */
+    }
+  }
+
+  Future<void> sendMalformedJson() async {
+    try {
+      await networkService.dio.get('/simulate/malformed-json');
+    } on DioException {
+      /* ignore */
+    }
+  }
+
+  Future<void> sendHtmlErrorPage() async {
+    try {
+      await networkService.dio.get('/simulate/html-error-page');
+    } on DioException {
+      /* ignore */
+    }
+  }
+
+  Future<void> sendEmptyResponse() async {
+    try {
+      await networkService.dio.get('/simulate/empty-204');
     } on DioException {
       /* ignore */
     }
@@ -210,6 +305,35 @@ class DemoController extends ChangeNotifier {
       /* ignore */
     } finally {
       failingDio.close();
+    }
+  }
+
+  Future<void> sendConnectionTimeout() async {
+    final unreachableDio = Dio(
+      BaseOptions(
+        baseUrl: 'https://10.255.255.1',
+        connectTimeout: const Duration(seconds: 2),
+      ),
+    );
+    unreachableDio.interceptors.add(const CorextraDevToolsInterceptor());
+    try {
+      await unreachableDio.get('/x');
+    } on DioException {
+      /* ignore */
+    } finally {
+      unreachableDio.close();
+    }
+  }
+
+  Future<void> sendCancelledRequest() async {
+    final cancelToken = CancelToken();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      cancelToken.cancel('User navigated away');
+    });
+    try {
+      await networkService.dio.get('/delay/3', cancelToken: cancelToken);
+    } on DioException {
+      /* ignore */
     }
   }
 

@@ -66,7 +66,10 @@ class _DemoScreenState extends State<DemoScreen> {
               borderRadius: BorderRadius.circular(12),
               color: colorScheme.primaryContainer,
             ),
-            indicatorPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            indicatorPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 8,
+            ),
             dividerColor: Colors.transparent,
             labelColor: colorScheme.onPrimaryContainer,
             unselectedLabelColor: colorScheme.onSurfaceVariant,
@@ -90,10 +93,7 @@ class _DemoScreenState extends State<DemoScreen> {
                   confirmController: _confirmController,
                   onValidate: _validateForm,
                 ),
-                DevToolsTab(
-                  controller: _controller,
-                  onNotify: _notify,
-                ),
+                DevToolsTab(controller: _controller, onNotify: _notify),
               ],
             );
           },
