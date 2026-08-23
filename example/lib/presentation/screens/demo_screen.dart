@@ -54,15 +54,26 @@ class _DemoScreenState extends State<DemoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('corextra Demo'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.apps), text: 'Features'),
-              Tab(icon: Icon(Icons.bug_report), text: 'DevTools'),
+          title: const Text('corextra'),
+          bottom: TabBar(
+            indicatorSize: TabBarIndicatorSize.tab,
+            indicator: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: colorScheme.primaryContainer,
+            ),
+            indicatorPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            dividerColor: Colors.transparent,
+            labelColor: colorScheme.onPrimaryContainer,
+            unselectedLabelColor: colorScheme.onSurfaceVariant,
+            splashBorderRadius: BorderRadius.circular(12),
+            tabs: const [
+              Tab(icon: Icon(Icons.apps_rounded), text: 'Features'),
+              Tab(icon: Icon(Icons.bug_report_rounded), text: 'DevTools'),
             ],
           ),
         ),
