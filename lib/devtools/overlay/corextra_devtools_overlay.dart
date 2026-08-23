@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -28,10 +29,9 @@ enum _DisplayMode { closed, open, pip }
 ///   home: const HomeScreen(),
 /// )
 /// ```
-/// Visibility defaults to [CorextraDevTools.instance.enabled] (which
-/// itself defaults to `kDebugMode`), so this can never accidentally stay
-/// active in a release build. Pass [enabled] to seed it explicitly, or
-/// toggle at runtime via `CorextraDevTools.instance.enabled = false;`.
+/// Visibility defaults to `false` (disabled) — pass [enabled] to
+/// explicitly enable it (e.g., `enabled: true` for demo videos). Toggle
+/// at runtime via `CorextraDevTools.instance.enabled = false;`.
 ///
 /// The bubble is a small, always-present widget with no ancestor
 /// `Overlay` (see [DevToolsBubble] for why) — it only ever occupies its
@@ -46,10 +46,14 @@ enum _DisplayMode { closed, open, pip }
 /// available width — e.g. a master/detail split on larger screens —
 /// rather than the panel itself changing shape.
 class CorextraDevToolsOverlay extends StatefulWidget {
-  const CorextraDevToolsOverlay({super.key, required this.child, this.enabled});
+  const CorextraDevToolsOverlay({
+    super.key,
+    required this.child,
+    this.enabled = kDebugMode,
+  });
 
+  final bool enabled;
   final Widget child;
-  final bool? enabled;
 
   @override
   State<CorextraDevToolsOverlay> createState() =>
@@ -64,9 +68,7 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay> {
   @override
   void initState() {
     super.initState();
-    if (widget.enabled != null) {
-      CorextraDevTools.instance.enabled = widget.enabled!;
-    }
+    CorextraDevTools.instance.enabled = widget.enabled;
     CorextraDevTools.instance.enabledNotifier.addListener(_onEnabledChanged);
     _syncCapture();
   }
@@ -135,6 +137,7 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay> {
     return Directionality(
       textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
       child: Stack(
+        fit: StackFit.expand,
         children: [
           widget.child,
           if (_mode == _DisplayMode.closed) DevToolsBubble(onTap: _openPanel),

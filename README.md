@@ -98,7 +98,7 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 
 ```yaml
 dependencies:
-  corextra: ^1.2.1
+  corextra: ^1.2.2
 ```
 
 Then import it in your Dart code:
