@@ -27,8 +27,11 @@ class MyApp extends StatelessWidget {
       // Wrap with CorextraDevToolsOverlay to get a floating in-app
       // inspector (Network / Logs / Performance / Info tabs). Tap the
       // bubble in the corner to open it.
-      builder: (context, child) =>
-          CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => CorextraDevToolsOverlay(
+        // Force the bubble on in release builds for the demo video.
+        enabled: true,
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: const DemoScreen(),
     );
   }
@@ -81,7 +84,11 @@ class _DemoScreenState extends State<DemoScreen> {
 
   Future<void> _sendGet200() async {
     _notify('GET 200 sent — check the Network tab');
-    try { await dio.get('/get'); } on DioException { /* ignore */ }
+    try {
+      await dio.get('/get');
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendGetWithQueryParams() async {
@@ -91,7 +98,9 @@ class _DemoScreenState extends State<DemoScreen> {
         '/get',
         queryParameters: {'demo': 'corextra', 'page': '2', 'sort': 'desc'},
       );
-    } on DioException { /* ignore */ }
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendPostWithBody() async {
@@ -102,14 +111,18 @@ class _DemoScreenState extends State<DemoScreen> {
         data: {'name': 'corextra', 'feature': 'DevTools'},
         options: Options(headers: {'Authorization': 'Bearer secret-token'}),
       );
-    } on DioException { /* ignore */ }
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendPutWithBody() async {
     _notify('PUT sent — check the Payload tab in the Network tab');
     try {
       await dio.put('/put', data: {'name': 'corextra', 'version': '2.0.0'});
-    } on DioException { /* ignore */ }
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendPatchWithRawBody() async {
@@ -120,12 +133,18 @@ class _DemoScreenState extends State<DemoScreen> {
         data: 'raw text payload, not JSON — line one\nline two',
         options: Options(contentType: Headers.textPlainContentType),
       );
-    } on DioException { /* ignore */ }
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendDelete() async {
     _notify('DELETE sent — check the Network tab');
-    try { await dio.delete('/delete'); } on DioException { /* ignore */ }
+    try {
+      await dio.delete('/delete');
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendMultipartFormData() async {
@@ -143,7 +162,9 @@ class _DemoScreenState extends State<DemoScreen> {
         ),
       );
       await dio.post('/post', data: form);
-    } on DioException { /* ignore */ }
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendBinaryResponse() async {
@@ -153,12 +174,18 @@ class _DemoScreenState extends State<DemoScreen> {
         '/image/png',
         options: Options(responseType: ResponseType.bytes),
       );
-    } on DioException { /* ignore */ }
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendHtmlResponse() async {
     _notify('HTML response sent — check the Response tab');
-    try { await dio.get('/html'); } on DioException { /* ignore */ }
+    try {
+      await dio.get('/html');
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendLargeResponse() async {
@@ -169,68 +196,104 @@ class _DemoScreenState extends State<DemoScreen> {
         data: {
           'items': List.generate(
             400,
-            (i) => 'Item #$i — lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+            (i) =>
+                'Item #$i — lorem ipsum dolor sit amet, consectetur adipiscing elit.',
           ),
         },
       );
-    } on DioException { /* ignore */ }
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendGet400() async {
     _notify('GET 400 sent — check the Network tab');
-    try { await dio.get('/status/400'); } on DioException { /* ignore */ }
+    try {
+      await dio.get('/status/400');
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendUnauthorized() async {
     _notify('GET 401 (Unauthorized) sent');
-    try { await dio.get('/status/401'); } on DioException { /* ignore */ }
+    try {
+      await dio.get('/status/401');
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendForbidden() async {
     _notify('GET 403 (Forbidden) sent');
-    try { await dio.get('/status/403'); } on DioException { /* ignore */ }
+    try {
+      await dio.get('/status/403');
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendGet500() async {
     _notify('GET 500 sent — check the Network tab');
-    try { await dio.get('/status/500'); } on DioException { /* ignore */ }
+    try {
+      await dio.get('/status/500');
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendTimeout() async {
     _notify('Sending request with short timeout — check the Network tab');
     try {
-      await dio.get('/delay/5', options: Options(receiveTimeout: const Duration(seconds: 1)));
-    } on DioException { /* ignore */ }
+      await dio.get(
+        '/delay/5',
+        options: Options(receiveTimeout: const Duration(seconds: 1)),
+      );
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendRedirect() async {
     _notify('GET 302 (Redirect) sent');
-    try { await dio.get('/redirect/1'); } on DioException { /* ignore */ }
+    try {
+      await dio.get('/redirect/1');
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendParallelRequests() async {
     _notify('Sending 3 parallel requests');
     try {
-      await Future.wait([
-        dio.get('/get'),
-        dio.get('/get'),
-        dio.get('/get'),
-      ]);
-    } on DioException { /* ignore */ }
+      await Future.wait([dio.get('/get'), dio.get('/get'), dio.get('/get')]);
+    } on DioException {
+      /* ignore */
+    }
   }
 
   Future<void> _sendNetworkError() async {
-    _notify('Sending a request that will fail to connect — check the Network tab');
+    _notify(
+      'Sending a request that will fail to connect — check the Network tab',
+    );
     final failingDio = Dio(
       BaseOptions(baseUrl: 'https://this-domain-does-not-exist.invalid'),
     );
     failingDio.interceptors.add(const CorextraDevToolsInterceptor());
-    try { await failingDio.get('/x'); } on DioException { /* ignore */ } finally { failingDio.close(); }
+    try {
+      await failingDio.get('/x');
+    } on DioException {
+      /* ignore */
+    } finally {
+      failingDio.close();
+    }
   }
 
   void _validateForm() {
     final isValid = _formKey.currentState?.validate() ?? false;
-    _notify(isValid ? 'Form is valid ✓' : 'Form has errors — see the fields above');
+    _notify(
+      isValid ? 'Form is valid ✓' : 'Form has errors — see the fields above',
+    );
   }
 
   @override
@@ -265,7 +328,10 @@ class _DemoScreenState extends State<DemoScreen> {
                     _notify('Logged — check the DevTools Logs tab');
                   },
                   onLogWarning: () {
-                    debugLog('Warning log from the demo app', level: LogLevel.warning);
+                    debugLog(
+                      'Warning log from the demo app',
+                      level: LogLevel.warning,
+                    );
                     _notify('Logged — check the DevTools Logs tab');
                   },
                   onLogError: () {
@@ -337,7 +403,8 @@ class _NonDevToolsTabState extends State<_NonDevToolsTab> {
           showAnimatedText: showAnimatedText,
           onUpdateState: () {
             setState(() {
-              stateMessage = 'State updated at ${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}';
+              stateMessage =
+                  'State updated at ${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}';
             });
           },
           onToggleAnimation: () {
@@ -569,7 +636,8 @@ class _DevToolsSection extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           'Network — every case the panel can show',
-          style: Theme.of(context).textTheme.labelLarge),
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
