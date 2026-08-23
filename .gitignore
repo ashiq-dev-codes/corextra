@@ -12,4 +12,6 @@ pubspec.lock
 !/example/pubspec.lock
 
 # Claude Code local settings
-.claude
+.claude/hooks
+.claude/settings.json
+.claude/settings.local.json
