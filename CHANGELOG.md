@@ -1,3 +1,22 @@
+## 1.2.2
+
+### Example app rebuilt with a DDD structure and a redesigned UI
+
+The example app now follows a clean `infrastructure` / `application` / `presentation` layering instead of one 900+ line `main.dart`, and its two tabs got a Material 3 refresh — themed cards, icon badges, and color-coded scenario buttons.
+
+The DevTools tab's Network scenarios now cover realistic production/live-app cases via a `FakeScenarioInterceptor` in the example app (httpbin.org has no way to produce these on its own):
+
+- **Client errors** — 400, 401 (with a `www-authenticate` header), 403, 404, 409 Conflict, 422 with field-level validation errors, 429 Rate Limited (with a `retry-after` header)
+- **Server errors** — 500 (with a request ID), 502, 503 Maintenance (with `retry-after`), 504
+- **Malformed payloads** — truncated/invalid JSON, an HTML error page served where JSON was expected
+- **Connectivity failures** — receive timeout, connect timeout to an unreachable host, DNS/network error, and a cancelled in-flight request
+
+The DevTools tab also gained a **Logs** section (Info/Warning/Error buttons wired to `debugLog`/`AppLogger`) that was previously missing entirely.
+
+### Other changes
+
+- Fixed `capitalize()` collapsing repeated internal whitespace into extra spaces (e.g. `"hello   world".capitalize()` now correctly returns `"Hello World"`, not `"Hello   World"`).
+
 ## 1.2.1
 
 ### Network tab: query parameters, and a redesigned detail view
