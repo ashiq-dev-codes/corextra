@@ -7,7 +7,7 @@ issue_tracker: https://github.com/ashiq-dev-codes/corextra/issues
 
 environment:
   sdk: ^3.7.0
-  flutter: ">=1.17.0"
+  flutter: ">=1.20.0"
 
 dependencies:
   flutter:
