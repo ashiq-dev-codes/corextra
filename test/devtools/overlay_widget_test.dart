@@ -1,7 +1,7 @@
 import 'package:corextra/corextra.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   setUp(() => CorextraDevTools.instance.resetAll());
@@ -201,6 +201,7 @@ void main() {
       expect(find.text('Network'), findsOneWidget);
       expect(find.text('Logs'), findsOneWidget);
       expect(find.text('Performance'), findsOneWidget);
+      expect(find.text('App Size'), findsOneWidget);
       expect(find.text('Info'), findsOneWidget);
 
       // Tapping Expand (inside the draggable header) restores the full
