@@ -33,6 +33,7 @@ class DevToolsTabs extends StatelessWidget {
           const Divider(height: 1),
           const Expanded(
             child: TabBarView(
+              physics: NeverScrollableScrollPhysics(),
               children: [
                 NetworkTab(),
                 LogsTab(),
