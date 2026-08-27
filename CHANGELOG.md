@@ -1,3 +1,25 @@
+## 1.2.3
+
+### App Size tab
+
+A fifth DevTools tab that shows what's taking up space in your app as an interactive treemap plus a sorted breakdown list, modeled on Flutter DevTools' own App Size tool — two ways to get the data in:
+
+- **Quick scan** — runs automatically the moment you open the tab, no build step or file needed. On iOS/macOS/Windows/Linux it reads the app's own installed bundle straight off disk; on Android, where there's no such directory to read, a small native plugin gets the installed APK's own path(s) instead (the base APK, plus any split APKs from an Android App Bundle install), which are then parsed as zip archives in pure Dart. Works on a real device exactly like it does on Simulator/emulator. Web has no equivalent and falls back to Import file.
+- **Import file** — for the full class-level Dart AOT breakdown, run `flutter build <target> --analyze-size` yourself, transfer the resulting `*-code-size-analysis_*.json` onto the device, and tap **Import file** to load it with the platform's native file picker.
+
+Either way, tap into the treemap or a breakdown row — every row, including a leaf file — to drill into it; breadcrumbs at the top navigate back out, and each row shows a percentage of its parent next to its size, with folder/file icons so what's explorable is obvious at a glance. A pill next to the total shows whether you're looking at a **Live scan** or an **Imported** file, and the header's refresh icon re-runs the quick scan at any time. Tapping into an opaque leaf (your compiled Dart code, a compiled asset catalog) explains why quick scan can't see inside it and, where relevant, that importing a `--analyze-size` file can.
+
+Quick scan's folder listing only folds items together once a single folder has an unreasonable number of entries (300+) — high enough that a real app's asset folder, with its fonts and per-package assets, shows in full rather than getting hidden behind a vague "N more items".
+
+### DevTools tab bar redesign
+
+Network, Logs, and Info stay directly visible on the tab bar; Performance and App Size — used less often — now live behind a **More** button instead of crowding the bar. Swiping left/right on a tab's content no longer switches tabs by accident (e.g. while scrolling a list diagonally); tapping a tab is now the only way to switch.
+
+### Other changes
+
+- Added a `file_selector` dependency for the App Size tab's file picker, and an `archive` dependency for parsing the APK on Android.
+- This package now ships a small amount of native Android code (a `CorextraPlugin` reading the app's own `ApplicationInfo.sourceDir`/`splitSourceDirs` — no permissions required) to back quick scan there. Every consumer's Android build now compiles this plugin module, even if the App Size tab is never opened.
+
 ## 1.2.2
 
 ### Example app rebuilt with a DDD structure and a redesigned UI

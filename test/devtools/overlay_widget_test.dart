@@ -1,7 +1,7 @@
 import 'package:corextra/corextra.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   setUp(() => CorextraDevTools.instance.resetAll());
@@ -200,8 +200,13 @@ void main() {
       // Real tab content, not a stub — the same tabs the full panel has.
       expect(find.text('Network'), findsOneWidget);
       expect(find.text('Logs'), findsOneWidget);
-      expect(find.text('Performance'), findsOneWidget);
       expect(find.text('Info'), findsOneWidget);
+      await tester.tap(find.byTooltip('More'));
+      await tester.pumpAndSettle();
+      expect(find.text('Performance'), findsOneWidget);
+      expect(find.text('App Size'), findsOneWidget);
+      await tester.tap(find.byTooltip('More'));
+      await tester.pumpAndSettle();
 
       // Tapping Expand (inside the draggable header) restores the full
       // panel — proving the header's tap targets still work alongside
