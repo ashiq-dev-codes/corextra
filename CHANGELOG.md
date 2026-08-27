@@ -11,6 +11,10 @@ Either way, tap into the treemap or a breakdown row — every row, including a l
 
 Quick scan's folder listing only folds items together once a single folder has an unreasonable number of entries (300+) — high enough that a real app's asset folder, with its fonts and per-package assets, shows in full rather than getting hidden behind a vague "N more items".
 
+### DevTools tab bar redesign
+
+Network, Logs, and Info stay directly visible on the tab bar; Performance and App Size — used less often — now live behind a **More** button instead of crowding the bar. Swiping left/right on a tab's content no longer switches tabs by accident (e.g. while scrolling a list diagonally); tapping a tab is now the only way to switch.
+
 ### Other changes
 
 - Added a `file_selector` dependency for the App Size tab's file picker, and an `archive` dependency for parsing the APK on Android.
