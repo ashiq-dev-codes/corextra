@@ -39,11 +39,6 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
-  # Added so the DevTools App Size tab has a realistic mix of asset types
-  # (images, an SVG, a custom font, a video) and packages to scan.
-  flutter_svg: ^2.2.1
-  video_player: ^2.10.1
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -66,18 +61,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  assets:
-    - assets/images/
-    - assets/svgs/
-    - assets/videos/
-
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
-
-  fonts:
-    - family: CorextraDemoBlock
-      fonts:
-        - asset: assets/fonts/CorextraDemoBlock-Regular.ttf

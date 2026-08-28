@@ -1,13 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 
 import 'models/frame_sample.dart';
 import 'models/log_entry.dart';
 import 'models/network_event.dart';
-import 'models/size_analysis_node.dart';
-import 'util/bundle_scan_result.dart';
 
 /// Bounded, FIFO ring buffer of captured [NetworkEvent]s.
 class NetworkEventStore extends ChangeNotifier {
@@ -131,95 +127,6 @@ class FrameSampleStore extends ChangeNotifier {
   }
 }
 
-/// Holds the most recently opened `--analyze-size` JSON analysis, if any, for the DevTools App Size tab.
-class AppSizeStore extends ChangeNotifier {
-  SizeAnalysisNode? _root;
-  String? _fileName;
-  DateTime? _loadedAt;
-  String? _platform;
-  String? _errorMessage;
-  bool _isLive = false;
-
-  SizeAnalysisNode? get root => _root;
-
-  String? get fileName => _fileName;
-
-  DateTime? get loadedAt => _loadedAt;
-
-  /// `apk`, `aab`, `ios`, `macos`, `windows`, or `linux` — from the imported JSON's `type` field, or `Platform.operatingSystem` after [runQuickScan].
-  String? get platform => _platform;
-
-  /// True when [root] came from [runQuickScan] (the live installed bundle) rather than an imported `--analyze-size` file.
-  bool get isLive => _isLive;
-
-  /// Set when the most recent [loadFromJson] or [runQuickScan] call failed; cleared by the next call, success or not.
-  String? get errorMessage => _errorMessage;
-
-  /// Parses [jsonText] (a `*-code-size-analysis_*.json` file's contents) and, if it looks valid, replaces the loaded analysis; on failure, leaves any previously loaded analysis in place and sets [errorMessage].
-  void loadFromJson(String jsonText, {required String fileName}) {
-    try {
-      final decoded = jsonDecode(jsonText);
-      if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('Expected a JSON object at the top level.');
-      }
-      _setLoaded(
-        root: SizeAnalysisNode.fromJson(decoded),
-        fileName: fileName,
-        platform: decoded['type'] as String?,
-        isLive: false,
-      );
-    } catch (_) {
-      _errorMessage = '"$fileName" doesn\'t look like a Flutter size analysis file.';
-      notifyListeners();
-    }
-  }
-
-  /// Runs [scan] (normally [scanInstalledBundle], overridable so callers — e.g. widget tests — can substitute a fake instead of touching the real filesystem) for a live size breakdown; on failure, leaves any previously loaded analysis in place and sets [errorMessage].
-  Future<void> runQuickScan(
-    Future<BundleScanResult?> Function() scan,
-  ) async {
-    final result = await scan();
-    if (result == null) {
-      _errorMessage =
-          'Quick scan isn\'t available on this platform yet — use '
-          '"Import file" to load a --analyze-size JSON instead.';
-      notifyListeners();
-      return;
-    }
-    _setLoaded(
-      root: result.root,
-      fileName: 'Installed app bundle',
-      platform: result.platformLabel,
-      isLive: true,
-    );
-  }
-
-  void _setLoaded({
-    required SizeAnalysisNode root,
-    required String fileName,
-    required String? platform,
-    required bool isLive,
-  }) {
-    _root = root;
-    _fileName = fileName;
-    _platform = platform;
-    _isLive = isLive;
-    _loadedAt = DateTime.now();
-    _errorMessage = null;
-    notifyListeners();
-  }
-
-  void clear() {
-    _root = null;
-    _fileName = null;
-    _loadedAt = null;
-    _platform = null;
-    _isLive = false;
-    _errorMessage = null;
-    notifyListeners();
-  }
-}
-
 /// Central, in-memory DevTools store for the current app run.
 ///
 /// Everything captured here lives only in memory and defaults to
@@ -256,13 +163,11 @@ class CorextraDevTools {
   final NetworkEventStore network = NetworkEventStore();
   final LogEntryStore logs = LogEntryStore();
   final FrameSampleStore performance = FrameSampleStore();
-  final AppSizeStore appSize = AppSizeStore();
 
   /// Clears all captured data. Does not change [enabled].
   void resetAll() {
     network.clear();
     logs.clear();
     performance.clear();
-    appSize.clear();
   }
 }
