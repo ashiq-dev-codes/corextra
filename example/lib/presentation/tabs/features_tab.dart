@@ -2,7 +2,6 @@ import 'package:corextra/corextra.dart';
 import 'package:flutter/material.dart';
 
 import '../../application/demo_controller.dart';
-import '../widgets/assets_showcase_section.dart';
 import '../widgets/section_card.dart';
 
 class FeaturesTab extends StatelessWidget {
@@ -33,7 +32,6 @@ class FeaturesTab extends StatelessWidget {
         _buildResponsiveSection(context),
         _buildStateAndAnimationSection(context),
         _buildFormValidatorsSection(context),
-        _buildAssetsShowcaseSection(),
       ],
     );
   }
@@ -63,15 +61,6 @@ class FeaturesTab extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAssetsShowcaseSection() {
-    return const SectionCard(
-      title: 'Assets Showcase',
-      icon: Icons.perm_media_outlined,
-      subtitle: 'A PNG, a JPG, an SVG, a custom font, and a video asset.',
-      child: AssetsShowcaseSection(),
     );
   }
 

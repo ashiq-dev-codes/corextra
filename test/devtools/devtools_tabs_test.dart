@@ -48,8 +48,8 @@ void main() {
   );
 
   testWidgets(
-    'Performance and App Size are hidden behind the "More" button, not '
-    'shown as primary tabs',
+    'Performance is hidden behind the "More" button, not shown as a '
+    'primary tab',
     (tester) async {
       await tester.pumpWidget(_wrap());
       await tester.pumpAndSettle();
@@ -58,7 +58,6 @@ void main() {
       expect(find.text('Logs'), findsOneWidget);
       expect(find.text('Info'), findsOneWidget);
       expect(find.text('Performance'), findsNothing);
-      expect(find.text('App Size'), findsNothing);
       expect(find.byTooltip('More'), findsOneWidget);
     },
   );
@@ -73,18 +72,10 @@ void main() {
       await tester.tap(find.byTooltip('More'));
       await tester.pumpAndSettle();
       expect(find.text('Performance'), findsOneWidget);
-      expect(find.text('App Size'), findsOneWidget);
 
-      await tester.tap(find.text('App Size'));
+      await tester.tap(find.text('Performance'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('No size data loaded'), findsOneWidget);
-      expect(
-        find.byWidgetPredicate(
-          (w) => w is Icon && w.icon == LucideIcons.hardDrive && w.size == 20,
-        ),
-        findsOneWidget,
-      );
       expect(find.byIcon(LucideIcons.ellipsisVertical), findsNothing);
     },
   );

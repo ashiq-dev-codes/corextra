@@ -204,7 +204,6 @@ void main() {
       await tester.tap(find.byTooltip('More'));
       await tester.pumpAndSettle();
       expect(find.text('Performance'), findsOneWidget);
-      expect(find.text('App Size'), findsOneWidget);
       await tester.tap(find.byTooltip('More'));
       await tester.pumpAndSettle();
 

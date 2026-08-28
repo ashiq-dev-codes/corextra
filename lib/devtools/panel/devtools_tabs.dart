@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import 'tabs/app_size_tab.dart';
 import 'tabs/info_tab.dart';
 import 'tabs/logs_tab.dart';
 import 'tabs/network_tab.dart';
@@ -15,7 +14,7 @@ class _TabSpec {
   final String label;
 }
 
-/// Network / Logs / Info are day-to-day checks and stay on the strip; Performance / App Size are occasional, so they live behind the trailing "more" button instead.
+/// Network / Logs / Info are day-to-day checks and stay on the strip; Performance is occasional, so it lives behind the trailing "more" button instead.
 class DevToolsTabs extends StatelessWidget {
   const DevToolsTabs({super.key});
 
@@ -27,7 +26,6 @@ class DevToolsTabs extends StatelessWidget {
 
   static const _secondaryTabs = [
     _TabSpec(icon: LucideIcons.gauge, label: 'Performance'),
-    _TabSpec(icon: LucideIcons.hardDrive, label: 'App Size'),
   ];
 
   @override
@@ -46,7 +44,6 @@ class DevToolsTabs extends StatelessWidget {
                 LogsTab(),
                 InfoTab(),
                 PerformanceTab(),
-                AppSizeTab(),
               ],
             ),
           ),
