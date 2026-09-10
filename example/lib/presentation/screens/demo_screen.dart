@@ -15,9 +15,11 @@ class DemoScreen extends StatefulWidget {
 
 class _DemoScreenState extends State<DemoScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _websiteController = TextEditingController();
 
   late final DemoController _controller;
 
@@ -30,9 +32,11 @@ class _DemoScreenState extends State<DemoScreen> {
 
   @override
   void dispose() {
+    _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
+    _websiteController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -88,9 +92,11 @@ class _DemoScreenState extends State<DemoScreen> {
                   constraints: constraints,
                   controller: _controller,
                   formKey: _formKey,
+                  usernameController: _usernameController,
                   emailController: _emailController,
                   passwordController: _passwordController,
                   confirmController: _confirmController,
+                  websiteController: _websiteController,
                   onValidate: _validateForm,
                 ),
                 DevToolsTab(controller: _controller, onNotify: _notify),

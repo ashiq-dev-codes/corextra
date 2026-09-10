@@ -34,10 +34,20 @@ Make your Dart and Flutter code cleaner, safer, and easier to read.
   - `otp` — validates OTP with customizable length  
   - `password` — validates password with customizable minimum length  
   - `confirmPassword` — ensures password confirmation matches original password  
+  - `minLength` / `maxLength` — string length checks  
+  - `numeric` — digits-only check  
+  - `url` — validates http/https URLs  
+  - `pattern` — validates against a custom `RegExp`  
+- `FormValidators.compose([...])` chains multiple validators on one field, returning the first error  
+- `FormValidators.optional(validator)` skips validation on empty, non-required fields  
+- Every validator takes an optional `message:` override, no translator setup required for one-off custom text  
 - Optional **translation support** via `easy_localization` 
 
 ### Responsive Utilities
-- ResponsiveBreakpoints: simple and customizable screen size helpers (`xs`, `sm`, `md`, `lg`, `xl`) for responsive layouts in Flutter  
+- `ResponsiveBreakpoints`: simple and customizable screen size helpers (`sm`, `md`, `lg`, `xl`, `xxl`) for responsive layouts in Flutter, usable from `BuildContext` or `BoxConstraints`  
+- `deviceType` / `isMobile` / `isTablet` / `isDesktop` — coarse device classification, no breakpoint chaining needed  
+- `responsive<T>(base: ..., md: ..., lg: ...)` — pick a value per breakpoint directly, without a `LayoutBuilder`  
+- `screenWidth`, `screenHeight`, `isPortrait`, `isLandscape` — on `BuildContext`  
 
 ### Error Handling
 - Custom Exception System for structured error handling:

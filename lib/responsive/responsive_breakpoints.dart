@@ -1,5 +1,17 @@
 import 'package:flutter/widgets.dart';
 
+/// Coarse device category, derived from the [ResponsiveBreakpoints.lg] / [ResponsiveBreakpoints.xl] breakpoints.
+enum DeviceType {
+  /// Width below [ResponsiveBreakpoints.lg].
+  mobile,
+
+  /// Width from [ResponsiveBreakpoints.lg] up to (excluding) [ResponsiveBreakpoints.xl].
+  tablet,
+
+  /// Width at or above [ResponsiveBreakpoints.xl].
+  desktop,
+}
+
 /// Provides helpers to check screen size categories for responsive layouts.
 class ResponsiveBreakpoints {
   // Default breakpoint values (modifiable by user)
@@ -173,4 +185,37 @@ class ResponsiveBreakpoints {
     if (w >= sm && smBuilder != null) return smBuilder();
     return base();
   }
+
+  /// Returns the highest-matching size-specific value for [width], or [base] if none match.
+  static T valueOf<T>(
+    double width, {
+    required T base,
+    T? sm,
+    T? md,
+    T? lg,
+    T? xl,
+    T? xxl,
+  }) {
+    if (width >= ResponsiveBreakpoints.xxl && xxl != null) return xxl;
+    if (width >= ResponsiveBreakpoints.xl && xl != null) return xl;
+    if (width >= ResponsiveBreakpoints.lg && lg != null) return lg;
+    if (width >= ResponsiveBreakpoints.md && md != null) return md;
+    if (width >= ResponsiveBreakpoints.sm && sm != null) return sm;
+    return base;
+  }
+
+  /// Classifies [width] as [DeviceType.mobile], [DeviceType.tablet] or [DeviceType.desktop].
+  static DeviceType deviceTypeOf(double width) {
+    if (width >= xl) return DeviceType.desktop;
+    if (width >= lg) return DeviceType.tablet;
+    return DeviceType.mobile;
+  }
+
+  /// [deviceTypeOf] the width read from [BuildContext].
+  static DeviceType deviceTypeContext(BuildContext context) =>
+      deviceTypeOf(_w(context));
+
+  /// [deviceTypeOf] the width read from [BoxConstraints].
+  static DeviceType deviceType(BoxConstraints constraints) =>
+      deviceTypeOf(constraints.maxWidth);
 }

@@ -8,9 +8,11 @@ class FeaturesTab extends StatelessWidget {
   final BoxConstraints constraints;
   final DemoController controller;
   final GlobalKey<FormState> formKey;
+  final TextEditingController usernameController;
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final TextEditingController confirmController;
+  final TextEditingController websiteController;
   final VoidCallback onValidate;
 
   const FeaturesTab({
@@ -18,9 +20,11 @@ class FeaturesTab extends StatelessWidget {
     required this.constraints,
     required this.controller,
     required this.formKey,
+    required this.usernameController,
     required this.emailController,
     required this.passwordController,
     required this.confirmController,
+    required this.websiteController,
     required this.onValidate,
   });
 
@@ -39,10 +43,12 @@ class FeaturesTab extends StatelessWidget {
   Widget _buildResponsiveSection(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final breakpointName = _getBreakpointName();
+    // Picks a value per breakpoint directly, no LayoutBuilder builder-callbacks needed.
+    final columns = constraints.responsive<int>(base: 1, md: 2, lg: 3, xl: 4);
     return SectionCard(
       title: 'Responsive Helpers',
       icon: Icons.aspect_ratio_rounded,
-      subtitle: 'Breakpoint helpers react to the live screen width.',
+      subtitle: 'Breakpoint, device type and value helpers react to the live screen width.',
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
@@ -56,6 +62,24 @@ class FeaturesTab extends StatelessWidget {
           _StatChip(
             label: 'Breakpoint',
             value: breakpointName,
+            color: colorScheme.tertiaryContainer,
+            onColor: colorScheme.onTertiaryContainer,
+          ),
+          _StatChip(
+            label: 'Device Type',
+            value: constraints.deviceType.name.capitalize(),
+            color: colorScheme.secondaryContainer,
+            onColor: colorScheme.onSecondaryContainer,
+          ),
+          _StatChip(
+            label: 'Columns (responsive<int>)',
+            value: '$columns',
+            color: colorScheme.primaryContainer,
+            onColor: colorScheme.onPrimaryContainer,
+          ),
+          _StatChip(
+            label: 'Orientation',
+            value: context.isPortrait ? 'Portrait' : 'Landscape',
             color: colorScheme.tertiaryContainer,
             onColor: colorScheme.onTertiaryContainer,
           ),
@@ -160,12 +184,32 @@ class FeaturesTab extends StatelessWidget {
         child: Column(
           children: [
             TextFormField(
+              controller: usernameController,
+              decoration: const InputDecoration(
+                labelText: 'Username',
+                prefixIcon: Icon(Icons.person_outline_rounded),
+              ),
+              // compose() chains validators and returns the first error found.
+              validator: FormValidators.compose([
+                FormValidators.required,
+                (value) => FormValidators.minLength(
+                  value,
+                  3,
+                  message: 'Username must be at least 3 characters',
+                ),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
               controller: emailController,
               decoration: const InputDecoration(
                 labelText: 'Email',
                 prefixIcon: Icon(Icons.email_outlined),
               ),
-              validator: FormValidators.email,
+              validator: FormValidators.compose([
+                FormValidators.required,
+                FormValidators.email,
+              ]),
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -189,6 +233,16 @@ class FeaturesTab extends StatelessWidget {
                 value,
                 passwordController.text,
               ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: websiteController,
+              decoration: const InputDecoration(
+                labelText: 'Website (optional)',
+                prefixIcon: Icon(Icons.link_rounded),
+              ),
+              // optional() skips the wrapped validator when the field is left empty.
+              validator: FormValidators.optional(FormValidators.url),
             ),
             const SizedBox(height: 16),
             Align(
