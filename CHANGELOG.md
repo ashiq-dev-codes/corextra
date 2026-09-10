@@ -1,3 +1,15 @@
+## 1.2.5
+
+### Responsive extensions: device types, direct value picking, screen getters
+
+`context`/`constraints.deviceType` (`DeviceType.mobile` / `.tablet` / `.desktop`) replaces manual `sm`/`md`/`lg` chaining for the common "what kind of device is this" check, with `isMobile`/`isTablet`/`isDesktop` shortcuts. `context`/`constraints.responsive<T>(base: ..., md: ..., lg: ...)` picks a value per breakpoint directly — no `LayoutBuilder` + builder-function boilerplate required, unlike the existing `ResponsiveBreakpoints.when`. `BuildContext` also gained `screenWidth`, `screenHeight`, `isPortrait`, and `isLandscape`.
+
+### Form validators: composition, optional fields, custom messages, more checks
+
+`FormValidators.compose([...])` chains validators on one field and returns the first error. `FormValidators.optional(validator)` skips a validator when the field is empty, for non-required fields. Every validator now accepts a `message:` override, so a one-off custom message no longer requires wiring up the global translator. Added `minLength`, `maxLength`, `numeric`, `url`, and `pattern` validators for cases that previously had to be hand-written.
+
+`email`'s regex is replaced with the WHATWG `<input type="email">` pattern (the one browsers use). The old pattern rejected real addresses like `user+tag@gmail.com` (no `+` support) and anything with a TLD longer than 4 characters (`.technology`, `.london`, etc.).
+
 ## 1.2.4
 
 ### Reverted the App Size tab

@@ -43,4 +43,40 @@ extension ResponsiveConstraintsExtensions on BoxConstraints {
 
   /// Returns true if maxWidth ≥ XXL breakpoint
   bool get xxl => ResponsiveBreakpoints.isXxl(this);
+
+  /// The layout's [DeviceType] (mobile / tablet / desktop), based on maxWidth.
+  DeviceType get deviceType => ResponsiveBreakpoints.deviceType(this);
+
+  /// Returns true if [deviceType] is [DeviceType.mobile].
+  bool get isMobile => deviceType == DeviceType.mobile;
+
+  /// Returns true if [deviceType] is [DeviceType.tablet].
+  bool get isTablet => deviceType == DeviceType.tablet;
+
+  /// Returns true if [deviceType] is [DeviceType.desktop].
+  bool get isDesktop => deviceType == DeviceType.desktop;
+
+  /// Returns true if maxHeight is at least maxWidth.
+  bool get isPortrait => maxHeight >= maxWidth;
+
+  /// Returns true if maxWidth exceeds maxHeight.
+  bool get isLandscape => maxWidth > maxHeight;
+
+  /// Picks the highest-matching value for maxWidth, falling back to [base].
+  T responsive<T>({
+    required T base,
+    T? sm,
+    T? md,
+    T? lg,
+    T? xl,
+    T? xxl,
+  }) => ResponsiveBreakpoints.valueOf<T>(
+    maxWidth,
+    base: base,
+    sm: sm,
+    md: md,
+    lg: lg,
+    xl: xl,
+    xxl: xxl,
+  );
 }
