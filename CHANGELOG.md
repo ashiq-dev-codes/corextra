@@ -1,3 +1,11 @@
+## 1.2.6
+
+### DevTools Network tab: sensitive-header highlighting and a collapsible JSON viewer
+
+Headers that look like auth credentials (`Authorization`, `Cookie`, `X-Api-Key`, `X-Session-Token`, etc.) now get a **TOKEN** badge and their own copy button in the Headers tab, so the values you need most are easy to spot and grab.
+
+JSON bodies render as a collapsible tree instead of a wall of text — tap any `{`/`[` to fold it, or use **Expand all** / **Collapse all**. Colors now adapt properly to both light and dark mode. Long lines (JSON or plain text) scroll horizontally with a visible scrollbar instead of wrapping awkwardly.
+
 ## 1.2.5
 
 ### Responsive extensions: device types, direct value picking, screen getters
