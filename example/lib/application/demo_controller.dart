@@ -65,6 +65,22 @@ class DemoController extends ChangeNotifier {
     }
   }
 
+  Future<void> sendWithApiKeyHeader() async {
+    try {
+      await networkService.dio.get(
+        '/get',
+        options: Options(
+          headers: {
+            'X-Api-Key': 'demo-api-key-4f8a2c7b9d1e',
+            'X-Session-Token': 'sess_8f3a1c9d7e2b4f6a',
+          },
+        ),
+      );
+    } on DioException {
+      /* ignore */
+    }
+  }
+
   Future<void> sendPutWithBody() async {
     try {
       await networkService.dio.put('/put', data: {'name': 'corextra', 'version': '2.0.0'});

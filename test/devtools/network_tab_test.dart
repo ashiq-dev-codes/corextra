@@ -31,6 +31,21 @@ Widget _wrap(double width, {double height = 600}) {
   );
 }
 
+Widget _wrapWithBrightness(Brightness brightness, {double width = 400}) {
+  return MaterialApp(
+    theme: ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.teal,
+        brightness: brightness,
+      ),
+    ),
+    home: Scaffold(
+      body: SizedBox(width: width, height: 600, child: const NetworkTab()),
+    ),
+  );
+}
+
 /// Opens a filter dropdown (matched by its label, e.g. `'Method'`) and
 /// leaves it open — closing and reopening the same popup between taps
 /// proved flaky under the test harness (the popup's re-layout on reopen
@@ -342,6 +357,176 @@ void main() {
   );
 
   testWidgets(
+    'a long single line in the response body scrolls horizontally '
+    'inside its code block instead of wrapping to fit the screen',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final longLine = 'x' * 500;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/long',
+      );
+      event.responseBody = longLine;
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('/long'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
+      final scrollViews = tester.widgetList<SingleChildScrollView>(
+        find.ancestor(
+          of: find.text(longLine),
+          matching: find.byType(SingleChildScrollView),
+        ),
+      );
+      expect(
+        scrollViews.any((view) => view.scrollDirection == Axis.horizontal),
+        isTrue,
+      );
+    },
+  );
+
+  testWidgets(
+    'a JSON object body renders as a collapsible tree — tapping its '
+    'opening brace folds a nested object to a one-line summary, and '
+    'tapping it again restores the nested content',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/user',
+      );
+      event.responseBody = {
+        'user': {'name': 'Ada', 'age': 30},
+        'active': true,
+      };
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('/user'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('"name": "Ada"'), findsOneWidget);
+      expect(find.textContaining('"age": 30'), findsOneWidget);
+
+      await tester.tap(find.textContaining('"user": {'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('"name": "Ada"'), findsNothing);
+      expect(find.textContaining('2 keys'), findsOneWidget);
+
+      await tester.tap(find.textContaining('"user": {'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('"name": "Ada"'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    "the JSON tree's Collapse all / Expand all actions fold and "
+    'restore every nested object at once',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/user',
+      );
+      event.responseBody = {
+        'user': {'name': 'Ada', 'age': 30},
+      };
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('/user'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('"name": "Ada"'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Collapse all'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('"name": "Ada"'), findsNothing);
+
+      await tester.tap(find.byTooltip('Expand all'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('"name": "Ada"'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    "a JSON string value's color adapts to the host theme's brightness "
+    '— light mode uses an on*Container role for contrast, dark mode '
+    'the bare accent role',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+
+      Future<Color> pumpAndGetValueColor(Brightness brightness) async {
+        CorextraDevTools.instance.resetAll();
+        final event = store.begin(
+          method: 'GET',
+          url: 'https://example.test/user',
+        );
+        event.responseBody = {'name': 'Ada'};
+        event.statusCode = 200;
+        event.completedAt = DateTime.now();
+        store.complete(event);
+
+        await tester.pumpWidget(_wrapWithBrightness(brightness));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('/user'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Response'));
+        await tester.pumpAndSettle();
+
+        final span = tester
+            .widget<SelectableText>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is SelectableText &&
+                    (widget.textSpan?.toPlainText() ?? '').contains('"Ada"'),
+              ),
+            )
+            .textSpan!;
+        return span.children!
+            .whereType<TextSpan>()
+            .firstWhere((s) => s.text == '"Ada"')
+            .style!
+            .color!;
+      }
+
+      final lightColor = await pumpAndGetValueColor(Brightness.light);
+      final lightColors = Theme.of(
+        tester.element(find.text('/user')),
+      ).colorScheme;
+      expect(lightColor, lightColors.onTertiaryContainer);
+      expect(lightColor, isNot(lightColors.tertiary));
+
+      final darkColor = await pumpAndGetValueColor(Brightness.dark);
+      final darkColors = Theme.of(
+        tester.element(find.text('/user')),
+      ).colorScheme;
+      expect(darkColor, darkColors.tertiary);
+    },
+  );
+
+  testWidgets(
     'a long error message (e.g. the default DioException validateStatus '
     'text) does not overflow the detail view at the PIP floating '
     "window's minimum height — the fixed summary above the tabs never "
@@ -386,6 +571,36 @@ void main() {
       // scroll, not in the fixed summary above the tabs.
       expect(find.text('Headers'), findsOneWidget);
       expect(find.textContaining('This exception was thrown'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a request header recognized as an auth credential (e.g. '
+    'Authorization) gets a TOKEN badge and its own copy button in the '
+    'Headers tab; an ordinary header does not',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+        requestHeaders: {
+          'Authorization': 'Bearer abc123',
+          'Content-Type': 'application/json',
+        },
+      );
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(900));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TOKEN'), findsOneWidget);
+      expect(find.text('Bearer abc123'), findsOneWidget);
+      expect(find.text('Content-Type'), findsOneWidget);
+      expect(find.byTooltip('Copy'), findsOneWidget);
     },
   );
 }

@@ -91,7 +91,7 @@ dio.interceptors.add(const CorextraDevToolsInterceptor());
 ```
 
 A draggable bubble opens the panel. Network, Logs, and Info sit directly on the tab bar; Performance — used less often — lives behind a **More** button:
-- **Network** — every request/response, searchable and filterable by method or status. Query parameters, headers, and body each get their own **Headers / Payload / Response** tab in the detail view, so a large body scrolls on its own without pushing anything else out of reach. Wide screens get a two-pane list + detail view; narrow screens drill into a full-screen detail with a Back button. Redact sensitive headers with `hiddenHeaders`
+- **Network** — every request/response, searchable and filterable by method or status. Query parameters, headers, and body each get their own **Headers / Payload / Response** tab in the detail view, so a large body scrolls on its own without pushing anything else out of reach. Wide screens get a two-pane list + detail view; narrow screens drill into a full-screen detail with a Back button. The Headers tab flags auth headers (`Authorization`, `Cookie`, `X-Api-Key`, etc.) with a **TOKEN** badge and a one-tap copy button. Redact sensitive headers with `hiddenHeaders`. A JSON body renders as a collapsible, syntax-highlighted tree — tap any `{`/`[` to fold it, or use **Expand all** / **Collapse all**; anything else falls back to a plain, horizontally-scrollable code block
 - **Logs** — every `debugLog`/`AppLogger` call, searchable and filterable by level — no extra wiring needed
 - **Info** — app + device details via `package_info_plus`/`device_info_plus`
 - **Performance** (in More) — a live FPS/frame-time chart with jank highlighting and tap-to-inspect frames
