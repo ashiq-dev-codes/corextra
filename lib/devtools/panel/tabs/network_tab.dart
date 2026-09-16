@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -1020,12 +1022,12 @@ class _PayloadTab extends StatelessWidget {
                 if (event.queryParameters.isNotEmpty) ...[
                   const _SubsectionLabel('QUERY PARAMETERS'),
                   const SizedBox(height: 4),
-                  _CodeBlock(content: prettyFormatBody(event.queryParameters)),
+                  _BodyView(data: event.queryParameters),
                   const SizedBox(height: 20),
                 ],
                 const _SubsectionLabel('REQUEST BODY'),
                 const SizedBox(height: 4),
-                _CodeBlock(content: prettyFormatBody(event.requestBody)),
+                _BodyView(data: event.requestBody),
               ],
             ),
           ),
@@ -1047,7 +1049,7 @@ class _ResponseTab extends StatelessWidget {
           (context, controller) => SingleChildScrollView(
             controller: controller,
             padding: const EdgeInsets.all(16),
-            child: _CodeBlock(content: prettyFormatBody(event.responseBody)),
+            child: _BodyView(data: event.responseBody),
           ),
     );
   }
@@ -1181,6 +1183,25 @@ class _SubsectionLabel extends StatelessWidget {
   }
 }
 
+/// Header names known to carry auth credentials — flags a row below with a badge + copy button.
+const _sensitiveHeaderNames = {
+  'authorization',
+  'proxy-authorization',
+  'cookie',
+  'set-cookie',
+  'x-api-key',
+  'api-key',
+  'x-auth-token',
+  'x-access-token',
+  'access-token',
+  'x-csrf-token',
+  'x-xsrf-token',
+  'x-session-token',
+};
+
+bool _isSensitiveHeader(String key) =>
+    _sensitiveHeaderNames.contains(key.toLowerCase());
+
 /// A clean key/value list, used for headers — instead of a raw
 /// `Map.toString()` dump.
 class _KeyValueList extends StatelessWidget {
@@ -1203,45 +1224,122 @@ class _KeyValueList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children:
-          data.entries
-              .map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 130,
-                        child: Text(
+          data.entries.map((entry) {
+            final sensitive = _isSensitiveHeader(entry.key);
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 130,
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 4,
+                      runSpacing: 2,
+                      children: [
+                        Text(
                           entry.key,
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: SelectableText(
-                          entry.value,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ),
-                    ],
+                        if (sensitive) const _TokenBadge(),
+                      ],
+                    ),
                   ),
-                ),
-              )
-              .toList(),
+                  Expanded(
+                    child: SelectableText(
+                      entry.value,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                        color: sensitive ? theme.colorScheme.primary : null,
+                      ),
+                    ),
+                  ),
+                  if (sensitive) _CopyIconButton(text: entry.value),
+                ],
+              ),
+            );
+          }).toList(),
     );
   }
 }
 
-/// A monospace "code block" used for request/response bodies, with a
-/// one-tap copy button. Renders at its natural height and relies on
-/// the surrounding screen's own scroll — every place this is used now
-/// has exactly one scrollable per screen (see [NetworkTab]'s doc
-/// comment on why an inline-expanding, independently-scrolling variant
-/// was deliberately not used instead).
+/// A small badge marking a header row flagged by [_isSensitiveHeader].
+class _TokenBadge extends StatelessWidget {
+  const _TokenBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Looks like an auth token or credential',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: BoxDecoration(
+          color: Colors.amber.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.keyRound, size: 9, color: Colors.amber),
+            SizedBox(width: 2),
+            Text(
+              'TOKEN',
+              style: TextStyle(
+                fontSize: 8.5,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.4,
+                color: Colors.amber,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shows [data] as a collapsible JSON tree when it decodes to an object or array, falling back to a plain scrollable code block otherwise.
+class _BodyView extends StatelessWidget {
+  const _BodyView({required this.data});
+
+  final Object? data;
+
+  @override
+  Widget build(BuildContext context) {
+    final decoded = _decodeJsonContainer(data);
+    if (decoded != null) {
+      return _JsonCodeBlock(value: decoded.value, rawText: decoded.rawText);
+    }
+    return _CodeBlock(content: prettyFormatBody(data));
+  }
+}
+
+/// Decodes [data] to a JSON Map/List plus its pretty-printed text, rejecting anything (a truncated body, a non-JSON-safe value) that can't round-trip through [jsonEncode].
+({Object value, String rawText})? _decodeJsonContainer(Object? data) {
+  Object? candidate;
+  if (data is Map || data is List) {
+    candidate = data;
+  } else if (data is String) {
+    try {
+      candidate = jsonDecode(data);
+    } catch (_) {
+      return null;
+    }
+  }
+  if (candidate is! Map && candidate is! List) return null;
+  try {
+    final rawText = const JsonEncoder.withIndent('  ').convert(candidate);
+    return (value: candidate!, rawText: rawText);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// A monospace "code block" for request/response bodies — long lines scroll horizontally instead of wrapping, so dense/minified data stays readable.
 class _CodeBlock extends StatelessWidget {
   const _CodeBlock({required this.content});
 
@@ -1249,25 +1347,486 @@ class _CodeBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _CodeBlockChrome(
+      copyText: content,
+      child: SelectableText(
+        content,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+      ),
+    );
+  }
+}
+
+/// The shared box, horizontal scroll, and action buttons behind both [_CodeBlock] and [_JsonCodeBlock] — actions float over the top-right corner instead of narrowing every line's scroll width for a button only the top needs.
+class _CodeBlockChrome extends StatelessWidget {
+  const _CodeBlockChrome({
+    required this.child,
+    required this.copyText,
+    this.actions = const [],
+  });
+
+  final Widget child;
+  final String copyText;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Expanded(
-            child: SelectableText(
-              content,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(2, 8, 4, 8),
+            child: _ScrollableCode(child: child),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: _CodeBlockActionBar(
+              actions: [...actions, _CopyIconButton(text: copyText)],
             ),
           ),
-          _CopyIconButton(text: content),
         ],
+      ),
+    );
+  }
+}
+
+/// A small floating pill of icon buttons, opaque enough to stay legible over scrolled-under code content.
+class _CodeBlockActionBar extends StatelessWidget {
+  const _CodeBlockActionBar({required this.actions});
+
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 4),
+        ],
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+    );
+  }
+}
+
+/// The horizontally-scrolling content inside a [_CodeBlockChrome] — start/end padding lives on the scrollable itself so it travels with the content, and a visible [Scrollbar] shows how far there is to scroll.
+class _ScrollableCode extends StatefulWidget {
+  const _ScrollableCode({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ScrollableCode> createState() => _ScrollableCodeState();
+}
+
+class _ScrollableCodeState extends State<_ScrollableCode> {
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scrollbar(
+      controller: _controller,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// A collapsible, syntax-highlighted JSON tree, codebeautify-viewer style — tap a `{`/`[` line to fold it, or use the header actions to fold/unfold everything; starts fully expanded.
+class _JsonCodeBlock extends StatefulWidget {
+  const _JsonCodeBlock({required this.value, required this.rawText});
+
+  final Object value;
+  final String rawText;
+
+  @override
+  State<_JsonCodeBlock> createState() => _JsonCodeBlockState();
+}
+
+class _JsonCodeBlockState extends State<_JsonCodeBlock> {
+  final Set<String> _collapsedPaths = {};
+
+  void _toggle(String path) {
+    setState(() {
+      if (!_collapsedPaths.add(path)) _collapsedPaths.remove(path);
+    });
+  }
+
+  void _expandAll() => setState(_collapsedPaths.clear);
+
+  void _collapseAll() {
+    setState(() {
+      _collapsedPaths
+        ..clear()
+        ..addAll(_containerPaths(widget.value, 'root'));
+    });
+  }
+
+  Iterable<String> _containerPaths(Object? value, String path) sync* {
+    if (value is Map) {
+      yield path;
+      for (final entry in value.entries) {
+        yield* _containerPaths(entry.value, '$path.${entry.key}');
+      }
+    } else if (value is List) {
+      yield path;
+      for (var i = 0; i < value.length; i++) {
+        yield* _containerPaths(value[i], '$path[$i]');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final rows = <Widget>[];
+    _buildNode(
+      theme: theme,
+      value: widget.value,
+      path: 'root',
+      keyPrefix: '',
+      isLast: true,
+      depth: 0,
+      out: rows,
+    );
+    return _CodeBlockChrome(
+      copyText: widget.rawText,
+      actions: [
+        IconButton(
+          tooltip: 'Expand all',
+          iconSize: 16,
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(LucideIcons.chevronsUpDown),
+          onPressed: _expandAll,
+        ),
+        IconButton(
+          tooltip: 'Collapse all',
+          iconSize: 16,
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(LucideIcons.chevronsDownUp),
+          onPressed: _collapseAll,
+        ),
+      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: rows,
+      ),
+    );
+  }
+
+  void _buildNode({
+    required ThemeData theme,
+    required Object? value,
+    required String path,
+    required String keyPrefix,
+    required bool isLast,
+    required int depth,
+    required List<Widget> out,
+  }) {
+    final comma = isLast ? '' : ',';
+    if (value is Map) {
+      _buildContainer(
+        theme: theme,
+        openBrace: '{',
+        closeBrace: '}',
+        entryCount: value.length,
+        countLabel: value.length == 1 ? '1 key' : '${value.length} keys',
+        path: path,
+        keyPrefix: keyPrefix,
+        comma: comma,
+        depth: depth,
+        out: out,
+        buildChildren: (childOut) {
+          final entries = value.entries.toList();
+          for (var i = 0; i < entries.length; i++) {
+            _buildNode(
+              theme: theme,
+              value: entries[i].value,
+              path: '$path.${entries[i].key}',
+              keyPrefix: '"${entries[i].key}": ',
+              isLast: i == entries.length - 1,
+              depth: depth + 1,
+              out: childOut,
+            );
+          }
+        },
+      );
+    } else if (value is List) {
+      _buildContainer(
+        theme: theme,
+        openBrace: '[',
+        closeBrace: ']',
+        entryCount: value.length,
+        countLabel: value.length == 1 ? '1 item' : '${value.length} items',
+        path: path,
+        keyPrefix: keyPrefix,
+        comma: comma,
+        depth: depth,
+        out: out,
+        buildChildren: (childOut) {
+          for (var i = 0; i < value.length; i++) {
+            _buildNode(
+              theme: theme,
+              value: value[i],
+              path: '$path[$i]',
+              keyPrefix: '',
+              isLast: i == value.length - 1,
+              depth: depth + 1,
+              out: childOut,
+            );
+          }
+        },
+      );
+    } else {
+      out.add(
+        _JsonLeafLine(
+          depth: depth,
+          keyPrefix: keyPrefix,
+          literalText: jsonEncode(value),
+          valueColor: _literalColor(value, theme),
+          italicValue: value == null,
+          trailingText: comma,
+          theme: theme,
+        ),
+      );
+    }
+  }
+
+  void _buildContainer({
+    required ThemeData theme,
+    required String openBrace,
+    required String closeBrace,
+    required int entryCount,
+    required String countLabel,
+    required String path,
+    required String keyPrefix,
+    required String comma,
+    required int depth,
+    required List<Widget> out,
+    required void Function(List<Widget> childOut) buildChildren,
+  }) {
+    if (entryCount == 0) {
+      out.add(
+        _JsonLeafLine(
+          depth: depth,
+          keyPrefix: keyPrefix,
+          literalText: '$openBrace$closeBrace',
+          valueColor: theme.colorScheme.onSurfaceVariant,
+          trailingText: comma,
+          theme: theme,
+        ),
+      );
+      return;
+    }
+
+    final collapsed = _collapsedPaths.contains(path);
+    out.add(
+      _JsonToggleLine(
+        depth: depth,
+        collapsed: collapsed,
+        keyPrefix: keyPrefix,
+        openBrace: openBrace,
+        closeBrace: closeBrace,
+        comma: comma,
+        countLabel: countLabel,
+        theme: theme,
+        onTap: () => _toggle(path),
+      ),
+    );
+    if (!collapsed) {
+      buildChildren(out);
+      out.add(
+        _JsonLeafLine(
+          depth: depth,
+          keyPrefix: '',
+          literalText: closeBrace,
+          valueColor: theme.colorScheme.onSurfaceVariant,
+          trailingText: comma,
+          theme: theme,
+        ),
+      );
+    }
+  }
+}
+
+/// Value colors from the DevTools theme's seeded [ColorScheme] — light mode uses the `on*Container` roles (M3's own choice for legible text) since the bare accent roles used in dark mode read pale on a light surface.
+Color _literalColor(Object? value, ThemeData theme) {
+  final colors = theme.colorScheme;
+  final isDark = theme.brightness == Brightness.dark;
+  if (value is String) {
+    return isDark ? colors.tertiary : colors.onTertiaryContainer;
+  }
+  if (value is num) {
+    return isDark ? colors.secondary : colors.onSecondaryContainer;
+  }
+  if (value is bool) {
+    return isDark ? colors.primary : colors.onPrimaryContainer;
+  }
+  return colors.onSurfaceVariant;
+}
+
+/// One non-collapsible JSON line — a primitive value, an empty `{}`/`[]`, or a container's closing brace.
+class _JsonLeafLine extends StatelessWidget {
+  const _JsonLeafLine({
+    required this.depth,
+    required this.keyPrefix,
+    required this.literalText,
+    required this.valueColor,
+    required this.trailingText,
+    required this.theme,
+    this.italicValue = false,
+  });
+
+  final int depth;
+  final String keyPrefix;
+  final String literalText;
+  final Color valueColor;
+  final String trailingText;
+  final ThemeData theme;
+  final bool italicValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(left: depth * 16.0, top: 1, bottom: 1),
+      child: SelectableText.rich(
+        TextSpan(
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+          children: [
+            if (keyPrefix.isNotEmpty)
+              TextSpan(
+                text: keyPrefix,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            TextSpan(
+              text: literalText,
+              style: TextStyle(
+                color: valueColor,
+                fontStyle: italicValue ? FontStyle.italic : FontStyle.normal,
+              ),
+            ),
+            TextSpan(
+              text: trailingText,
+              style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A collapsible object/array's opening line — its chevron/`{`/`[` toggles [onTap]; collapsed, it also shows the closing brace and an item count inline.
+class _JsonToggleLine extends StatelessWidget {
+  const _JsonToggleLine({
+    required this.depth,
+    required this.collapsed,
+    required this.keyPrefix,
+    required this.openBrace,
+    required this.closeBrace,
+    required this.comma,
+    required this.countLabel,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final int depth;
+  final bool collapsed;
+  final String keyPrefix;
+  final String openBrace;
+  final String closeBrace;
+  final String comma;
+  final String countLabel;
+  final ThemeData theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final punctStyle = TextStyle(
+      fontFamily: 'monospace',
+      fontSize: 12.5,
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: depth * 16.0,
+            top: 1,
+            bottom: 1,
+            right: 4,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                collapsed ? LucideIcons.chevronRight : LucideIcons.chevronDown,
+                size: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 2),
+              Text.rich(
+                TextSpan(
+                  style: punctStyle,
+                  children: [
+                    if (keyPrefix.isNotEmpty)
+                      TextSpan(
+                        text: keyPrefix,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    TextSpan(text: openBrace),
+                    if (collapsed) TextSpan(text: ' … $closeBrace$comma'),
+                  ],
+                ),
+              ),
+              if (collapsed) ...[
+                const SizedBox(width: 6),
+                Text(
+                  countLabel,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 10.5,
+                    fontStyle: FontStyle.italic,
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.7,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

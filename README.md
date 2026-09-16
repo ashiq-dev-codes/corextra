@@ -91,7 +91,12 @@ dio.interceptors.add(const CorextraDevToolsInterceptor());
 ```
 
 A draggable bubble opens the panel. Network, Logs, and Info sit directly on the tab bar; Performance — used less often — lives behind a **More** button:
-- **Network** — every request/response, searchable and filterable by method or status. Query parameters, headers, and body each get their own **Headers / Payload / Response** tab in the detail view, so a large body scrolls on its own without pushing anything else out of reach. Wide screens get a two-pane list + detail view; narrow screens drill into a full-screen detail with a Back button. Redact sensitive headers with `hiddenHeaders`
+- **Network** — every request/response, searchable and filterable by method or status
+  - Wide screens get a two-pane list + detail view; narrow screens drill into a full-screen detail with a Back button
+  - Query parameters, headers, and body each get their own **Headers / Payload / Response** tab, so a large body scrolls on its own
+  - Auth headers (`Authorization`, `Cookie`, `X-Api-Key`, etc.) get a **TOKEN** badge and a one-tap copy button — redact them instead with `hiddenHeaders`
+  - JSON bodies render as a collapsible, syntax-highlighted tree — tap any `{`/`[` to fold it, or use **Expand all** / **Collapse all**
+  - Long lines scroll horizontally with their own scrollbar instead of wrapping
 - **Logs** — every `debugLog`/`AppLogger` call, searchable and filterable by level — no extra wiring needed
 - **Info** — app + device details via `package_info_plus`/`device_info_plus`
 - **Performance** (in More) — a live FPS/frame-time chart with jank highlighting and tap-to-inspect frames
@@ -108,7 +113,7 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 
 ```yaml
 dependencies:
-  corextra: ^1.2.4
+  corextra: ^1.2.6
 ```
 
 Then import it in your Dart code:
