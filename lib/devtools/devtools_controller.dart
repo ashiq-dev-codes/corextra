@@ -172,4 +172,19 @@ class CorextraDevTools {
     logs.clear();
     performance.clear();
   }
+
+  final List<VoidCallback> _backHandlers = [];
+
+  /// Registers [handler] as the current target for Android's hardware back button — e.g. a drilled-in detail screen or a fullscreen viewer — instead of the panel or the host app underneath; call the returned callback once that view is gone.
+  VoidCallback pushBackHandler(VoidCallback handler) {
+    _backHandlers.add(handler);
+    return () => _backHandlers.remove(handler);
+  }
+
+  /// Invokes the most recently registered handler, if any, and reports whether one was found.
+  bool handleBackPress() {
+    if (_backHandlers.isEmpty) return false;
+    _backHandlers.last();
+    return true;
+  }
 }

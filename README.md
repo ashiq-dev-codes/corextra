@@ -103,7 +103,7 @@ A draggable bubble opens the panel. Network, Logs, and Info sit directly on the 
 - **Info** — app + device details via `package_info_plus`/`device_info_plus`
 - **Performance** (in More) — a live FPS/frame-time chart with jank highlighting and tap-to-inspect frames
 
-Every list in the panel gets a floating "scroll to top" button once you've scrolled down. Tap **Minimize** to shrink the panel into a small floating window you can keep an eye on while testing the rest of the app — press and hold its corner before dragging to resize it. Drag the bubble or the window to a screen edge to tuck it out of the way. Toggle everything at runtime with `CorextraDevTools.instance.enabled`.
+Every list in the panel gets a floating "scroll to top" button once you've scrolled down. Tap **Minimize** to shrink the panel into a small floating window you can keep an eye on while testing the rest of the app — press and hold its corner before dragging to resize it. Drag the bubble or the window to a screen edge to tuck it out of the way. Android's hardware back button closes whatever's open in the panel (a fullscreen viewer, a drilled-in request, then the panel itself) one step at a time, instead of popping the host app's own screen underneath it. Toggle everything at runtime with `CorextraDevTools.instance.enabled`.
 
 Planned for a future phase: a widget/layout inspector, memory heap snapshots, a storage (shared_preferences) viewer, and a route/navigation inspector.
 

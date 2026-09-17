@@ -60,7 +60,8 @@ class CorextraDevToolsOverlay extends StatefulWidget {
       _CorextraDevToolsOverlayState();
 }
 
-class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay> {
+class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay>
+    with WidgetsBindingObserver {
   _DisplayMode _mode = _DisplayMode.closed;
   bool _capturing = false;
   Timer? _memoryTimer;
@@ -71,13 +72,24 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay> {
     CorextraDevTools.instance.enabled = widget.enabled;
     CorextraDevTools.instance.enabledNotifier.addListener(_onEnabledChanged);
     _syncCapture();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     CorextraDevTools.instance.enabledNotifier.removeListener(_onEnabledChanged);
     _stopCapture();
     super.dispose();
+  }
+
+  /// Hooks the platform's raw back-button signal directly, since the panel sits above (not inside) the host app's Navigator, so `PopScope`/`Navigator` can't catch it the way they would for an ordinary app screen.
+  @override
+  Future<bool> didPopRoute() async {
+    if (_mode == _DisplayMode.closed) return false;
+    if (CorextraDevTools.instance.handleBackPress()) return true;
+    _closePanel();
+    return true;
   }
 
   void _onEnabledChanged() {

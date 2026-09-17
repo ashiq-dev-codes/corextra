@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../devtools_controller.dart';
 import '../../models/network_event.dart';
 import '../../util/pretty_json.dart';
+import '../back_handler_scope.dart';
 import '../empty_state.dart';
 import '../scroll_to_top_fab.dart';
 import '../search_field.dart';
@@ -221,29 +222,32 @@ class _NarrowDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: 'Back to requests',
-                icon: const Icon(LucideIcons.arrowLeft),
-                onPressed: onBack,
-              ),
-              Text(
-                'Request detail',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ],
+    return BackHandlerScope(
+      onBack: onBack,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: 'Back to requests',
+                  icon: const Icon(LucideIcons.arrowLeft),
+                  onPressed: onBack,
+                ),
+                Text(
+                  'Request detail',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        const Divider(height: 1),
-        Expanded(child: _NetworkEventDetail(event: event)),
-      ],
+          const Divider(height: 1),
+          Expanded(child: _NetworkEventDetail(event: event)),
+        ],
+      ),
     );
   }
 }
@@ -1636,47 +1640,50 @@ class _FullscreenContentView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Positioned.fill(
-      child: Material(
-        color: theme.colorScheme.surface,
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 4, 16, 4),
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Close',
-                      icon: const Icon(LucideIcons.arrowLeft),
-                      onPressed: onClose,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+    return BackHandlerScope(
+      onBack: onClose,
+      child: Positioned.fill(
+        child: Material(
+          color: theme.colorScheme.surface,
+          child: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 16, 4),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Close',
+                        icon: const Icon(LucideIcons.arrowLeft),
+                        onPressed: onClose,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: DevToolsScrollToTop(
-                  builder:
-                      (context, controller) => SingleChildScrollView(
-                        controller: controller,
-                        padding: const EdgeInsets.all(16),
-                        child: child,
-                      ),
+                const Divider(height: 1),
+                Expanded(
+                  child: DevToolsScrollToTop(
+                    builder:
+                        (context, controller) => SingleChildScrollView(
+                          controller: controller,
+                          padding: const EdgeInsets.all(16),
+                          child: child,
+                        ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

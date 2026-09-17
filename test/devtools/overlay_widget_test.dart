@@ -733,6 +733,127 @@ void main() {
       expect(tester.getTopLeft(windowFinder).dy, 59);
     },
   );
+
+  testWidgets(
+    "Android's hardware back button closes the open panel instead of "
+    'reaching the host app underneath it, even with no Navigator above '
+    'this widget (the MaterialApp.builder mounting style)',
+    (tester) async {
+      var hostButtonTapped = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) =>
+              CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
+          home: Scaffold(
+            body: ElevatedButton(
+              onPressed: () => hostButtonTapped = true,
+              child: const Text('host button'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      expect(find.byType(DevToolsPanel), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DevToolsPanel), findsNothing);
+      expect(find.byType(DevToolsBubble), findsOneWidget);
+      expect(hostButtonTapped, isFalse);
+    },
+  );
+
+  testWidgets(
+    'back undoes a drilled-in request detail one step at a time — first '
+    'the narrow-width detail screen, only then the panel itself',
+    (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      CorextraDevTools.instance.network.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) =>
+              CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
+          home: const Scaffold(body: SizedBox.shrink()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Request detail'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Request detail'), findsNothing);
+      expect(find.byType(DevToolsPanel), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DevToolsPanel), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'back closes a fullscreen response viewer first, leaving the request '
+    'detail (and the panel) open underneath it',
+    (tester) async {
+      final event = CorextraDevTools.instance.network.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+      );
+      event.responseBody = {'name': 'Ada'};
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      CorextraDevTools.instance.network.complete(event);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(DevToolsBubble));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('View fullscreen'));
+      await tester.pumpAndSettle();
+
+      // The panel's own header also has a "Close" tooltip, so this is scoped to the fullscreen view's own (differently-iconed) close button.
+      final fullscreenCloseButton = find.widgetWithIcon(
+        IconButton,
+        LucideIcons.arrowLeft,
+      );
+      expect(fullscreenCloseButton, findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(fullscreenCloseButton, findsNothing);
+      expect(find.byType(DevToolsPanel), findsOneWidget);
+    },
+  );
 }
 
 /// Simulates the resize handle's required gesture: press and hold long
