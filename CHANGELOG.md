@@ -1,3 +1,23 @@
+## 1.2.7
+
+### DevTools Network tab: masked headers you can still copy, a Share button, and a fullscreen viewer
+
+A header masked with `hiddenHeaders` now shows a short preview like `***ab12` instead of a flat `***`, so you can still tell tokens apart. Copy and the new **Share** button always use the real value, not the mask.
+
+The summary above the tabs shrinks to one line while you scroll, then expands again once you scroll back up — freeing up room on small screens. Payload and Response bodies also get a **fullscreen** button for reviewing large data on its own.
+
+### Collapsible JSON tree: easier to tap, easier to copy
+
+Folding a `{` or `[` now has a bigger, more precise tap target, so closely-nested brackets don't fold the wrong one. Every line's text is now selectable and copyable via long-press, including the brace lines themselves.
+
+### Bigger default body capture limit
+
+The default body size cap (`maxBodyLength`) rose from 20,000 to 100,000 characters, so a realistically large paginated response keeps its collapsible tree view instead of falling back to plain text.
+
+### Android's back button no longer pops the screen underneath the panel
+
+Pressing back while the panel — or a fullscreen viewer, or a drilled-in request — is open now closes that first, instead of reaching the host app's own navigation.
+
 ## 1.2.6
 
 ### DevTools Network tab: sensitive-header highlighting and a collapsible JSON viewer

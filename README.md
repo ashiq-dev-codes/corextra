@@ -94,11 +94,11 @@ A draggable bubble opens the panel. Network, Logs, and Info sit directly on the 
 - **Network** — every request/response, searchable and filterable by method or status
   - Wide screens get a two-pane list + detail view; narrow screens drill into a full-screen detail with a Back button
   - Query parameters, headers, and body each get their own **Headers / Payload / Response** tab, so a large body scrolls on its own
-  - The method/path/status summary above the tabs shrinks to a one-line strip while you scroll through a tab's content, and expands again the moment you scroll back up — so a small screen still has room to read the data
-  - Auth headers (`Authorization`, `Cookie`, `X-Api-Key`, etc.) get a **TOKEN** badge, a one-tap copy button, and a share button that opens the OS share sheet. Mask one on screen with `hiddenHeaders` — it shows as `***` plus its last few characters (e.g. `***ab12`) so a tester can still tell tokens apart, and Copy/Share still use the full real value, so screen recordings stay safe without blocking whoever needs it
-  - JSON bodies render as a collapsible, syntax-highlighted tree — tap any `{`/`[` to fold it, or use **Expand all** / **Collapse all**
-  - Long lines scroll horizontally with their own scrollbar instead of wrapping, both with the same share button
-  - The Payload and Response blocks also get a fullscreen button — opens that body on its own, full screen, for reviewing large data without sharing space with the summary and tab bar
+  - The summary above the tabs shrinks to one line while you scroll, then expands again once you scroll back up — so small screens still have room to read
+  - Auth headers (`Authorization`, `Cookie`, `X-Api-Key`, etc.) get a **TOKEN** badge with copy and share buttons. Mask one with `hiddenHeaders` and it still shows a short preview (`***ab12`) — Copy and Share keep using the full real value
+  - JSON bodies render as a collapsible, syntax-highlighted tree — tap any `{`/`[` to fold it, long-press any line to copy it, or use **Expand all** / **Collapse all**
+  - Anything else falls back to a plain, horizontally-scrollable code block with its own scrollbar
+  - Payload and Response blocks also get a **fullscreen** button, for reviewing large data on its own
 - **Logs** — every `debugLog`/`AppLogger` call, searchable and filterable by level — no extra wiring needed
 - **Info** — app + device details via `package_info_plus`/`device_info_plus`
 - **Performance** (in More) — a live FPS/frame-time chart with jank highlighting and tap-to-inspect frames
@@ -115,7 +115,7 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 
 ```yaml
 dependencies:
-  corextra: ^1.2.6
+  corextra: ^1.2.7
 ```
 
 Then import it in your Dart code:
