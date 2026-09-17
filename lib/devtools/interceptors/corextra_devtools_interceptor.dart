@@ -18,13 +18,15 @@ class CorextraDevToolsInterceptor extends Interceptor {
   const CorextraDevToolsInterceptor({
     this.enabled,
     this.captureBody = true,
-    this.maxBodyLength = 20000,
+    this.maxBodyLength = 100000,
     this.hiddenHeaders = const {},
   });
 
   /// When `null`, defers to [CorextraDevTools.instance.enabled].
   final bool? enabled;
   final bool captureBody;
+
+  /// Bodies longer than this (pretty-printed) are truncated with a marker and lose the Response tab's collapsible tree view, falling back to plain text — raise it for a large paginated response, lower it to bound memory more tightly.
   final int maxBodyLength;
 
   /// Header names (case-insensitive) the DevTools panel masks on screen. The real values are still captured — this only hides them from casual view/screenshots, it isn't a data-scrubbing feature.

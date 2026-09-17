@@ -98,6 +98,7 @@ A draggable bubble opens the panel. Network, Logs, and Info sit directly on the 
   - Auth headers (`Authorization`, `Cookie`, `X-Api-Key`, etc.) get a **TOKEN** badge, a one-tap copy button, and a share button that opens the OS share sheet. Mask one on screen with `hiddenHeaders` — it shows as `***` plus its last few characters (e.g. `***ab12`) so a tester can still tell tokens apart, and Copy/Share still use the full real value, so screen recordings stay safe without blocking whoever needs it
   - JSON bodies render as a collapsible, syntax-highlighted tree — tap any `{`/`[` to fold it, or use **Expand all** / **Collapse all**
   - Long lines scroll horizontally with their own scrollbar instead of wrapping, both with the same share button
+  - The Payload and Response blocks also get a fullscreen button — opens that body on its own, full screen, for reviewing large data without sharing space with the summary and tab bar
 - **Logs** — every `debugLog`/`AppLogger` call, searchable and filterable by level — no extra wiring needed
 - **Info** — app + device details via `package_info_plus`/`device_info_plus`
 - **Performance** (in More) — a live FPS/frame-time chart with jank highlighting and tap-to-inspect frames

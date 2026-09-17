@@ -761,4 +761,79 @@ void main() {
       expect(find.byKey(const ValueKey('compact-summary')), findsNothing);
     },
   );
+
+  testWidgets(
+    'the fullscreen button on the Response block opens the body '
+    'full-screen, and Close returns to the normal detail view',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+      );
+      event.responseBody = {'name': 'Ada'};
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(900));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Close'), findsNothing);
+
+      await tester.tap(find.byTooltip('View fullscreen'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Close'), findsOneWidget);
+      expect(find.textContaining('"name": "Ada"'), findsWidgets);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Close'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'a JSON toggle row ({ or [) has a generously sized tap target, not '
+    'just the width of its chevron icon, so closely-stacked sibling '
+    'brackets are easy to tell apart and hit precisely',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/trace',
+      );
+      event.responseBody = {
+        'trace': [
+          {'a': 1},
+          {'b': 2},
+          {'c': 3},
+        ],
+      };
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/trace'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
+      // 5 toggleable containers here: root, "trace", and its 3 items.
+      final tallToggleTargets = find.byType(InkWell).evaluate().where((
+        element,
+      ) {
+        final box = element.renderObject;
+        return box is RenderBox && box.hasSize && box.size.height >= 28;
+      });
+      expect(tallToggleTargets.length, greaterThanOrEqualTo(5));
+    },
+  );
 }

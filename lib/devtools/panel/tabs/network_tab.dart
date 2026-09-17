@@ -1072,12 +1072,15 @@ class _PayloadTab extends StatelessWidget {
                 if (event.queryParameters.isNotEmpty) ...[
                   const _SubsectionLabel('QUERY PARAMETERS'),
                   const SizedBox(height: 4),
-                  _BodyView(data: event.queryParameters),
+                  _BodyView(
+                    data: event.queryParameters,
+                    title: 'Query Parameters',
+                  ),
                   const SizedBox(height: 20),
                 ],
                 const _SubsectionLabel('REQUEST BODY'),
                 const SizedBox(height: 4),
-                _BodyView(data: event.requestBody),
+                _BodyView(data: event.requestBody, title: 'Request Body'),
               ],
             ),
           ),
@@ -1101,7 +1104,7 @@ class _ResponseTab extends StatelessWidget {
           (context, controller) => SingleChildScrollView(
             controller: controller,
             padding: const EdgeInsets.all(16),
-            child: _BodyView(data: event.responseBody),
+            child: _BodyView(data: event.responseBody, title: 'Response'),
           ),
     );
   }
@@ -1418,17 +1421,22 @@ class _TokenBadge extends StatelessWidget {
 
 /// Shows [data] as a collapsible JSON tree when it decodes to an object or array, falling back to a plain scrollable code block otherwise.
 class _BodyView extends StatelessWidget {
-  const _BodyView({required this.data});
+  const _BodyView({required this.data, required this.title});
 
   final Object? data;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
     final decoded = _decodeJsonContainer(data);
     if (decoded != null) {
-      return _JsonCodeBlock(value: decoded.value, rawText: decoded.rawText);
+      return _JsonCodeBlock(
+        value: decoded.value,
+        rawText: decoded.rawText,
+        title: title,
+      );
     }
-    return _CodeBlock(content: prettyFormatBody(data));
+    return _CodeBlock(content: prettyFormatBody(data), title: title);
   }
 }
 
@@ -1455,14 +1463,28 @@ class _BodyView extends StatelessWidget {
 
 /// A monospace "code block" for request/response bodies — long lines scroll horizontally instead of wrapping, so dense/minified data stays readable.
 class _CodeBlock extends StatelessWidget {
-  const _CodeBlock({required this.content});
+  const _CodeBlock({
+    required this.content,
+    required this.title,
+    this.standalone = true,
+  });
 
   final String content;
+  final String title;
+
+  /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
+  final bool standalone;
 
   @override
   Widget build(BuildContext context) {
     return _CodeBlockChrome(
       copyText: content,
+      title: title,
+      fullscreenBuilder:
+          standalone
+              ? (context) =>
+                  _CodeBlock(content: content, title: title, standalone: false)
+              : null,
       child: SelectableText(
         content,
         style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
@@ -1476,12 +1498,18 @@ class _CodeBlockChrome extends StatelessWidget {
   const _CodeBlockChrome({
     required this.child,
     required this.copyText,
+    required this.title,
     this.actions = const [],
+    this.fullscreenBuilder,
   });
 
   final Widget child;
   final String copyText;
+  final String title;
   final List<Widget> actions;
+
+  /// Builds a fresh, independent copy of this block for the fullscreen view — not [child] itself, so interacting with it there (e.g. folding a JSON node) doesn't desync from the inline view's own state.
+  final WidgetBuilder? fullscreenBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -1505,6 +1533,11 @@ class _CodeBlockChrome extends StatelessWidget {
             child: _CodeBlockActionBar(
               actions: [
                 ...actions,
+                if (fullscreenBuilder != null)
+                  _FullscreenIconButton(
+                    title: title,
+                    builder: fullscreenBuilder!,
+                  ),
                 _ShareIconButton(text: copyText),
                 _CopyIconButton(text: copyText),
               ],
@@ -1534,6 +1567,119 @@ class _CodeBlockActionBar extends StatelessWidget {
         ],
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+    );
+  }
+}
+
+/// Opens [builder]'s content full-screen via the ambient [Overlay] — deliberately not [Navigator], since the panel is documented to work with no Navigator above it (only a local Overlay) when mounted the recommended way via `MaterialApp.builder`.
+class _FullscreenIconButton extends StatefulWidget {
+  const _FullscreenIconButton({required this.title, required this.builder});
+
+  final String title;
+  final WidgetBuilder builder;
+
+  @override
+  State<_FullscreenIconButton> createState() => _FullscreenIconButtonState();
+}
+
+class _FullscreenIconButtonState extends State<_FullscreenIconButton> {
+  OverlayEntry? _entry;
+
+  void _open() {
+    final entry = OverlayEntry(
+      builder:
+          (context) => _FullscreenContentView(
+            title: widget.title,
+            onClose: _close,
+            child: widget.builder(context),
+          ),
+    );
+    _entry = entry;
+    Overlay.of(context).insert(entry);
+  }
+
+  void _close() {
+    _entry?.remove();
+    _entry = null;
+  }
+
+  @override
+  void dispose() {
+    _entry?.remove();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'View fullscreen',
+      iconSize: 16,
+      visualDensity: VisualDensity.compact,
+      icon: const Icon(LucideIcons.maximize2),
+      onPressed: _open,
+    );
+  }
+}
+
+/// The full-screen frame a [_FullscreenIconButton] shows its content in — a back button and title above the given [child], which gets the whole screen instead of sharing space with everything above the tab bar.
+class _FullscreenContentView extends StatelessWidget {
+  const _FullscreenContentView({
+    required this.title,
+    required this.child,
+    required this.onClose,
+  });
+
+  final String title;
+  final Widget child;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Positioned.fill(
+      child: Material(
+        color: theme.colorScheme.surface,
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 4, 16, 4),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Close',
+                      icon: const Icon(LucideIcons.arrowLeft),
+                      onPressed: onClose,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: DevToolsScrollToTop(
+                  builder:
+                      (context, controller) => SingleChildScrollView(
+                        controller: controller,
+                        padding: const EdgeInsets.all(16),
+                        child: child,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1574,10 +1720,19 @@ class _ScrollableCodeState extends State<_ScrollableCode> {
 
 /// A collapsible, syntax-highlighted JSON tree, codebeautify-viewer style — tap a `{`/`[` line to fold it, or use the header actions to fold/unfold everything; starts fully expanded.
 class _JsonCodeBlock extends StatefulWidget {
-  const _JsonCodeBlock({required this.value, required this.rawText});
+  const _JsonCodeBlock({
+    required this.value,
+    required this.rawText,
+    required this.title,
+    this.standalone = true,
+  });
 
   final Object value;
   final String rawText;
+  final String title;
+
+  /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
+  final bool standalone;
 
   @override
   State<_JsonCodeBlock> createState() => _JsonCodeBlockState();
@@ -1631,6 +1786,16 @@ class _JsonCodeBlockState extends State<_JsonCodeBlock> {
     );
     return _CodeBlockChrome(
       copyText: widget.rawText,
+      title: widget.title,
+      fullscreenBuilder:
+          widget.standalone
+              ? (context) => _JsonCodeBlock(
+                value: widget.value,
+                rawText: widget.rawText,
+                title: widget.title,
+                standalone: false,
+              )
+              : null,
       actions: [
         IconButton(
           tooltip: 'Expand all',
@@ -1828,7 +1993,7 @@ class _JsonLeafLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(left: depth * 16.0, top: 1, bottom: 1),
+      padding: EdgeInsets.only(left: depth * 16.0, top: 5, bottom: 5),
       child: SelectableText.rich(
         TextSpan(
           style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
@@ -1898,19 +2063,26 @@ class _JsonToggleLine extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.only(
             left: depth * 16.0,
-            top: 1,
-            bottom: 1,
-            right: 4,
+            top: 5,
+            bottom: 5,
+            right: 8,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                collapsed ? LucideIcons.chevronRight : LucideIcons.chevronDown,
-                size: 13,
-                color: theme.colorScheme.onSurfaceVariant,
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: Center(
+                  child: Icon(
+                    collapsed
+                        ? LucideIcons.chevronRight
+                        : LucideIcons.chevronDown,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
-              const SizedBox(width: 2),
               Text.rich(
                 TextSpan(
                   style: punctStyle,
