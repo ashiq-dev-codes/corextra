@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../devtools_controller.dart';
 import '../../models/network_event.dart';
@@ -1280,7 +1281,10 @@ class _KeyValueList extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (sensitive) _CopyIconButton(text: entry.value),
+                  if (sensitive) ...[
+                    _CopyIconButton(text: entry.value),
+                    _ShareIconButton(text: entry.value),
+                  ],
                 ],
               ),
             );
@@ -1417,7 +1421,11 @@ class _CodeBlockChrome extends StatelessWidget {
             top: 4,
             right: 4,
             child: _CodeBlockActionBar(
-              actions: [...actions, _CopyIconButton(text: copyText)],
+              actions: [
+                ...actions,
+                _ShareIconButton(text: copyText),
+                _CopyIconButton(text: copyText),
+              ],
             ),
           ),
         ],
@@ -1889,6 +1897,35 @@ class _CopyIconButtonState extends State<_CopyIconButton> {
       visualDensity: VisualDensity.compact,
       icon: Icon(_copied ? LucideIcons.check : LucideIcons.copy),
       onPressed: _copy,
+    );
+  }
+}
+
+/// Opens the OS share sheet for [text] via `share_plus`, anchored to this button's own position so it doesn't crash iPad's popover-based presentation.
+class _ShareIconButton extends StatelessWidget {
+  const _ShareIconButton({required this.text});
+
+  final String text;
+
+  Future<void> _share(BuildContext context) async {
+    final box = context.findRenderObject() as RenderBox?;
+    final origin =
+        box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    try {
+      await SharePlus.instance.share(
+        ShareParams(text: text, sharePositionOrigin: origin),
+      );
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Share',
+      iconSize: 16,
+      visualDensity: VisualDensity.compact,
+      icon: const Icon(LucideIcons.share2),
+      onPressed: () => _share(context),
     );
   }
 }

@@ -673,4 +673,49 @@ void main() {
       expect(find.text('short1'), findsNothing);
     },
   );
+
+  testWidgets(
+    'tapping Share on a TOKEN header row invokes the OS share sheet '
+    'with the real header value, even when it is masked on screen',
+    (tester) async {
+      MethodCall? sharedCall;
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('dev.fluttercommunity.plus/share'),
+            (call) async {
+              sharedCall = call;
+              return 'dev.fluttercommunity.plus/share/none';
+            },
+          );
+
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+        requestHeaders: {'Authorization': 'Bearer real-secret-value'},
+        hiddenHeaderKeys: {'authorization'},
+      );
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(900));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('***alue'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Share'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(sharedCall, isNotNull);
+      expect(
+        Map<String, dynamic>.from(
+          sharedCall!.arguments as Map,
+        ).values.join(),
+        contains('Bearer real-secret-value'),
+      );
+    },
+  );
 }

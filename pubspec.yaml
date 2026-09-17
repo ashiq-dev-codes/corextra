@@ -16,6 +16,7 @@ dependencies:
   dio: ^5.9.2
   intl: ^0.20.2
   lucide_icons_flutter: ^3.1.17
+  share_plus: ">=11.1.0 <14.0.0"
   device_info_plus: ">=11.5.0 <14.0.0"
   package_info_plus: ">=8.3.1 <11.0.0"
 
