@@ -81,6 +81,19 @@ class DemoController extends ChangeNotifier {
     }
   }
 
+  Future<void> sendWithRedactedAuthHeader() async {
+    try {
+      await networkService.dio.get(
+        '/get',
+        options: Options(
+          headers: {'Authorization': 'Bearer masked-on-screen-but-copyable'},
+        ),
+      );
+    } on DioException {
+      /* ignore */
+    }
+  }
+
   Future<void> sendPutWithBody() async {
     try {
       await networkService.dio.put('/put', data: {'name': 'corextra', 'version': '2.0.0'});

@@ -24,6 +24,7 @@ class NetworkEventStore extends ChangeNotifier {
     Map<String, String> queryParameters = const {},
     Map<String, String> requestHeaders = const {},
     Object? requestBody,
+    Set<String> hiddenHeaderKeys = const {},
   }) {
     final event = NetworkEvent(
       id: '${DateTime.now().microsecondsSinceEpoch}-${_events.length}',
@@ -33,6 +34,7 @@ class NetworkEventStore extends ChangeNotifier {
       queryParameters: queryParameters,
       requestHeaders: requestHeaders,
       requestBody: requestBody,
+      hiddenHeaderKeys: hiddenHeaderKeys,
     );
     _events.add(event);
     while (_events.length > maxEntries) {

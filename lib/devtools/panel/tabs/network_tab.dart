@@ -990,11 +990,17 @@ class _HeadersTab extends StatelessWidget {
                 const SizedBox(height: 20),
                 const _SubsectionLabel('REQUEST HEADERS'),
                 const SizedBox(height: 4),
-                _KeyValueList(data: event.requestHeaders),
+                _KeyValueList(
+                  data: event.requestHeaders,
+                  hiddenKeys: event.hiddenHeaderKeys,
+                ),
                 const SizedBox(height: 20),
                 const _SubsectionLabel('RESPONSE HEADERS'),
                 const SizedBox(height: 4),
-                _KeyValueList(data: event.responseHeaders),
+                _KeyValueList(
+                  data: event.responseHeaders,
+                  hiddenKeys: event.hiddenHeaderKeys,
+                ),
               ],
             ),
           ),
@@ -1202,12 +1208,21 @@ const _sensitiveHeaderNames = {
 bool _isSensitiveHeader(String key) =>
     _sensitiveHeaderNames.contains(key.toLowerCase());
 
+/// Masks a hidden header value for on-screen display, keeping the last few characters visible so a tester can tell tokens apart without exposing the whole value — full mask if that would reveal too much of a short value.
+String _maskedPreview(String value) {
+  const visibleTail = 4;
+  const minMaskedChars = 3;
+  if (value.length <= visibleTail + minMaskedChars) return '***';
+  return '***${value.substring(value.length - visibleTail)}';
+}
+
 /// A clean key/value list, used for headers — instead of a raw
 /// `Map.toString()` dump.
 class _KeyValueList extends StatelessWidget {
-  const _KeyValueList({required this.data});
+  const _KeyValueList({required this.data, this.hiddenKeys = const {}});
 
   final Map<String, String> data;
+  final Set<String> hiddenKeys;
 
   @override
   Widget build(BuildContext context) {
@@ -1225,7 +1240,9 @@ class _KeyValueList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children:
           data.entries.map((entry) {
-            final sensitive = _isSensitiveHeader(entry.key);
+            final hidden = hiddenKeys.contains(entry.key.toLowerCase());
+            final sensitive = _isSensitiveHeader(entry.key) || hidden;
+            final displayValue = hidden ? _maskedPreview(entry.value) : entry.value;
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(
@@ -1244,16 +1261,22 @@ class _KeyValueList extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        if (sensitive) const _TokenBadge(),
+                        if (sensitive) _TokenBadge(hidden: hidden),
                       ],
                     ),
                   ),
                   Expanded(
                     child: SelectableText(
-                      entry.value,
+                      displayValue,
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
-                        color: sensitive ? theme.colorScheme.primary : null,
+                        fontStyle: hidden ? FontStyle.italic : FontStyle.normal,
+                        color:
+                            hidden
+                                ? theme.colorScheme.onSurfaceVariant
+                                : sensitive
+                                ? theme.colorScheme.primary
+                                : null,
                       ),
                     ),
                   ),
@@ -1268,12 +1291,17 @@ class _KeyValueList extends StatelessWidget {
 
 /// A small badge marking a header row flagged by [_isSensitiveHeader].
 class _TokenBadge extends StatelessWidget {
-  const _TokenBadge();
+  const _TokenBadge({required this.hidden});
+
+  final bool hidden;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'Looks like an auth token or credential',
+      message:
+          hidden
+              ? 'Masked on screen by hiddenHeaders — Copy still copies the real value'
+              : 'Looks like an auth token or credential',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
         decoration: BoxDecoration(

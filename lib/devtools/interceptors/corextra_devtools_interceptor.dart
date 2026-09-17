@@ -27,24 +27,12 @@ class CorextraDevToolsInterceptor extends Interceptor {
   final bool captureBody;
   final int maxBodyLength;
 
-  /// Header names (case-insensitive) redacted before being stored.
+  /// Header names (case-insensitive) the DevTools panel masks on screen. The real values are still captured — this only hides them from casual view/screenshots, it isn't a data-scrubbing feature.
   final Set<String> hiddenHeaders;
 
   static const _extraKey = 'corextra_devtools_event';
-  static const _redacted = '***';
 
   bool get _isEnabled => enabled ?? CorextraDevTools.instance.enabled;
-
-  Map<String, String> _redactHeaders(Map<String, String> headers) {
-    if (hiddenHeaders.isEmpty) return headers;
-    final hidden = hiddenHeaders.map((h) => h.toLowerCase()).toSet();
-    return headers.map(
-      (key, value) => MapEntry(
-        key,
-        hidden.contains(key.toLowerCase()) ? _redacted : value,
-      ),
-    );
-  }
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
@@ -55,12 +43,13 @@ class CorextraDevToolsInterceptor extends Interceptor {
         queryParameters: options.queryParameters.map(
           (key, value) => MapEntry(key, value.toString()),
         ),
-        requestHeaders: _redactHeaders(
-          options.headers.map((key, value) => MapEntry(key, value.toString())),
+        requestHeaders: options.headers.map(
+          (key, value) => MapEntry(key, value.toString()),
         ),
         requestBody: captureBody
             ? truncateBody(options.data, maxBodyLength)
             : null,
+        hiddenHeaderKeys: hiddenHeaders.map((h) => h.toLowerCase()).toSet(),
       );
       options.extra[_extraKey] = event;
     }
@@ -73,10 +62,8 @@ class CorextraDevToolsInterceptor extends Interceptor {
     if (event != null) {
       event.statusCode = response.statusCode;
       event.statusMessage = response.statusMessage;
-      event.responseHeaders = _redactHeaders(
-        response.headers.map.map(
-          (key, value) => MapEntry(key, value.join(', ')),
-        ),
+      event.responseHeaders = response.headers.map.map(
+        (key, value) => MapEntry(key, value.join(', ')),
       );
       event.responseBody = captureBody
           ? truncateBody(response.data, maxBodyLength)

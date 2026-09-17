@@ -1,5 +1,6 @@
 import 'package:corextra/corextra.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void _seedTwoEvents() {
@@ -601,6 +602,75 @@ void main() {
       expect(find.text('Bearer abc123'), findsOneWidget);
       expect(find.text('Content-Type'), findsOneWidget);
       expect(find.byTooltip('Copy'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a header masked via hiddenHeaderKeys still gets a TOKEN badge and a '
+    'working copy button — the screen shows a masked preview but Copy '
+    'grabs the real value underneath',
+    (tester) async {
+      String? copiedText;
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copiedText = (call.arguments as Map)['text'] as String?;
+            }
+            return null;
+          });
+
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+        requestHeaders: {'Authorization': 'Bearer real-secret-value'},
+        hiddenHeaderKeys: {'authorization'},
+      );
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(900));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TOKEN'), findsOneWidget);
+      // Masked, but its last 4 characters ("alue") stay visible.
+      expect(find.text('***alue'), findsOneWidget);
+      expect(find.text('Bearer real-secret-value'), findsNothing);
+
+      await tester.tap(find.byTooltip('Copy'));
+      await tester.pump();
+      // Flushes _CopyIconButton's own 1-second "copied" reset timer, which pumpAndSettle alone won't wait out.
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(copiedText, 'Bearer real-secret-value');
+    },
+  );
+
+  testWidgets(
+    'a masked header short enough that revealing its last characters '
+    'would expose most of it is fully masked instead',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+        requestHeaders: {'X-Api-Key': 'short1'},
+        hiddenHeaderKeys: {'x-api-key'},
+      );
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(900));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('***'), findsOneWidget);
+      expect(find.text('short1'), findsNothing);
     },
   );
 }

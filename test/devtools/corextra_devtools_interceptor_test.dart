@@ -78,16 +78,23 @@ void main() {
     expect(CorextraDevTools.instance.network.events, isEmpty);
   });
 
-  test('redacts hidden headers case-insensitively', () async {
-    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
-      ..httpClientAdapter = _FakeAdapter()
-      ..interceptors.add(
-        const CorextraDevToolsInterceptor(hiddenHeaders: {'x-api-key'}),
+  test(
+    'flags hidden headers case-insensitively without discarding their real value',
+    () async {
+      final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+        ..httpClientAdapter = _FakeAdapter()
+        ..interceptors.add(
+          const CorextraDevToolsInterceptor(hiddenHeaders: {'x-api-key'}),
+        );
+
+      await dio.get(
+        '/ping',
+        options: Options(headers: {'X-Api-Key': 'secret'}),
       );
 
-    await dio.get('/ping', options: Options(headers: {'X-Api-Key': 'secret'}));
-
-    final event = CorextraDevTools.instance.network.events.single;
-    expect(event.requestHeaders['X-Api-Key'], '***');
-  });
+      final event = CorextraDevTools.instance.network.events.single;
+      expect(event.requestHeaders['X-Api-Key'], 'secret');
+      expect(event.hiddenHeaderKeys, {'x-api-key'});
+    },
+  );
 }
