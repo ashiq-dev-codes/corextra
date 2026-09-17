@@ -58,6 +58,7 @@ class DevToolsTab extends StatelessWidget {
               'Query Params': controller.sendGetWithQueryParams,
               'POST Body': controller.sendPostWithBody,
               'API Key + Token': controller.sendWithApiKeyHeader,
+              'Redacted Token': controller.sendWithRedactedAuthHeader,
               'PUT Body': controller.sendPutWithBody,
               'PATCH Raw': controller.sendPatchWithRawBody,
               'DELETE': controller.sendDelete,

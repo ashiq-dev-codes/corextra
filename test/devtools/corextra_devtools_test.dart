@@ -30,4 +30,30 @@ void main() {
       expect(CorextraDevTools.instance.logs.entries, isEmpty);
     });
   });
+
+  group('CorextraDevTools back-handler stack', () {
+    test('handleBackPress reports false when nothing is registered', () {
+      expect(CorextraDevTools.instance.handleBackPress(), isFalse);
+    });
+
+    test('handleBackPress invokes only the most recently pushed handler', () {
+      final calls = <String>[];
+      final unregisterA = CorextraDevTools.instance.pushBackHandler(
+        () => calls.add('a'),
+      );
+      final unregisterB = CorextraDevTools.instance.pushBackHandler(
+        () => calls.add('b'),
+      );
+
+      expect(CorextraDevTools.instance.handleBackPress(), isTrue);
+      expect(calls, ['b']);
+
+      unregisterB();
+      expect(CorextraDevTools.instance.handleBackPress(), isTrue);
+      expect(calls, ['b', 'a']);
+
+      unregisterA();
+      expect(CorextraDevTools.instance.handleBackPress(), isFalse);
+    });
+  });
 }

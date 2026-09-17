@@ -94,14 +94,16 @@ A draggable bubble opens the panel. Network, Logs, and Info sit directly on the 
 - **Network** — every request/response, searchable and filterable by method or status
   - Wide screens get a two-pane list + detail view; narrow screens drill into a full-screen detail with a Back button
   - Query parameters, headers, and body each get their own **Headers / Payload / Response** tab, so a large body scrolls on its own
-  - Auth headers (`Authorization`, `Cookie`, `X-Api-Key`, etc.) get a **TOKEN** badge and a one-tap copy button — redact them instead with `hiddenHeaders`
-  - JSON bodies render as a collapsible, syntax-highlighted tree — tap any `{`/`[` to fold it, or use **Expand all** / **Collapse all**
-  - Long lines scroll horizontally with their own scrollbar instead of wrapping
+  - The summary above the tabs shrinks to one line while you scroll, then expands again once you scroll back up — so small screens still have room to read
+  - Auth headers (`Authorization`, `Cookie`, `X-Api-Key`, etc.) get a **TOKEN** badge with copy and share buttons. Mask one with `hiddenHeaders` and it still shows a short preview (`***ab12`) — Copy and Share keep using the full real value
+  - JSON bodies render as a collapsible, syntax-highlighted tree — tap any `{`/`[` to fold it, long-press any line to copy it, or use **Expand all** / **Collapse all**
+  - Anything else falls back to a plain, horizontally-scrollable code block with its own scrollbar
+  - Payload and Response blocks also get a **fullscreen** button, for reviewing large data on its own
 - **Logs** — every `debugLog`/`AppLogger` call, searchable and filterable by level — no extra wiring needed
 - **Info** — app + device details via `package_info_plus`/`device_info_plus`
 - **Performance** (in More) — a live FPS/frame-time chart with jank highlighting and tap-to-inspect frames
 
-Every list in the panel gets a floating "scroll to top" button once you've scrolled down. Tap **Minimize** to shrink the panel into a small floating window you can keep an eye on while testing the rest of the app — press and hold its corner before dragging to resize it. Drag the bubble or the window to a screen edge to tuck it out of the way. Toggle everything at runtime with `CorextraDevTools.instance.enabled`.
+Every list in the panel gets a floating "scroll to top" button once you've scrolled down. Tap **Minimize** to shrink the panel into a small floating window you can keep an eye on while testing the rest of the app — press and hold its corner before dragging to resize it. Drag the bubble or the window to a screen edge to tuck it out of the way. Android's hardware back button closes whatever's open in the panel (a fullscreen viewer, a drilled-in request, then the panel itself) one step at a time, instead of popping the host app's own screen underneath it. Toggle everything at runtime with `CorextraDevTools.instance.enabled`.
 
 Planned for a future phase: a widget/layout inspector, memory heap snapshots, a storage (shared_preferences) viewer, and a route/navigation inspector.
 
@@ -113,7 +115,7 @@ Add this package to your Dart or Flutter project by adding this line to your `pu
 
 ```yaml
 dependencies:
-  corextra: ^1.2.6
+  corextra: ^1.2.7
 ```
 
 Then import it in your Dart code:

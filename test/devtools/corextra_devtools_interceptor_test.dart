@@ -5,13 +5,17 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeAdapter implements HttpClientAdapter {
+  _FakeAdapter({this.responseBody = const {'ok': true}});
+
+  final Object? responseBody;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
     Stream<List<int>>? requestStream,
     Future<void>? cancelFuture,
   ) async {
-    final bytes = utf8.encode(jsonEncode({'ok': true}));
+    final bytes = utf8.encode(jsonEncode(responseBody));
     return ResponseBody.fromBytes(
       bytes,
       200,
@@ -78,16 +82,66 @@ void main() {
     expect(CorextraDevTools.instance.network.events, isEmpty);
   });
 
-  test('redacts hidden headers case-insensitively', () async {
-    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
-      ..httpClientAdapter = _FakeAdapter()
-      ..interceptors.add(
-        const CorextraDevToolsInterceptor(hiddenHeaders: {'x-api-key'}),
+  test(
+    'flags hidden headers case-insensitively without discarding their real value',
+    () async {
+      final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+        ..httpClientAdapter = _FakeAdapter()
+        ..interceptors.add(
+          const CorextraDevToolsInterceptor(hiddenHeaders: {'x-api-key'}),
+        );
+
+      await dio.get(
+        '/ping',
+        options: Options(headers: {'X-Api-Key': 'secret'}),
       );
 
-    await dio.get('/ping', options: Options(headers: {'X-Api-Key': 'secret'}));
+      final event = CorextraDevTools.instance.network.events.single;
+      expect(event.requestHeaders['X-Api-Key'], 'secret');
+      expect(event.hiddenHeaderKeys, {'x-api-key'});
+    },
+  );
 
-    final event = CorextraDevTools.instance.network.events.single;
-    expect(event.requestHeaders['X-Api-Key'], '***');
-  });
+  test(
+    "a realistically large paginated response (50 list items) isn't "
+    'truncated under the default maxBodyLength, so it keeps its '
+    'collapsible JSON tree view instead of falling back to plain text',
+    () async {
+      final package = {
+        'id': 36,
+        'name': 'TEST 123',
+        'description': null,
+        'price': 0,
+        'currency': 'usd',
+        'mode': 1,
+        'mode_text': 'Session',
+        'total_punches': null,
+        'expiry_type': 0,
+        'expiry_days': null,
+        'purchase_start_date': null,
+        'purchase_end_date': null,
+        'valid_from': null,
+        'valid_to': null,
+        'image_url': null,
+        'status': 1,
+        'visibility': 1,
+      };
+      final largeResponse = {
+        'status': 'success',
+        'message': 'Available punch packages',
+        'data': {'packages': List.generate(50, (_) => package)},
+      };
+
+      final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+        ..httpClientAdapter = _FakeAdapter(responseBody: largeResponse)
+        ..interceptors.add(const CorextraDevToolsInterceptor());
+
+      await dio.get('/packages');
+
+      final event = CorextraDevTools.instance.network.events.single;
+      final body = event.responseBody;
+      expect(body, isA<Map>());
+      expect((body as Map)['data'], isNotNull);
+    },
+  );
 }

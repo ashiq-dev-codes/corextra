@@ -1,13 +1,16 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../devtools_controller.dart';
 import '../../models/network_event.dart';
 import '../../util/pretty_json.dart';
+import '../back_handler_scope.dart';
 import '../empty_state.dart';
 import '../scroll_to_top_fab.dart';
 import '../search_field.dart';
@@ -219,29 +222,32 @@ class _NarrowDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: 'Back to requests',
-                icon: const Icon(LucideIcons.arrowLeft),
-                onPressed: onBack,
-              ),
-              Text(
-                'Request detail',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ],
+    return BackHandlerScope(
+      onBack: onBack,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: 'Back to requests',
+                  icon: const Icon(LucideIcons.arrowLeft),
+                  onPressed: onBack,
+                ),
+                Text(
+                  'Request detail',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        const Divider(height: 1),
-        Expanded(child: _NetworkEventDetail(event: event)),
-      ],
+          const Divider(height: 1),
+          Expanded(child: _NetworkEventDetail(event: event)),
+        ],
+      ),
     );
   }
 }
@@ -905,19 +911,57 @@ class _FilterOptionRow extends StatelessWidget {
 /// long error message (if any) live inside the Headers tab instead,
 /// alongside request/response headers, where it's already expected
 /// to scroll.
-class _NetworkEventDetail extends StatelessWidget {
+class _NetworkEventDetail extends StatefulWidget {
   const _NetworkEventDetail({required this.event});
 
   final NetworkEvent event;
 
   @override
+  State<_NetworkEventDetail> createState() => _NetworkEventDetailState();
+}
+
+/// How far past the top a tab has to scroll before an up/down swipe starts collapsing or restoring the summary — small enough to react promptly, large enough to ignore an idle bounce right at the top.
+const _summaryCollapseThreshold = 24.0;
+
+class _NetworkEventDetailState extends State<_NetworkEventDetail> {
+  bool _summaryCollapsed = false;
+
+  void _handleTabScroll(double offset, ScrollDirection direction) {
+    final collapse =
+        offset > _summaryCollapseThreshold &&
+        direction == ScrollDirection.reverse;
+    final expand =
+        offset <= _summaryCollapseThreshold ||
+        direction == ScrollDirection.forward;
+    if (collapse && !_summaryCollapsed) {
+      setState(() => _summaryCollapsed = true);
+    } else if (expand && _summaryCollapsed) {
+      setState(() => _summaryCollapsed = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final event = widget.event;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: _DetailSummary(event: event),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child:
+              _summaryCollapsed
+                  ? Padding(
+                    key: const ValueKey('compact-summary'),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: _DetailSummary(event: event, compact: true),
+                  )
+                  : Padding(
+                    key: const ValueKey('full-summary'),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: _DetailSummary(event: event),
+                  ),
         ),
         Expanded(
           child: DefaultTabController(
@@ -936,9 +980,9 @@ class _NetworkEventDetail extends StatelessWidget {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      _HeadersTab(event: event),
-                      _PayloadTab(event: event),
-                      _ResponseTab(event: event),
+                      _HeadersTab(event: event, onScroll: _handleTabScroll),
+                      _PayloadTab(event: event, onScroll: _handleTabScroll),
+                      _ResponseTab(event: event, onScroll: _handleTabScroll),
                     ],
                   ),
                 ),
@@ -958,13 +1002,15 @@ class _NetworkEventDetail extends StatelessWidget {
 /// long (a verbose DioException message, an unusually long URL) and
 /// this tab already scrolls to accommodate that.
 class _HeadersTab extends StatelessWidget {
-  const _HeadersTab({required this.event});
+  const _HeadersTab({required this.event, this.onScroll});
 
   final NetworkEvent event;
+  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   Widget build(BuildContext context) {
     return DevToolsScrollToTop(
+      onScroll: onScroll,
       builder:
           (context, controller) => SingleChildScrollView(
             controller: controller,
@@ -990,11 +1036,17 @@ class _HeadersTab extends StatelessWidget {
                 const SizedBox(height: 20),
                 const _SubsectionLabel('REQUEST HEADERS'),
                 const SizedBox(height: 4),
-                _KeyValueList(data: event.requestHeaders),
+                _KeyValueList(
+                  data: event.requestHeaders,
+                  hiddenKeys: event.hiddenHeaderKeys,
+                ),
                 const SizedBox(height: 20),
                 const _SubsectionLabel('RESPONSE HEADERS'),
                 const SizedBox(height: 4),
-                _KeyValueList(data: event.responseHeaders),
+                _KeyValueList(
+                  data: event.responseHeaders,
+                  hiddenKeys: event.hiddenHeaderKeys,
+                ),
               ],
             ),
           ),
@@ -1005,13 +1057,15 @@ class _HeadersTab extends StatelessWidget {
 /// Query parameters and the request body — everything that was sent
 /// *to* the server.
 class _PayloadTab extends StatelessWidget {
-  const _PayloadTab({required this.event});
+  const _PayloadTab({required this.event, this.onScroll});
 
   final NetworkEvent event;
+  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   Widget build(BuildContext context) {
     return DevToolsScrollToTop(
+      onScroll: onScroll,
       builder:
           (context, controller) => SingleChildScrollView(
             controller: controller,
@@ -1022,12 +1076,15 @@ class _PayloadTab extends StatelessWidget {
                 if (event.queryParameters.isNotEmpty) ...[
                   const _SubsectionLabel('QUERY PARAMETERS'),
                   const SizedBox(height: 4),
-                  _BodyView(data: event.queryParameters),
+                  _BodyView(
+                    data: event.queryParameters,
+                    title: 'Query Parameters',
+                  ),
                   const SizedBox(height: 20),
                 ],
                 const _SubsectionLabel('REQUEST BODY'),
                 const SizedBox(height: 4),
-                _BodyView(data: event.requestBody),
+                _BodyView(data: event.requestBody, title: 'Request Body'),
               ],
             ),
           ),
@@ -1038,18 +1095,20 @@ class _PayloadTab extends StatelessWidget {
 /// The response body on its own — the thing most worth a full tab to
 /// itself, since it's the one most likely to be large.
 class _ResponseTab extends StatelessWidget {
-  const _ResponseTab({required this.event});
+  const _ResponseTab({required this.event, this.onScroll});
 
   final NetworkEvent event;
+  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   Widget build(BuildContext context) {
     return DevToolsScrollToTop(
+      onScroll: onScroll,
       builder:
           (context, controller) => SingleChildScrollView(
             controller: controller,
             padding: const EdgeInsets.all(16),
-            child: _BodyView(data: event.responseBody),
+            child: _BodyView(data: event.responseBody, title: 'Response'),
           ),
     );
   }
@@ -1064,9 +1123,12 @@ class _ResponseTab extends StatelessWidget {
 /// glancing at, and not worth repeating up here alongside the path —
 /// lives in the Headers tab, where scrolling is already expected.
 class _DetailSummary extends StatelessWidget {
-  const _DetailSummary({required this.event});
+  const _DetailSummary({required this.event, this.compact = false});
 
   final NetworkEvent event;
+
+  /// A one-line method + path + status strip instead of the full block, used while [_NetworkEventDetail] has collapsed it to make room for the active tab's content.
+  final bool compact;
 
   static final _timeFormat = DateFormat('HH:mm:ss');
 
@@ -1077,6 +1139,40 @@ class _DetailSummary extends StatelessWidget {
     final durationMs = event.duration?.inMilliseconds;
     final uri = Uri.tryParse(event.url);
     final path = (uri != null && uri.path.isNotEmpty) ? uri.path : event.url;
+
+    if (compact) {
+      return Row(
+        children: [
+          _Pill(
+            text: event.method.toUpperCase(),
+            color: _methodColor(event.method),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              path,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _statusLabelFor(event),
+            style: TextStyle(
+              color: statusColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1202,12 +1298,21 @@ const _sensitiveHeaderNames = {
 bool _isSensitiveHeader(String key) =>
     _sensitiveHeaderNames.contains(key.toLowerCase());
 
+/// Masks a hidden header value for on-screen display, keeping the last few characters visible so a tester can tell tokens apart without exposing the whole value — full mask if that would reveal too much of a short value.
+String _maskedPreview(String value) {
+  const visibleTail = 4;
+  const minMaskedChars = 3;
+  if (value.length <= visibleTail + minMaskedChars) return '***';
+  return '***${value.substring(value.length - visibleTail)}';
+}
+
 /// A clean key/value list, used for headers — instead of a raw
 /// `Map.toString()` dump.
 class _KeyValueList extends StatelessWidget {
-  const _KeyValueList({required this.data});
+  const _KeyValueList({required this.data, this.hiddenKeys = const {}});
 
   final Map<String, String> data;
+  final Set<String> hiddenKeys;
 
   @override
   Widget build(BuildContext context) {
@@ -1225,7 +1330,9 @@ class _KeyValueList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children:
           data.entries.map((entry) {
-            final sensitive = _isSensitiveHeader(entry.key);
+            final hidden = hiddenKeys.contains(entry.key.toLowerCase());
+            final sensitive = _isSensitiveHeader(entry.key) || hidden;
+            final displayValue = hidden ? _maskedPreview(entry.value) : entry.value;
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(
@@ -1244,20 +1351,29 @@ class _KeyValueList extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        if (sensitive) const _TokenBadge(),
+                        if (sensitive) _TokenBadge(hidden: hidden),
                       ],
                     ),
                   ),
                   Expanded(
                     child: SelectableText(
-                      entry.value,
+                      displayValue,
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
-                        color: sensitive ? theme.colorScheme.primary : null,
+                        fontStyle: hidden ? FontStyle.italic : FontStyle.normal,
+                        color:
+                            hidden
+                                ? theme.colorScheme.onSurfaceVariant
+                                : sensitive
+                                ? theme.colorScheme.primary
+                                : null,
                       ),
                     ),
                   ),
-                  if (sensitive) _CopyIconButton(text: entry.value),
+                  if (sensitive) ...[
+                    _CopyIconButton(text: entry.value),
+                    _ShareIconButton(text: entry.value),
+                  ],
                 ],
               ),
             );
@@ -1268,12 +1384,17 @@ class _KeyValueList extends StatelessWidget {
 
 /// A small badge marking a header row flagged by [_isSensitiveHeader].
 class _TokenBadge extends StatelessWidget {
-  const _TokenBadge();
+  const _TokenBadge({required this.hidden});
+
+  final bool hidden;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'Looks like an auth token or credential',
+      message:
+          hidden
+              ? 'Masked on screen by hiddenHeaders — Copy still copies the real value'
+              : 'Looks like an auth token or credential',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
         decoration: BoxDecoration(
@@ -1304,17 +1425,22 @@ class _TokenBadge extends StatelessWidget {
 
 /// Shows [data] as a collapsible JSON tree when it decodes to an object or array, falling back to a plain scrollable code block otherwise.
 class _BodyView extends StatelessWidget {
-  const _BodyView({required this.data});
+  const _BodyView({required this.data, required this.title});
 
   final Object? data;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
     final decoded = _decodeJsonContainer(data);
     if (decoded != null) {
-      return _JsonCodeBlock(value: decoded.value, rawText: decoded.rawText);
+      return _JsonCodeBlock(
+        value: decoded.value,
+        rawText: decoded.rawText,
+        title: title,
+      );
     }
-    return _CodeBlock(content: prettyFormatBody(data));
+    return _CodeBlock(content: prettyFormatBody(data), title: title);
   }
 }
 
@@ -1341,14 +1467,28 @@ class _BodyView extends StatelessWidget {
 
 /// A monospace "code block" for request/response bodies — long lines scroll horizontally instead of wrapping, so dense/minified data stays readable.
 class _CodeBlock extends StatelessWidget {
-  const _CodeBlock({required this.content});
+  const _CodeBlock({
+    required this.content,
+    required this.title,
+    this.standalone = true,
+  });
 
   final String content;
+  final String title;
+
+  /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
+  final bool standalone;
 
   @override
   Widget build(BuildContext context) {
     return _CodeBlockChrome(
       copyText: content,
+      title: title,
+      fullscreenBuilder:
+          standalone
+              ? (context) =>
+                  _CodeBlock(content: content, title: title, standalone: false)
+              : null,
       child: SelectableText(
         content,
         style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
@@ -1362,12 +1502,18 @@ class _CodeBlockChrome extends StatelessWidget {
   const _CodeBlockChrome({
     required this.child,
     required this.copyText,
+    required this.title,
     this.actions = const [],
+    this.fullscreenBuilder,
   });
 
   final Widget child;
   final String copyText;
+  final String title;
   final List<Widget> actions;
+
+  /// Builds a fresh, independent copy of this block for the fullscreen view — not [child] itself, so interacting with it there (e.g. folding a JSON node) doesn't desync from the inline view's own state.
+  final WidgetBuilder? fullscreenBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -1389,7 +1535,16 @@ class _CodeBlockChrome extends StatelessWidget {
             top: 4,
             right: 4,
             child: _CodeBlockActionBar(
-              actions: [...actions, _CopyIconButton(text: copyText)],
+              actions: [
+                ...actions,
+                if (fullscreenBuilder != null)
+                  _FullscreenIconButton(
+                    title: title,
+                    builder: fullscreenBuilder!,
+                  ),
+                _ShareIconButton(text: copyText),
+                _CopyIconButton(text: copyText),
+              ],
             ),
           ),
         ],
@@ -1416,6 +1571,122 @@ class _CodeBlockActionBar extends StatelessWidget {
         ],
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+    );
+  }
+}
+
+/// Opens [builder]'s content full-screen via the ambient [Overlay] — deliberately not [Navigator], since the panel is documented to work with no Navigator above it (only a local Overlay) when mounted the recommended way via `MaterialApp.builder`.
+class _FullscreenIconButton extends StatefulWidget {
+  const _FullscreenIconButton({required this.title, required this.builder});
+
+  final String title;
+  final WidgetBuilder builder;
+
+  @override
+  State<_FullscreenIconButton> createState() => _FullscreenIconButtonState();
+}
+
+class _FullscreenIconButtonState extends State<_FullscreenIconButton> {
+  OverlayEntry? _entry;
+
+  void _open() {
+    final entry = OverlayEntry(
+      builder:
+          (context) => _FullscreenContentView(
+            title: widget.title,
+            onClose: _close,
+            child: widget.builder(context),
+          ),
+    );
+    _entry = entry;
+    Overlay.of(context).insert(entry);
+  }
+
+  void _close() {
+    _entry?.remove();
+    _entry = null;
+  }
+
+  @override
+  void dispose() {
+    _entry?.remove();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'View fullscreen',
+      iconSize: 16,
+      visualDensity: VisualDensity.compact,
+      icon: const Icon(LucideIcons.maximize2),
+      onPressed: _open,
+    );
+  }
+}
+
+/// The full-screen frame a [_FullscreenIconButton] shows its content in — a back button and title above the given [child], which gets the whole screen instead of sharing space with everything above the tab bar.
+class _FullscreenContentView extends StatelessWidget {
+  const _FullscreenContentView({
+    required this.title,
+    required this.child,
+    required this.onClose,
+  });
+
+  final String title;
+  final Widget child;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return BackHandlerScope(
+      onBack: onClose,
+      child: Positioned.fill(
+        child: Material(
+          color: theme.colorScheme.surface,
+          child: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 16, 4),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Close',
+                        icon: const Icon(LucideIcons.arrowLeft),
+                        onPressed: onClose,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: DevToolsScrollToTop(
+                    builder:
+                        (context, controller) => SingleChildScrollView(
+                          controller: controller,
+                          padding: const EdgeInsets.all(16),
+                          child: child,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1456,10 +1727,19 @@ class _ScrollableCodeState extends State<_ScrollableCode> {
 
 /// A collapsible, syntax-highlighted JSON tree, codebeautify-viewer style — tap a `{`/`[` line to fold it, or use the header actions to fold/unfold everything; starts fully expanded.
 class _JsonCodeBlock extends StatefulWidget {
-  const _JsonCodeBlock({required this.value, required this.rawText});
+  const _JsonCodeBlock({
+    required this.value,
+    required this.rawText,
+    required this.title,
+    this.standalone = true,
+  });
 
   final Object value;
   final String rawText;
+  final String title;
+
+  /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
+  final bool standalone;
 
   @override
   State<_JsonCodeBlock> createState() => _JsonCodeBlockState();
@@ -1513,6 +1793,16 @@ class _JsonCodeBlockState extends State<_JsonCodeBlock> {
     );
     return _CodeBlockChrome(
       copyText: widget.rawText,
+      title: widget.title,
+      fullscreenBuilder:
+          widget.standalone
+              ? (context) => _JsonCodeBlock(
+                value: widget.value,
+                rawText: widget.rawText,
+                title: widget.title,
+                standalone: false,
+              )
+              : null,
       actions: [
         IconButton(
           tooltip: 'Expand all',
@@ -1710,7 +2000,7 @@ class _JsonLeafLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(left: depth * 16.0, top: 1, bottom: 1),
+      padding: EdgeInsets.only(left: depth * 16.0, top: 5, bottom: 5),
       child: SelectableText.rich(
         TextSpan(
           style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
@@ -1772,61 +2062,61 @@ class _JsonToggleLine extends StatelessWidget {
       fontSize: 12.5,
       color: theme.colorScheme.onSurfaceVariant,
     );
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: depth * 16.0,
-            top: 1,
-            bottom: 1,
-            right: 4,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                collapsed ? LucideIcons.chevronRight : LucideIcons.chevronDown,
-                size: 13,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 2),
-              Text.rich(
-                TextSpan(
-                  style: punctStyle,
-                  children: [
-                    if (keyPrefix.isNotEmpty)
-                      TextSpan(
-                        text: keyPrefix,
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    TextSpan(text: openBrace),
-                    if (collapsed) TextSpan(text: ' … $closeBrace$comma'),
-                  ],
-                ),
-              ),
-              if (collapsed) ...[
-                const SizedBox(width: 6),
-                Text(
-                  countLabel,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 10.5,
-                    fontStyle: FontStyle.italic,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.7,
-                    ),
+    return Padding(
+      padding: EdgeInsets.only(left: depth * 16.0, top: 2, bottom: 2, right: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(4),
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Center(
+                  child: Icon(
+                    collapsed
+                        ? LucideIcons.chevronRight
+                        : LucideIcons.chevronDown,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ],
-            ],
+              ),
+            ),
           ),
-        ),
+          SelectableText.rich(
+            TextSpan(
+              style: punctStyle,
+              children: [
+                if (keyPrefix.isNotEmpty)
+                  TextSpan(
+                    text: keyPrefix,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                TextSpan(text: openBrace),
+                if (collapsed) TextSpan(text: ' … $closeBrace$comma'),
+                if (collapsed)
+                  TextSpan(
+                    text: '  $countLabel',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontStyle: FontStyle.italic,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1861,6 +2151,35 @@ class _CopyIconButtonState extends State<_CopyIconButton> {
       visualDensity: VisualDensity.compact,
       icon: Icon(_copied ? LucideIcons.check : LucideIcons.copy),
       onPressed: _copy,
+    );
+  }
+}
+
+/// Opens the OS share sheet for [text] via `share_plus`, anchored to this button's own position so it doesn't crash iPad's popover-based presentation.
+class _ShareIconButton extends StatelessWidget {
+  const _ShareIconButton({required this.text});
+
+  final String text;
+
+  Future<void> _share(BuildContext context) async {
+    final box = context.findRenderObject() as RenderBox?;
+    final origin =
+        box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    try {
+      await SharePlus.instance.share(
+        ShareParams(text: text, sharePositionOrigin: origin),
+      );
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Share',
+      iconSize: 16,
+      visualDensity: VisualDensity.compact,
+      icon: const Icon(LucideIcons.share2),
+      onPressed: () => _share(context),
     );
   }
 }

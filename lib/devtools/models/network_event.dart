@@ -8,6 +8,7 @@ class NetworkEvent {
     this.queryParameters = const {},
     this.requestHeaders = const {},
     this.requestBody,
+    this.hiddenHeaderKeys = const {},
   });
 
   final String id;
@@ -17,6 +18,9 @@ class NetworkEvent {
   final Map<String, String> queryParameters;
   final Map<String, String> requestHeaders;
   final Object? requestBody;
+
+  /// Lowercase header names (from `CorextraDevToolsInterceptor.hiddenHeaders`) the panel should mask on screen — the real values above are kept as-is so Copy still works.
+  final Set<String> hiddenHeaderKeys;
 
   int? statusCode;
   String? statusMessage;

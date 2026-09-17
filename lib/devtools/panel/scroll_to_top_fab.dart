@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 
 /// A small floating "scroll to top" button overlaid on a scrollable built by [builder].
 class DevToolsScrollToTop extends StatefulWidget {
-  const DevToolsScrollToTop({super.key, required this.builder});
+  const DevToolsScrollToTop({super.key, required this.builder, this.onScroll});
 
   /// Must attach the given [ScrollController] to its scrollable.
   final Widget Function(BuildContext context, ScrollController controller)
   builder;
+
+  /// Called on every scroll update with the live offset and the user's scroll direction — e.g. so a parent can collapse a header while scrolling down and restore it near the top.
+  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   State<DevToolsScrollToTop> createState() => _DevToolsScrollToTopState();
@@ -36,9 +40,11 @@ class _DevToolsScrollToTopState extends State<DevToolsScrollToTop> {
   }
 
   void _handleScroll() {
-    final shouldShow =
-        _controller.hasClients && _controller.offset > _showAfterOffset;
+    if (!_controller.hasClients) return;
+    final offset = _controller.offset;
+    final shouldShow = offset > _showAfterOffset;
     if (shouldShow != _visible) setState(() => _visible = shouldShow);
+    widget.onScroll?.call(offset, _controller.position.userScrollDirection);
   }
 
   void _scrollToTop() {

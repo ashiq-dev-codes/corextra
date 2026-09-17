@@ -1,6 +1,8 @@
 import 'package:corextra/corextra.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void _seedTwoEvents() {
   final store = CorextraDevTools.instance.network;
@@ -421,13 +423,14 @@ void main() {
       expect(find.textContaining('"name": "Ada"'), findsOneWidget);
       expect(find.textContaining('"age": 30'), findsOneWidget);
 
-      await tester.tap(find.textContaining('"user": {'));
+      // "user"'s own toggle is the 2nd chevron-down (root's is the 1st).
+      await tester.tap(find.byIcon(LucideIcons.chevronDown).at(1));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('"name": "Ada"'), findsNothing);
       expect(find.textContaining('2 keys'), findsOneWidget);
 
-      await tester.tap(find.textContaining('"user": {'));
+      await tester.tap(find.byIcon(LucideIcons.chevronRight));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('"name": "Ada"'), findsOneWidget);
@@ -601,6 +604,271 @@ void main() {
       expect(find.text('Bearer abc123'), findsOneWidget);
       expect(find.text('Content-Type'), findsOneWidget);
       expect(find.byTooltip('Copy'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a header masked via hiddenHeaderKeys still gets a TOKEN badge and a '
+    'working copy button — the screen shows a masked preview but Copy '
+    'grabs the real value underneath',
+    (tester) async {
+      String? copiedText;
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copiedText = (call.arguments as Map)['text'] as String?;
+            }
+            return null;
+          });
+
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+        requestHeaders: {'Authorization': 'Bearer real-secret-value'},
+        hiddenHeaderKeys: {'authorization'},
+      );
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(900));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TOKEN'), findsOneWidget);
+      // Masked, but its last 4 characters ("alue") stay visible.
+      expect(find.text('***alue'), findsOneWidget);
+      expect(find.text('Bearer real-secret-value'), findsNothing);
+
+      await tester.tap(find.byTooltip('Copy'));
+      await tester.pump();
+      // Flushes _CopyIconButton's own 1-second "copied" reset timer, which pumpAndSettle alone won't wait out.
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(copiedText, 'Bearer real-secret-value');
+    },
+  );
+
+  testWidgets(
+    'a masked header short enough that revealing its last characters '
+    'would expose most of it is fully masked instead',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+        requestHeaders: {'X-Api-Key': 'short1'},
+        hiddenHeaderKeys: {'x-api-key'},
+      );
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(900));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('***'), findsOneWidget);
+      expect(find.text('short1'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'tapping Share on a TOKEN header row invokes the OS share sheet '
+    'with the real header value, even when it is masked on screen',
+    (tester) async {
+      MethodCall? sharedCall;
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('dev.fluttercommunity.plus/share'),
+            (call) async {
+              sharedCall = call;
+              return 'dev.fluttercommunity.plus/share/none';
+            },
+          );
+
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+        requestHeaders: {'Authorization': 'Bearer real-secret-value'},
+        hiddenHeaderKeys: {'authorization'},
+      );
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(900));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('***alue'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Share'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(sharedCall, isNotNull);
+      expect(
+        Map<String, dynamic>.from(
+          sharedCall!.arguments as Map,
+        ).values.join(),
+        contains('Bearer real-secret-value'),
+      );
+    },
+  );
+
+  testWidgets(
+    'the fixed summary above the tabs shrinks to a compact strip while '
+    'scrolling down through a tab, and expands again on scrolling back up',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+        requestHeaders: {
+          for (var i = 0; i < 40; i++) 'X-Header-$i': 'value-$i',
+        },
+      );
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('full-summary')), findsOneWidget);
+      expect(find.byKey(const ValueKey('compact-summary')), findsNothing);
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -400),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('compact-summary')), findsOneWidget);
+      expect(find.byKey(const ValueKey('full-summary')), findsNothing);
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, 200),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('full-summary')), findsOneWidget);
+      expect(find.byKey(const ValueKey('compact-summary')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the fullscreen button on the Response block opens the body '
+    'full-screen, and Close returns to the normal detail view',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+      );
+      event.responseBody = {'name': 'Ada'};
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(900));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Close'), findsNothing);
+
+      await tester.tap(find.byTooltip('View fullscreen'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Close'), findsOneWidget);
+      expect(find.textContaining('"name": "Ada"'), findsWidgets);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Close'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'a JSON toggle row ({ or [) has a generously sized tap target, not '
+    'just the width of its chevron icon, so closely-stacked sibling '
+    'brackets are easy to tell apart and hit precisely',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/trace',
+      );
+      event.responseBody = {
+        'trace': [
+          {'a': 1},
+          {'b': 2},
+          {'c': 3},
+        ],
+      };
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/trace'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
+      // 5 toggleable containers here: root, "trace", and its 3 items.
+      final tallToggleTargets = find.byType(InkWell).evaluate().where((
+        element,
+      ) {
+        final box = element.renderObject;
+        return box is RenderBox && box.hasSize && box.size.height >= 28;
+      });
+      expect(tallToggleTargets.length, greaterThanOrEqualTo(5));
+    },
+  );
+
+  testWidgets(
+    "a JSON toggle line's own key/brace text is a SelectableText — long "
+    "press to copy — with only the chevron icon left as a plain tap "
+    'target for folding it',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/user',
+      );
+      event.responseBody = {
+        'user': {'name': 'Ada'},
+      };
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/user'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
+      final toggleLineText = find.byWidgetPredicate(
+        (widget) =>
+            widget is SelectableText &&
+            (widget.textSpan?.toPlainText() ?? '').contains('"user": {'),
+      );
+      expect(toggleLineText, findsOneWidget);
     },
   );
 }
