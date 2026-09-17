@@ -2055,24 +2055,20 @@ class _JsonToggleLine extends StatelessWidget {
       fontSize: 12.5,
       color: theme.colorScheme.onSurfaceVariant,
     );
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: depth * 16.0,
-            top: 5,
-            bottom: 5,
-            right: 8,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 22,
-                height: 22,
+    return Padding(
+      padding: EdgeInsets.only(left: depth * 16.0, top: 2, bottom: 2, right: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(4),
+              child: SizedBox(
+                width: 30,
+                height: 30,
                 child: Center(
                   child: Icon(
                     collapsed
@@ -2083,40 +2079,37 @@ class _JsonToggleLine extends StatelessWidget {
                   ),
                 ),
               ),
-              Text.rich(
-                TextSpan(
-                  style: punctStyle,
-                  children: [
-                    if (keyPrefix.isNotEmpty)
-                      TextSpan(
-                        text: keyPrefix,
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    TextSpan(text: openBrace),
-                    if (collapsed) TextSpan(text: ' … $closeBrace$comma'),
-                  ],
-                ),
-              ),
-              if (collapsed) ...[
-                const SizedBox(width: 6),
-                Text(
-                  countLabel,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 10.5,
-                    fontStyle: FontStyle.italic,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.7,
+            ),
+          ),
+          SelectableText.rich(
+            TextSpan(
+              style: punctStyle,
+              children: [
+                if (keyPrefix.isNotEmpty)
+                  TextSpan(
+                    text: keyPrefix,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ),
+                TextSpan(text: openBrace),
+                if (collapsed) TextSpan(text: ' … $closeBrace$comma'),
+                if (collapsed)
+                  TextSpan(
+                    text: '  $countLabel',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontStyle: FontStyle.italic,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
+                    ),
+                  ),
               ],
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

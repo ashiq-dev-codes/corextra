@@ -2,6 +2,7 @@ import 'package:corextra/corextra.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void _seedTwoEvents() {
   final store = CorextraDevTools.instance.network;
@@ -422,13 +423,14 @@ void main() {
       expect(find.textContaining('"name": "Ada"'), findsOneWidget);
       expect(find.textContaining('"age": 30'), findsOneWidget);
 
-      await tester.tap(find.textContaining('"user": {'));
+      // "user"'s own toggle is the 2nd chevron-down (root's is the 1st).
+      await tester.tap(find.byIcon(LucideIcons.chevronDown).at(1));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('"name": "Ada"'), findsNothing);
       expect(find.textContaining('2 keys'), findsOneWidget);
 
-      await tester.tap(find.textContaining('"user": {'));
+      await tester.tap(find.byIcon(LucideIcons.chevronRight));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('"name": "Ada"'), findsOneWidget);
@@ -834,6 +836,39 @@ void main() {
         return box is RenderBox && box.hasSize && box.size.height >= 28;
       });
       expect(tallToggleTargets.length, greaterThanOrEqualTo(5));
+    },
+  );
+
+  testWidgets(
+    "a JSON toggle line's own key/brace text is a SelectableText — long "
+    "press to copy — with only the chevron icon left as a plain tap "
+    'target for folding it',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/user',
+      );
+      event.responseBody = {
+        'user': {'name': 'Ada'},
+      };
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/user'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
+      final toggleLineText = find.byWidgetPredicate(
+        (widget) =>
+            widget is SelectableText &&
+            (widget.textSpan?.toPlainText() ?? '').contains('"user": {'),
+      );
+      expect(toggleLineText, findsOneWidget);
     },
   );
 }
