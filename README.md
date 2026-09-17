@@ -94,6 +94,7 @@ A draggable bubble opens the panel. Network, Logs, and Info sit directly on the 
 - **Network** — every request/response, searchable and filterable by method or status
   - Wide screens get a two-pane list + detail view; narrow screens drill into a full-screen detail with a Back button
   - Query parameters, headers, and body each get their own **Headers / Payload / Response** tab, so a large body scrolls on its own
+  - The method/path/status summary above the tabs shrinks to a one-line strip while you scroll through a tab's content, and expands again the moment you scroll back up — so a small screen still has room to read the data
   - Auth headers (`Authorization`, `Cookie`, `X-Api-Key`, etc.) get a **TOKEN** badge, a one-tap copy button, and a share button that opens the OS share sheet. Mask one on screen with `hiddenHeaders` — it shows as `***` plus its last few characters (e.g. `***ab12`) so a tester can still tell tokens apart, and Copy/Share still use the full real value, so screen recordings stay safe without blocking whoever needs it
   - JSON bodies render as a collapsible, syntax-highlighted tree — tap any `{`/`[` to fold it, or use **Expand all** / **Collapse all**
   - Long lines scroll horizontally with their own scrollbar instead of wrapping, both with the same share button

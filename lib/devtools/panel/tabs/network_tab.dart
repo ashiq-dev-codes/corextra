@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -906,19 +907,57 @@ class _FilterOptionRow extends StatelessWidget {
 /// long error message (if any) live inside the Headers tab instead,
 /// alongside request/response headers, where it's already expected
 /// to scroll.
-class _NetworkEventDetail extends StatelessWidget {
+class _NetworkEventDetail extends StatefulWidget {
   const _NetworkEventDetail({required this.event});
 
   final NetworkEvent event;
 
   @override
+  State<_NetworkEventDetail> createState() => _NetworkEventDetailState();
+}
+
+/// How far past the top a tab has to scroll before an up/down swipe starts collapsing or restoring the summary — small enough to react promptly, large enough to ignore an idle bounce right at the top.
+const _summaryCollapseThreshold = 24.0;
+
+class _NetworkEventDetailState extends State<_NetworkEventDetail> {
+  bool _summaryCollapsed = false;
+
+  void _handleTabScroll(double offset, ScrollDirection direction) {
+    final collapse =
+        offset > _summaryCollapseThreshold &&
+        direction == ScrollDirection.reverse;
+    final expand =
+        offset <= _summaryCollapseThreshold ||
+        direction == ScrollDirection.forward;
+    if (collapse && !_summaryCollapsed) {
+      setState(() => _summaryCollapsed = true);
+    } else if (expand && _summaryCollapsed) {
+      setState(() => _summaryCollapsed = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final event = widget.event;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: _DetailSummary(event: event),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child:
+              _summaryCollapsed
+                  ? Padding(
+                    key: const ValueKey('compact-summary'),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: _DetailSummary(event: event, compact: true),
+                  )
+                  : Padding(
+                    key: const ValueKey('full-summary'),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: _DetailSummary(event: event),
+                  ),
         ),
         Expanded(
           child: DefaultTabController(
@@ -937,9 +976,9 @@ class _NetworkEventDetail extends StatelessWidget {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      _HeadersTab(event: event),
-                      _PayloadTab(event: event),
-                      _ResponseTab(event: event),
+                      _HeadersTab(event: event, onScroll: _handleTabScroll),
+                      _PayloadTab(event: event, onScroll: _handleTabScroll),
+                      _ResponseTab(event: event, onScroll: _handleTabScroll),
                     ],
                   ),
                 ),
@@ -959,13 +998,15 @@ class _NetworkEventDetail extends StatelessWidget {
 /// long (a verbose DioException message, an unusually long URL) and
 /// this tab already scrolls to accommodate that.
 class _HeadersTab extends StatelessWidget {
-  const _HeadersTab({required this.event});
+  const _HeadersTab({required this.event, this.onScroll});
 
   final NetworkEvent event;
+  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   Widget build(BuildContext context) {
     return DevToolsScrollToTop(
+      onScroll: onScroll,
       builder:
           (context, controller) => SingleChildScrollView(
             controller: controller,
@@ -1012,13 +1053,15 @@ class _HeadersTab extends StatelessWidget {
 /// Query parameters and the request body — everything that was sent
 /// *to* the server.
 class _PayloadTab extends StatelessWidget {
-  const _PayloadTab({required this.event});
+  const _PayloadTab({required this.event, this.onScroll});
 
   final NetworkEvent event;
+  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   Widget build(BuildContext context) {
     return DevToolsScrollToTop(
+      onScroll: onScroll,
       builder:
           (context, controller) => SingleChildScrollView(
             controller: controller,
@@ -1045,13 +1088,15 @@ class _PayloadTab extends StatelessWidget {
 /// The response body on its own — the thing most worth a full tab to
 /// itself, since it's the one most likely to be large.
 class _ResponseTab extends StatelessWidget {
-  const _ResponseTab({required this.event});
+  const _ResponseTab({required this.event, this.onScroll});
 
   final NetworkEvent event;
+  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   Widget build(BuildContext context) {
     return DevToolsScrollToTop(
+      onScroll: onScroll,
       builder:
           (context, controller) => SingleChildScrollView(
             controller: controller,
@@ -1071,9 +1116,12 @@ class _ResponseTab extends StatelessWidget {
 /// glancing at, and not worth repeating up here alongside the path —
 /// lives in the Headers tab, where scrolling is already expected.
 class _DetailSummary extends StatelessWidget {
-  const _DetailSummary({required this.event});
+  const _DetailSummary({required this.event, this.compact = false});
 
   final NetworkEvent event;
+
+  /// A one-line method + path + status strip instead of the full block, used while [_NetworkEventDetail] has collapsed it to make room for the active tab's content.
+  final bool compact;
 
   static final _timeFormat = DateFormat('HH:mm:ss');
 
@@ -1084,6 +1132,40 @@ class _DetailSummary extends StatelessWidget {
     final durationMs = event.duration?.inMilliseconds;
     final uri = Uri.tryParse(event.url);
     final path = (uri != null && uri.path.isNotEmpty) ? uri.path : event.url;
+
+    if (compact) {
+      return Row(
+        children: [
+          _Pill(
+            text: event.method.toUpperCase(),
+            color: _methodColor(event.method),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              path,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _statusLabelFor(event),
+            style: TextStyle(
+              color: statusColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

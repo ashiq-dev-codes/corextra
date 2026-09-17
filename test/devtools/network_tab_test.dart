@@ -718,4 +718,47 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'the fixed summary above the tabs shrinks to a compact strip while '
+    'scrolling down through a tab, and expands again on scrolling back up',
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'GET',
+        url: 'https://example.test/todos/1',
+        requestHeaders: {
+          for (var i = 0; i < 40; i++) 'X-Header-$i': 'value-$i',
+        },
+      );
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('full-summary')), findsOneWidget);
+      expect(find.byKey(const ValueKey('compact-summary')), findsNothing);
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -400),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('compact-summary')), findsOneWidget);
+      expect(find.byKey(const ValueKey('full-summary')), findsNothing);
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, 200),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('full-summary')), findsOneWidget);
+      expect(find.byKey(const ValueKey('compact-summary')), findsNothing);
+    },
+  );
 }
