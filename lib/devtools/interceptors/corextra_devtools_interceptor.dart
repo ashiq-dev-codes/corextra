@@ -26,7 +26,8 @@ class CorextraDevToolsInterceptor extends Interceptor {
   final bool? enabled;
   final bool captureBody;
 
-  /// Bodies longer than this (pretty-printed) are truncated with a marker and lose the Response tab's collapsible tree view, falling back to plain text — raise it for a large paginated response, lower it to bound memory more tightly.
+  /// Caps raw string bodies only; JSON (Map/List) bodies are captured
+  /// in full, since measuring them would mean formatting them.
   final int maxBodyLength;
 
   /// Header names (case-insensitive) the DevTools panel masks on screen. The real values are still captured — this only hides them from casual view/screenshots, it isn't a data-scrubbing feature.

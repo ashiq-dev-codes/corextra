@@ -1,146 +1,70 @@
+## 1.2.8
+
+- Fixed: DevTools network capture no longer blocks the UI thread. Bodies are now formatted only when a request is opened in the panel, not on every capture.
+- Fixed: `AppLoggerInterceptor` no longer fully encodes huge bodies — pretty-printing is now capped by a work budget.
+
 ## 1.2.7
 
-### DevTools Network tab: masked headers you can still copy, a Share button, and a fullscreen viewer
-
-A header masked with `hiddenHeaders` now shows a short preview like `***ab12` instead of a flat `***`, so you can still tell tokens apart. Copy and the new **Share** button always use the real value, not the mask.
-
-The summary above the tabs shrinks to one line while you scroll, then expands again once you scroll back up — freeing up room on small screens. Payload and Response bodies also get a **fullscreen** button for reviewing large data on its own.
-
-### Collapsible JSON tree: easier to tap, easier to copy
-
-Folding a `{` or `[` now has a bigger, more precise tap target, so closely-nested brackets don't fold the wrong one. Every line's text is now selectable and copyable via long-press, including the brace lines themselves.
-
-### Bigger default body capture limit
-
-The default body size cap (`maxBodyLength`) rose from 20,000 to 100,000 characters, so a realistically large paginated response keeps its collapsible tree view instead of falling back to plain text.
-
-### Android's back button no longer pops the screen underneath the panel
-
-Pressing back while the panel — or a fullscreen viewer, or a drilled-in request — is open now closes that first, instead of reaching the host app's own navigation.
+- Masked headers now show a short preview (e.g. `***ab12`) instead of a flat mask. Copy and the new **Share** button always use the real value.
+- The summary bar above the tabs shrinks while scrolling, freeing up space on small screens.
+- Payload and Response bodies get a **fullscreen** viewer.
+- Collapsible JSON tree: bigger fold targets, and every line is now selectable and copyable.
+- Default body capture limit raised from 20,000 to 100,000 characters.
+- Android's back button now closes the DevTools panel (or its fullscreen/detail view) before it reaches the host app's navigation.
 
 ## 1.2.6
 
-### DevTools Network tab: sensitive-header highlighting and a collapsible JSON viewer
-
-Headers that look like auth credentials (`Authorization`, `Cookie`, `X-Api-Key`, `X-Session-Token`, etc.) now get a **TOKEN** badge and their own copy button in the Headers tab, so the values you need most are easy to spot and grab.
-
-JSON bodies render as a collapsible tree instead of a wall of text — tap any `{`/`[` to fold it, or use **Expand all** / **Collapse all**. Colors now adapt properly to both light and dark mode. Long lines (JSON or plain text) scroll horizontally with a visible scrollbar instead of wrapping awkwardly.
+- Sensitive headers (`Authorization`, `Cookie`, `X-Api-Key`, etc.) get a **TOKEN** badge and copy button.
+- JSON bodies render as a collapsible tree with **Expand all** / **Collapse all**.
+- Colors now adapt to light and dark mode; long lines scroll horizontally.
 
 ## 1.2.5
 
-### Responsive extensions: device types, direct value picking, screen getters
-
-`context`/`constraints.deviceType` (`DeviceType.mobile` / `.tablet` / `.desktop`) replaces manual `sm`/`md`/`lg` chaining for the common "what kind of device is this" check, with `isMobile`/`isTablet`/`isDesktop` shortcuts. `context`/`constraints.responsive<T>(base: ..., md: ..., lg: ...)` picks a value per breakpoint directly — no `LayoutBuilder` + builder-function boilerplate required, unlike the existing `ResponsiveBreakpoints.when`. `BuildContext` also gained `screenWidth`, `screenHeight`, `isPortrait`, and `isLandscape`.
-
-### Form validators: composition, optional fields, custom messages, more checks
-
-`FormValidators.compose([...])` chains validators on one field and returns the first error. `FormValidators.optional(validator)` skips a validator when the field is empty, for non-required fields. Every validator now accepts a `message:` override, so a one-off custom message no longer requires wiring up the global translator. Added `minLength`, `maxLength`, `numeric`, `url`, and `pattern` validators for cases that previously had to be hand-written.
-
-`email`'s regex is replaced with the WHATWG `<input type="email">` pattern (the one browsers use). The old pattern rejected real addresses like `user+tag@gmail.com` (no `+` support) and anything with a TLD longer than 4 characters (`.technology`, `.london`, etc.).
+- Added `deviceType` (`mobile` / `tablet` / `desktop`) with `isMobile` / `isTablet` / `isDesktop` shortcuts.
+- Added `responsive<T>()` to pick a value per breakpoint without a `LayoutBuilder`.
+- Added `screenWidth`, `screenHeight`, `isPortrait`, `isLandscape` on `BuildContext`.
+- Added `FormValidators.compose([...])` to chain validators, and `FormValidators.optional()` for non-required fields.
+- Added `minLength`, `maxLength`, `numeric`, `url`, and `pattern` validators.
+- Every validator now accepts a `message:` override.
+- Fixed: `email` validation now accepts real addresses (e.g. `user+tag@gmail.com`, long TLDs like `.technology`).
 
 ## 1.2.4
 
-### Reverted the App Size tab
-
-1.2.3 added a fifth DevTools tab that scanned the installed app bundle, but doing so on Android required shipping a native plugin — which meant `pubspec.yaml` declared this package as a `flutter: plugin:`, forcing every consumer's Android build to compile that module (pinned to AGP 9.1.0/Kotlin 2.4.0/compileSdk 36) even if the tab was never opened. That broke Android builds on older toolchains, which defeats the point of a cross-platform utility package.
-
-The tab, its `AppSizeStore`, the `android/` native plugin, and the `archive`/`file_selector` dependencies added for it are all removed. This package is pure Dart/Flutter again, with no native platform code. DevTools now has four tabs — Network, Logs, Info, Performance — as before.
+- Reverted the App Size tab added in 1.2.3 — it required a native Android plugin that broke builds on older toolchains. The package is pure Dart/Flutter again.
 
 ## 1.2.3
 
-### DevTools tab bar redesign
-
-Network, Logs, and Info stay directly visible on the tab bar; Performance — used less often — now lives behind a **More** button instead of crowding the bar. Swiping left/right on a tab's content no longer switches tabs by accident (e.g. while scrolling a list diagonally); tapping a tab is now the only way to switch.
+- DevTools tab bar redesign: **Network**, **Logs**, **Info** stay visible; **Performance** moved behind a **More** button.
+- Fixed: swiping no longer switches tabs by accident.
 
 ## 1.2.2
 
-### Example app rebuilt with a DDD structure and a redesigned UI
-
-The example app now follows a clean `infrastructure` / `application` / `presentation` layering instead of one 900+ line `main.dart`, and its two tabs got a Material 3 refresh — themed cards, icon badges, and color-coded scenario buttons.
-
-The DevTools tab's Network scenarios now cover realistic production/live-app cases via a `FakeScenarioInterceptor` in the example app (httpbin.org has no way to produce these on its own):
-
-- **Client errors** — 400, 401 (with a `www-authenticate` header), 403, 404, 409 Conflict, 422 with field-level validation errors, 429 Rate Limited (with a `retry-after` header)
-- **Server errors** — 500 (with a request ID), 502, 503 Maintenance (with `retry-after`), 504
-- **Malformed payloads** — truncated/invalid JSON, an HTML error page served where JSON was expected
-- **Connectivity failures** — receive timeout, connect timeout to an unreachable host, DNS/network error, and a cancelled in-flight request
-
-The DevTools tab also gained a **Logs** section (Info/Warning/Error buttons wired to `debugLog`/`AppLogger`) that was previously missing entirely.
-
-### Other changes
-
-- Fixed `capitalize()` collapsing repeated internal whitespace into extra spaces (e.g. `"hello   world".capitalize()` now correctly returns `"Hello World"`, not `"Hello   World"`).
+- Example app rebuilt with a clean architecture and a Material 3 UI.
+- DevTools Network scenarios now cover realistic error cases (4xx/5xx, malformed payloads, connectivity failures).
+- Added a Logs section to the example app.
+- Fixed: `capitalize()` no longer collapses repeated internal whitespace.
 
 ## 1.2.1
 
-### Network tab: query parameters, and a redesigned detail view
-
-Query parameters sent on a request are now captured and shown in their own **Query Parameters** block — previously they were silently dropped and never visible anywhere in the panel.
-
-The request/response detail view is now laid out browser-DevTools-style, with **Headers / Payload / Response** tabs instead of one long scrolling stack:
-
-- **Headers** — the full URL, any error message, and request/response headers.
-- **Payload** — query parameters and the request body.
-- **Response** — the response body on its own.
-
-Each tab scrolls independently, which also fixes two real bugs from the old single-stack layout:
-
-- A request/response body large enough to be truncated (past the interceptor's `maxBodyLength`) no longer collapses into a single unreadable line — the truncated text now stays properly indented JSON right up to the cutoff.
-- A long error message or URL could overflow the detail view, especially inside the floating (PIP) window at its minimum size. The fixed summary above the tabs is now capped to short, constant-height content (method, path, status, duration, time); the full URL and any error message live in the Headers tab instead.
-
-Binary response bodies (`Uint8List`, e.g. `ResponseType.bytes`) now show a byte count and hex preview instead of a JSON array of every byte value, and multipart `FormData` request bodies show their actual field values and file metadata instead of `Instance of 'FormData'`.
-
-On a phone-width screen, tapping a request now drills into a full-screen detail view with a Back button, instead of expanding inline in the same list — this removes a scroll conflict between the request list and a large response body.
-
-### Every DevTools tab now has a "scroll to top" button
-
-A small floating button appears once you've scrolled down a captured list (requests, logs, ...), and jumps back to the top in one tap.
-
-### Other changes
-
-- The floating (PIP) window's resize handle now requires a press-and-hold before dragging, so a bare tap-drag near the corner no longer resizes it by accident.
-- The request list's path text now wraps up to 3 lines with ellipsis overflow (previously 1), so a long path is easier to identify at a glance.
-- The example app now exercises every case above: query parameters, PUT/PATCH/DELETE, a raw text body, multipart `FormData`, a binary response, an HTML response, and a response guaranteed to trigger truncation.
+- Query parameters are now captured and shown in their own tab.
+- Request/response detail view redesigned with **Headers / Payload / Response** tabs.
+- Binary bodies show a byte count and hex preview; `FormData` bodies show real field values.
+- Phone-width screens now drill into a full-screen detail view.
+- Every tab gets a "scroll to top" button.
+- Fixed: the floating window's resize handle now requires press-and-hold, preventing accidental resizing.
 
 ## 1.2.0
 
-### In-app DevTools panel
-
-A Flutter-DevTools-style inspector built right into your app — no separate DevTools connection, and it's automatically disabled outside debug builds.
-
-```dart
-MaterialApp(
-  builder: (context, child) =>
-      CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
-  home: const HomeScreen(),
-)
-
-dio.interceptors.add(const CorextraDevToolsInterceptor());
-```
-
-A draggable bubble opens the panel, with four tabs:
-
-- **Network** — every request and response via `CorextraDevToolsInterceptor` (safe to use alongside `AppLoggerInterceptor`). Search by method, URL, or status, and filter by method or status category. Wide screens get a two-pane list + detail view, the same layout Flutter's own DevTools Network tab uses. Redact sensitive headers with `hiddenHeaders`.
-- **Logs** — every `debugLog`/`AppLogger` call, live, with the same search and level filters.
-- **Performance** — a live FPS and frame-time chart modeled on DevTools' own Performance view: stacked UI/Raster bars, a 60 FPS budget line, jank highlighting, and tap-to-inspect any frame.
-- **Info** — app and device details via `package_info_plus`/`device_info_plus`.
-
-Tap **Minimize** to shrink the panel into a small floating window, so you can keep an eye on activity while still testing the rest of the app. Drag the bubble or the floating window to a screen edge to tuck it out of the way (Android-floating-widget style), or resize the floating window from its corner.
-
-### Other changes
-
-- Runtime dependencies (`dio`, `intl`, `device_info_plus`, `package_info_plus`, `lucide_icons_flutter`) now use unbounded `>=` version constraints, so this package never blocks your own dependency resolution.
-- Added a runnable example app in `example/`, including the DevTools panel end to end.
+- Added an in-app DevTools panel (**Network**, **Logs**, **Performance**, **Info**) — no separate DevTools connection needed.
+- Runtime dependencies now use unbounded version constraints.
+- Added a runnable example app.
 
 ## 1.1.5
 
-- Added `AppLoggerInterceptor`: a Dio interceptor that logs requests, responses, and errors in a pretty, bordered, color-coded format — one consolidated block per event
-- Added `LogColor` enum with ANSI color codes (`red`, `blue`, `green`, `yellow`, `reset`) for terminal output
-- Added `LogLevel` enum (`info`, `warning`, `error`) for structured log levels, each mapped to a distinct color
-- Enhanced `debugLog` with `LogLevel` support for color-coded console output
-- Enhanced `AppLogger` with detailed structured logging for requests, responses, and Dio errors
-- Updated `dio` to `^5.9.2` and `test` to `^1.31.0`
+- Added `AppLoggerInterceptor`: pretty, color-coded Dio request/response/error logging.
+- Added `LogColor` and `LogLevel` enums.
+- Enhanced `debugLog` and `AppLogger` with level support.
 
 ## 1.1.4
 
-- Updated exception classes (`CorextraException` and subclasses) to use Dart 3 super-parameters for cleaner and more maintainable code
+- Updated exception classes to use Dart 3 super-parameters.
