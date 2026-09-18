@@ -88,19 +88,15 @@ void main() {
       expect(prettyFormatBody(result), contains('\n  "name": "corextra"'));
     });
 
-    test('truncates a large Map against its *pretty* (indented) form, not '
-        'Object.toString — so the visible prefix is still real, indented '
-        'JSON instead of a single unreadable Dart-syntax line', () {
+    test('leaves a large Map raw and untruncated, even past maxLength — '
+        'measuring its pretty-printed size would mean paying that cost '
+        'eagerly on every request, which is exactly what this avoids', () {
       final big = {
         'items': List.generate(50, (i) => 'Item #$i'),
       };
-      final result = truncateBody(big, 200) as String;
+      final result = truncateBody(big, 10);
 
-      // Dart's Map.toString() renders keys unquoted with `key: value` —
-      // confirms the truncated text is JSON syntax, not that fallback.
-      expect(result, contains('"items"'));
-      expect(result, isNot(contains('items:')));
-      expect(prettyFormatBody(result), contains('\n  "items"'));
+      expect(result, same(big));
       expect(prettyFormatBody(result), contains('\n    "Item #0"'));
     });
 
@@ -123,6 +119,57 @@ void main() {
 
       expect(result, isA<String>());
       expect(result, isNot(isA<FormData>()));
+    });
+  });
+
+  group('boundedPrettyFormatBody', () {
+    test('formats a small body exactly like prettyFormatBody', () {
+      final small = {'name': 'corextra', 'feature': 'DevTools'};
+
+      expect(boundedPrettyFormatBody(small), prettyFormatBody(small));
+    });
+
+    test('bounds a huge top-level list', () {
+      final big = List.generate(5000, (i) => 'Item #$i');
+
+      final result = boundedPrettyFormatBody(big);
+
+      expect(result, contains('"Item #0"'));
+      expect(result, contains('more items'));
+      expect(result.length, lessThan(10000));
+    });
+
+    test('bounds bulk nested several levels down, not just a top-level '
+        'list — a shape a plain top-level-length check would miss '
+        'entirely', () {
+      final wrapped = {
+        'meta': {'ok': true},
+        'data': {
+          'items': List.generate(5000, (i) => {'id': i, 'name': 'Item #$i'}),
+        },
+      };
+
+      final result = boundedPrettyFormatBody(wrapped);
+
+      expect(result, contains('"meta"'));
+      expect(result.length, lessThan(10000));
+    });
+
+    test('caps total work via a node budget: the walk itself stops once '
+        'spent, so a large nested value returns quickly rather than '
+        'visiting every node and truncating only the output after', () {
+      final large = {
+        'data': {
+          'items': List.generate(50000, (i) => {'id': i, 'name': 'Item #$i'}),
+        },
+      };
+
+      final stopwatch = Stopwatch()..start();
+      final result = boundedPrettyFormatBody(large, budget: 500);
+      stopwatch.stop();
+
+      expect(stopwatch.elapsedMilliseconds, lessThan(200));
+      expect(result.length, lessThan(5000));
     });
   });
 }

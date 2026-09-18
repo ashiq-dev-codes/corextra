@@ -1,9 +1,10 @@
-import 'dart:convert';
 import 'dart:developer' as dev;
 
 import 'package:corextra/logs/enum/log_color.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+
+import '../devtools/util/pretty_json.dart';
 
 /// A Dio interceptor that logs requests, responses, and errors in a
 /// pretty, bordered format — one consolidated block per event.
@@ -137,11 +138,6 @@ class AppLoggerInterceptor extends Interceptor {
 
   String _formatBody(dynamic data) {
     if (data == null) return 'none';
-    try {
-      final value = data is String ? jsonDecode(data) : data;
-      return const JsonEncoder.withIndent('  ').convert(value);
-    } catch (_) {
-      return data.toString();
-    }
+    return boundedPrettyFormatBody(data);
   }
 }

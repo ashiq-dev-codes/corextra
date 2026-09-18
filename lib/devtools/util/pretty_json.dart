@@ -59,33 +59,96 @@ String _formatFormData(FormData data) {
   return const JsonEncoder.withIndent('  ').convert(summary);
 }
 
-/// Truncates [data]'s string form to [maxLength] characters, appending a
-/// marker with the original length, so a single large body can't dominate
-/// the in-memory capture buffers.
-///
-/// For non-string [data] (typically a JSON-decoded Map/List), that
-/// string form is [prettyFormatBody]'s *indented* rendering, not
-/// [Object.toString] — a truncated Map/List can never be valid JSON
-/// again (the cut necessarily leaves it unbalanced), so once
-/// truncated it can never be pretty-printed again either; deciding
-/// the cut point against the plain `toString()` (Dart's `{key:
-/// value}` syntax, no indentation) would have permanently frozen a
-/// large body into that single unreadable line. Pretty-printing
-/// first means the visible, truncated prefix is still properly
-/// indented, multi-line JSON, right up to the cutoff.
-///
-/// Raw bytes and [FormData] are summarized unconditionally, before
-/// the length check — [prettyFormatBody]'s summary for either is
-/// already short regardless of the underlying payload's actual size
-/// (a multi-megabyte download summarizes just as compactly as a
-/// tiny one), so measuring *that* against [maxLength] would never
-/// trip, and the raw bytes (or a live multipart stream) would sit in
-/// the in-memory capture buffer at full size indefinitely — exactly
-/// what this function exists to prevent.
+/// Bounds [data] before capture, without pretty-printing a Map/List
+/// just to measure it — that cost must stay lazy, paid only on open.
 Object? truncateBody(Object? data, int maxLength) {
   if (data == null) return null;
   if (data is Uint8List || data is FormData) return prettyFormatBody(data);
-  final asString = data is String ? data : prettyFormatBody(data);
-  if (asString.length <= maxLength) return data;
-  return '${asString.substring(0, maxLength)}… [truncated, ${asString.length} chars total]';
+  if (data is String && data.length > maxLength) {
+    return '${data.substring(0, maxLength)}… [truncated, ${data.length} chars total]';
+  }
+  return data;
+}
+
+/// Like [prettyFormatBody], but bounds total work via [_boundForLogging]
+/// for an eager caller with no later display step to defer cost to.
+String boundedPrettyFormatBody(
+  Object? data, {
+  int budget = 2000,
+  int maxListItems = 50,
+  int maxStringLength = 2000,
+}) {
+  if (data == null) return 'null';
+  if (data is Uint8List) return _formatBytes(data);
+  if (data is FormData) return _formatFormData(data);
+  Object? value;
+  try {
+    value = data is String ? jsonDecode(data) : data;
+  } catch (_) {
+    return data.toString();
+  }
+  final remaining = [budget];
+  final bounded = _boundForLogging(
+    value,
+    remaining,
+    maxListItems: maxListItems,
+    maxStringLength: maxStringLength,
+  );
+  try {
+    return const JsonEncoder.withIndent('  ').convert(bounded);
+  } catch (_) {
+    return bounded.toString();
+  }
+}
+
+/// [remaining] is a shared 1-element counter every nested call decrements,
+/// so the walk stops the instant the budget is spent, at any depth.
+Object? _boundForLogging(
+  Object? value,
+  List<int> remaining, {
+  required int maxListItems,
+  required int maxStringLength,
+}) {
+  if (remaining[0] <= 0) return '…';
+  remaining[0]--;
+
+  if (value is Map) {
+    final result = <String, Object?>{};
+    for (final entry in value.entries) {
+      if (remaining[0] <= 0) {
+        result['…'] = '(budget exceeded, ${value.length} keys total)';
+        break;
+      }
+      result[entry.key.toString()] = _boundForLogging(
+        entry.value,
+        remaining,
+        maxListItems: maxListItems,
+        maxStringLength: maxStringLength,
+      );
+    }
+    return result;
+  }
+
+  if (value is List) {
+    final result = [];
+    for (final item in value.take(maxListItems)) {
+      if (remaining[0] <= 0) break;
+      result.add(_boundForLogging(
+        item,
+        remaining,
+        maxListItems: maxListItems,
+        maxStringLength: maxStringLength,
+      ));
+    }
+    if (value.length > result.length) {
+      result.add('… ${value.length - result.length} more items');
+    }
+    return result;
+  }
+
+  if (value is String && value.length > maxStringLength) {
+    return '${value.substring(0, maxStringLength)}… [${value.length} chars total]';
+  }
+
+  return value;
 }
