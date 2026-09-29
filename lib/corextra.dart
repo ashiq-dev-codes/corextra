@@ -35,6 +35,7 @@ export 'logs/debug_log.dart';
 export 'logs/enum/log_color.dart';
 export 'logs/enum/log_level.dart';
 export 'network/app_logger_interceptor.dart';
+export 'network/corextra_socket_logger.dart';
 export 'network/dio_error_handler.dart';
 export 'responsive/responsive_breakpoints.dart';
 export 'validators/form_validators.dart';

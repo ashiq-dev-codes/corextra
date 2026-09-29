@@ -17,9 +17,9 @@ import 'package:flutter/foundation.dart';
 /// debugLog('This is an error', level: LogLevel.error);
 /// ```
 void debugLog(String message, {LogLevel level = LogLevel.info}) {
-  if (!kDebugMode) return;
-  log('[${level.name.toUpperCase()}] $message');
+  if (kDebugMode) log('[${level.name.toUpperCase()}] $message');
 
+  // Not gated on kDebugMode: DevTools can be switched on in a release (e.g. QA) build.
   if (CorextraDevTools.instance.enabled) {
     CorextraDevTools.instance.logs.add(
       LogEntry(message: message, level: level, timestamp: DateTime.now()),
