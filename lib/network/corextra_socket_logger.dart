@@ -102,11 +102,7 @@ class CorextraSocketLogger {
     );
   }
 
-  void _complete(
-    NetworkEvent captured, {
-    Object? responseBody,
-    Object? error,
-  }) {
+  void _complete(NetworkEvent captured, {Object? responseBody, Object? error}) {
     if (captureBody && responseBody != null) {
       captured.responseBody = truncateBody(responseBody, maxBodyLength);
     }

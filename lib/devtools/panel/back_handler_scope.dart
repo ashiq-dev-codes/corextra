@@ -4,7 +4,11 @@ import '../devtools_controller.dart';
 
 /// Makes [onBack] the target of Android's hardware back button for as long as this widget stays mounted, so it undoes just this nested view instead of closing the whole panel or reaching the host app underneath.
 class BackHandlerScope extends StatefulWidget {
-  const BackHandlerScope({super.key, required this.onBack, required this.child});
+  const BackHandlerScope({
+    super.key,
+    required this.onBack,
+    required this.child,
+  });
 
   final VoidCallback onBack;
   final Widget child;

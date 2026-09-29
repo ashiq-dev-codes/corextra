@@ -91,9 +91,7 @@ void main() {
     test('leaves a large Map raw and untruncated, even past maxLength — '
         'measuring its pretty-printed size would mean paying that cost '
         'eagerly on every request, which is exactly what this avoids', () {
-      final big = {
-        'items': List.generate(50, (i) => 'Item #$i'),
-      };
+      final big = {'items': List.generate(50, (i) => 'Item #$i')};
       final result = truncateBody(big, 10);
 
       expect(result, same(big));

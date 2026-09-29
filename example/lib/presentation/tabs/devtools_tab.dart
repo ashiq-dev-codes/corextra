@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../application/demo_controller.dart';
 import '../widgets/section_card.dart';
 
@@ -30,7 +31,9 @@ class DevToolsTab extends StatelessWidget {
                 onPressed: controller.logInfo,
                 icon: const Icon(Icons.info_outline_rounded, size: 18),
                 label: const Text('Log Info'),
-                style: OutlinedButton.styleFrom(foregroundColor: colorScheme.primary),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                ),
               ),
               OutlinedButton.icon(
                 onPressed: controller.logWarning,
@@ -42,7 +45,9 @@ class DevToolsTab extends StatelessWidget {
                 onPressed: controller.logError,
                 icon: const Icon(Icons.error_outline_rounded, size: 18),
                 label: const Text('Log Error'),
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                ),
               ),
             ],
           ),
@@ -76,7 +81,8 @@ class DevToolsTab extends StatelessWidget {
         SectionCard(
           title: 'Client Errors (4xx)',
           icon: Icons.person_off_outlined,
-          subtitle: 'Auth, validation and conflict responses from a real backend.',
+          subtitle:
+              'Auth, validation and conflict responses from a real backend.',
           child: _ScenarioGrid(
             color: Colors.deepOrange,
             scenarios: {
@@ -148,7 +154,8 @@ class DevToolsTab extends StatelessWidget {
 class _ScenarioGrid extends StatelessWidget {
   final Map<String, Future<void> Function()> scenarios;
   final Color color;
-  final Future<void> Function(String label, Future<void> Function() action) onRun;
+  final Future<void> Function(String label, Future<void> Function() action)
+  onRun;
 
   const _ScenarioGrid({
     required this.scenarios,
@@ -168,7 +175,9 @@ class _ScenarioGrid extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: color,
                 side: BorderSide(color: color.withValues(alpha: 0.4)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               child: Text(entry.key),
             ),

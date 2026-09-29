@@ -240,8 +240,7 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
     } else {
       // Nudged past the edge but not far enough — spring back to
       // flush-at-the-edge, fully visible, rather than hiding.
-      final dockedX =
-          peekingLeft ? 0.0 : screenSize.width - widget.size.width;
+      final dockedX = peekingLeft ? 0.0 : screenSize.width - widget.size.width;
       _animateTo(Offset(dockedX, current.dy));
     }
   }
@@ -276,7 +275,8 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
                 peekSide == _PeekSide.none
                     ? widget.builder(
                       context,
-                      (details) => _onPanUpdate(details, screenSize, safePadding),
+                      (details) =>
+                          _onPanUpdate(details, screenSize, safePadding),
                       (details) => _onPanEnd(details, screenSize),
                     )
                     : _PeekNub(

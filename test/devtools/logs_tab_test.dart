@@ -28,9 +28,7 @@ void _seedThreeEntries() {
 }
 
 Widget _wrap() {
-  return const MaterialApp(
-    home: Scaffold(body: LogsTab()),
-  );
+  return const MaterialApp(home: Scaffold(body: LogsTab()));
 }
 
 void main() {
@@ -52,94 +50,84 @@ void main() {
     expect(find.text('failed to load avatar'), findsOneWidget);
   });
 
-  testWidgets(
-    'the search box filters entries by message, and clearing it '
-    'restores the full list',
-    (tester) async {
-      _seedThreeEntries();
+  testWidgets('the search box filters entries by message, and clearing it '
+      'restores the full list', (tester) async {
+    _seedThreeEntries();
 
-      await tester.pumpWidget(_wrap());
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap());
+    await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), 'avatar');
-      await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'avatar');
+    await tester.pumpAndSettle();
 
-      expect(find.text('user signed in'), findsNothing);
-      expect(find.text('cache miss for profile'), findsNothing);
-      expect(find.text('failed to load avatar'), findsOneWidget);
+    expect(find.text('user signed in'), findsNothing);
+    expect(find.text('cache miss for profile'), findsNothing);
+    expect(find.text('failed to load avatar'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Clear'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Clear'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('user signed in'), findsOneWidget);
-      expect(find.text('cache miss for profile'), findsOneWidget);
-      expect(find.text('failed to load avatar'), findsOneWidget);
-    },
-  );
+    expect(find.text('user signed in'), findsOneWidget);
+    expect(find.text('cache miss for profile'), findsOneWidget);
+    expect(find.text('failed to load avatar'), findsOneWidget);
+  });
 
-  testWidgets(
-    'deselecting a level chip hides entries at that level',
-    (tester) async {
-      _seedThreeEntries();
+  testWidgets('deselecting a level chip hides entries at that level', (
+    tester,
+  ) async {
+    _seedThreeEntries();
 
-      await tester.pumpWidget(_wrap());
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap());
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilterChip, 'Error'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip, 'Error'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('failed to load avatar'), findsNothing);
-      expect(find.text('user signed in'), findsOneWidget);
-      expect(find.text('cache miss for profile'), findsOneWidget);
-    },
-  );
+    expect(find.text('failed to load avatar'), findsNothing);
+    expect(find.text('user signed in'), findsOneWidget);
+    expect(find.text('cache miss for profile'), findsOneWidget);
+  });
 
-  testWidgets(
-    'a search or filter combination with no matches shows an empty '
-    'state instead of an empty list',
-    (tester) async {
-      _seedThreeEntries();
+  testWidgets('a search or filter combination with no matches shows an empty '
+      'state instead of an empty list', (tester) async {
+    _seedThreeEntries();
 
-      await tester.pumpWidget(_wrap());
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap());
+    await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), 'nothing-matches-this');
-      await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'nothing-matches-this');
+    await tester.pumpAndSettle();
 
-      expect(find.text('user signed in'), findsNothing);
-      expect(find.textContaining('No logs match'), findsOneWidget);
-    },
-  );
+    expect(find.text('user signed in'), findsNothing);
+    expect(find.textContaining('No logs match'), findsOneWidget);
+  });
 
-  testWidgets(
-    'with a long list, scrolling down reveals a scroll-to-top button '
-    'that jumps back to the first entry',
-    (tester) async {
-      final store = CorextraDevTools.instance.logs;
-      for (var i = 0; i < 60; i++) {
-        store.add(
-          LogEntry(
-            message: 'entry #$i',
-            level: LogLevel.info,
-            timestamp: DateTime.now(),
-          ),
-        );
-      }
+  testWidgets('with a long list, scrolling down reveals a scroll-to-top button '
+      'that jumps back to the first entry', (tester) async {
+    final store = CorextraDevTools.instance.logs;
+    for (var i = 0; i < 60; i++) {
+      store.add(
+        LogEntry(
+          message: 'entry #$i',
+          level: LogLevel.info,
+          timestamp: DateTime.now(),
+        ),
+      );
+    }
 
-      await tester.pumpWidget(_wrap());
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap());
+    await tester.pumpAndSettle();
 
-      // Newest-first: entry #59 (added last) starts at the top.
-      expect(find.text('entry #59'), findsOneWidget);
+    // Newest-first: entry #59 (added last) starts at the top.
+    expect(find.text('entry #59'), findsOneWidget);
 
-      await tester.drag(find.byType(ListView), const Offset(0, -2000));
-      await tester.pumpAndSettle();
-      expect(find.text('entry #59'), findsNothing);
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(find.text('entry #59'), findsNothing);
 
-      await tester.tap(find.byTooltip('Scroll to top'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Scroll to top'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('entry #59'), findsOneWidget);
-    },
-  );
+    expect(find.text('entry #59'), findsOneWidget);
+  });
 }

@@ -63,20 +63,14 @@ extension ResponsiveConstraintsExtensions on BoxConstraints {
   bool get isLandscape => maxWidth > maxHeight;
 
   /// Picks the highest-matching value for maxWidth, falling back to [base].
-  T responsive<T>({
-    required T base,
-    T? sm,
-    T? md,
-    T? lg,
-    T? xl,
-    T? xxl,
-  }) => ResponsiveBreakpoints.valueOf<T>(
-    maxWidth,
-    base: base,
-    sm: sm,
-    md: md,
-    lg: lg,
-    xl: xl,
-    xxl: xxl,
-  );
+  T responsive<T>({required T base, T? sm, T? md, T? lg, T? xl, T? xxl}) =>
+      ResponsiveBreakpoints.valueOf<T>(
+        maxWidth,
+        base: base,
+        sm: sm,
+        md: md,
+        lg: lg,
+        xl: xl,
+        xxl: xxl,
+      );
 }

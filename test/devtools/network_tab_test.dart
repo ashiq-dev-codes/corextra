@@ -36,12 +36,16 @@ Finder _bodyScrollArea() =>
     find.byKey(const ValueKey('code-block-scroll-area')).first;
 
 /// The live scroll position along [axis] inside the (first) open body block.
-ScrollPosition _bodyScrollPosition(WidgetTester tester, Axis axis) => tester
-    .stateList<ScrollableState>(
-      find.descendant(of: _bodyScrollArea(), matching: find.byType(Scrollable)),
-    )
-    .firstWhere((state) => state.position.axis == axis)
-    .position;
+ScrollPosition _bodyScrollPosition(WidgetTester tester, Axis axis) =>
+    tester
+        .stateList<ScrollableState>(
+          find.descendant(
+            of: _bodyScrollArea(),
+            matching: find.byType(Scrollable),
+          ),
+        )
+        .firstWhere((state) => state.position.axis == axis)
+        .position;
 
 /// Opens the Response tab of the request seeded by [_seedBigJsonResponse].
 Future<void> _openBigResponse(WidgetTester tester) async {
@@ -57,11 +61,7 @@ Future<void> _openBigResponse(WidgetTester tester) async {
 Widget _wrap(double width, {double height = 600}) {
   return MaterialApp(
     home: Scaffold(
-      body: SizedBox(
-        width: width,
-        height: height,
-        child: const NetworkTab(),
-      ),
+      body: SizedBox(width: width, height: height, child: const NetworkTab()),
     ),
   );
 }
@@ -102,7 +102,9 @@ Future<void> _tapFilterOption(
   String buttonLabel,
   String optionLabel,
 ) async {
-  await tester.tap(find.byKey(ValueKey('filter-option-$buttonLabel-$optionLabel')));
+  await tester.tap(
+    find.byKey(ValueKey('filter-option-$buttonLabel-$optionLabel')),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -114,50 +116,44 @@ void main() {
 
   tearDown(() => CorextraDevTools.instance.resetAll());
 
-  testWidgets(
-    'on a narrow width, renders a plain tappable list (no split); '
-    'tapping a row drills into a full-screen detail with a back '
-    'button, and Back returns to the list',
-    (tester) async {
-      _seedTwoEvents();
+  testWidgets('on a narrow width, renders a plain tappable list (no split); '
+      'tapping a row drills into a full-screen detail with a back '
+      'button, and Back returns to the list', (tester) async {
+    _seedTwoEvents();
 
-      await tester.pumpWidget(_wrap(400));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap(400));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Requests'), findsNothing);
-      expect(find.text('/todos/1'), findsOneWidget);
-      expect(find.text('/todos'), findsOneWidget);
+    expect(find.text('Requests'), findsNothing);
+    expect(find.text('/todos/1'), findsOneWidget);
+    expect(find.text('/todos'), findsOneWidget);
 
-      await tester.tap(find.text('/todos/1'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('/todos/1'));
+    await tester.pumpAndSettle();
 
-      // The list (and its search/filter chrome) is gone — only the
-      // selected request's own detail screen is shown. Its fixed
-      // summary shows the same path the list row did (that's expected
-      // — it's now findsOneWidget instead of the list's own copy).
-      expect(find.byType(TextField), findsNothing);
-      expect(find.text('/todos/1'), findsOneWidget);
-      expect(
-        find.textContaining('https://example.test/todos/1'),
-        findsOneWidget,
-      );
-      expect(find.text('Headers'), findsOneWidget);
-      expect(find.text('Payload'), findsOneWidget);
-      expect(find.text('Response'), findsOneWidget);
+    // The list (and its search/filter chrome) is gone — only the
+    // selected request's own detail screen is shown. Its fixed
+    // summary shows the same path the list row did (that's expected
+    // — it's now findsOneWidget instead of the list's own copy).
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('/todos/1'), findsOneWidget);
+    expect(find.textContaining('https://example.test/todos/1'), findsOneWidget);
+    expect(find.text('Headers'), findsOneWidget);
+    expect(find.text('Payload'), findsOneWidget);
+    expect(find.text('Response'), findsOneWidget);
 
-      // The response body lives behind the "Response" tab.
-      await tester.tap(find.text('Response'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('"id": 1'), findsOneWidget);
+    // The response body lives behind the "Response" tab.
+    await tester.tap(find.text('Response'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('"id": 1'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Back to requests'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Back to requests'));
+    await tester.pumpAndSettle();
 
-      expect(find.byType(TextField), findsOneWidget);
-      expect(find.text('/todos/1'), findsOneWidget);
-      expect(find.text('/todos'), findsOneWidget);
-    },
-  );
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('/todos/1'), findsOneWidget);
+    expect(find.text('/todos'), findsOneWidget);
+  });
 
   testWidgets(
     'on a wide width, splits into a list and a detail pane; tapping a '
@@ -176,7 +172,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Select a request to see its details'), findsNothing);
-      expect(find.textContaining('https://example.test/todos/1'), findsOneWidget);
+      expect(
+        find.textContaining('https://example.test/todos/1'),
+        findsOneWidget,
+      );
       expect(find.text('Headers'), findsOneWidget);
       expect(find.text('Payload'), findsOneWidget);
       expect(find.text('Response'), findsOneWidget);
@@ -195,10 +194,7 @@ void main() {
       await tester.tap(find.text('Headers'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining('https://example.test/todos/1'),
-        findsNothing,
-      );
+      expect(find.textContaining('https://example.test/todos/1'), findsNothing);
       expect(find.text('Internal Server Error'), findsOneWidget);
     },
   );
@@ -221,29 +217,26 @@ void main() {
     },
   );
 
-  testWidgets(
-    'the search box also matches on status code, and clearing it '
-    'restores the full list',
-    (tester) async {
-      _seedTwoEvents();
+  testWidgets('the search box also matches on status code, and clearing it '
+      'restores the full list', (tester) async {
+    _seedTwoEvents();
 
-      await tester.pumpWidget(_wrap(400));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap(400));
+    await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), '500');
-      await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '500');
+    await tester.pumpAndSettle();
 
-      // The single remaining row should be the 500 one, not the 200.
-      expect(find.text('/todos'), findsOneWidget);
-      expect(find.text('/todos/1'), findsNothing);
+    // The single remaining row should be the 500 one, not the 200.
+    expect(find.text('/todos'), findsOneWidget);
+    expect(find.text('/todos/1'), findsNothing);
 
-      await tester.tap(find.byTooltip('Clear'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Clear'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('/todos/1'), findsOneWidget);
-      expect(find.text('/todos'), findsOneWidget);
-    },
-  );
+    expect(find.text('/todos/1'), findsOneWidget);
+    expect(find.text('/todos'), findsOneWidget);
+  });
 
   testWidgets(
     'a search with no matches shows an empty state instead of an empty '
@@ -297,39 +290,36 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a "Reset" action appears once a filter narrows the list, and '
-    'restores everything in one tap',
-    (tester) async {
-      _seedTwoEvents();
+  testWidgets('a "Reset" action appears once a filter narrows the list, and '
+      'restores everything in one tap', (tester) async {
+    _seedTwoEvents();
 
-      await tester.pumpWidget(_wrap(400));
-      await tester.pumpAndSettle();
-      expect(find.text('Reset'), findsNothing);
+    await tester.pumpWidget(_wrap(400));
+    await tester.pumpAndSettle();
+    expect(find.text('Reset'), findsNothing);
 
-      // Search text alone is enough to make "Reset" appear — no need
-      // to open a filter dropdown (and thus no risk of the popup still
-      // being open, and absorbing the tap meant for "Reset" below) to
-      // exercise the same onReset wiring the dropdowns also use.
-      await tester.enterText(find.byType(TextField), 'todos/1');
-      await tester.pumpAndSettle();
-      expect(find.text('/todos/1'), findsOneWidget);
-      expect(find.text('/todos'), findsNothing);
-      expect(find.text('Reset'), findsOneWidget);
+    // Search text alone is enough to make "Reset" appear — no need
+    // to open a filter dropdown (and thus no risk of the popup still
+    // being open, and absorbing the tap meant for "Reset" below) to
+    // exercise the same onReset wiring the dropdowns also use.
+    await tester.enterText(find.byType(TextField), 'todos/1');
+    await tester.pumpAndSettle();
+    expect(find.text('/todos/1'), findsOneWidget);
+    expect(find.text('/todos'), findsNothing);
+    expect(find.text('Reset'), findsOneWidget);
 
-      // The filter row scrolls horizontally at narrow widths, so
-      // "Reset" (rightmost) may start out past the visible edge.
-      await tester.ensureVisible(find.text('Reset'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Reset'));
-      await tester.pumpAndSettle();
+    // The filter row scrolls horizontally at narrow widths, so
+    // "Reset" (rightmost) may start out past the visible edge.
+    await tester.ensureVisible(find.text('Reset'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reset'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('/todos/1'), findsOneWidget);
-      expect(find.text('/todos'), findsOneWidget);
-      expect(find.text('Reset'), findsNothing);
-      expect(find.text('All'), findsNWidgets(2));
-    },
-  );
+    expect(find.text('/todos/1'), findsOneWidget);
+    expect(find.text('/todos'), findsOneWidget);
+    expect(find.text('Reset'), findsNothing);
+    expect(find.text('All'), findsNWidgets(2));
+  });
 
   testWidgets(
     'deselecting a status in the Status filter dropdown hides requests '
@@ -391,79 +381,71 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a long single line in the response body scrolls horizontally '
-    'inside its code block instead of wrapping to fit the screen',
-    (tester) async {
-      final store = CorextraDevTools.instance.network;
-      final longLine = 'x' * 500;
-      final event = store.begin(
-        method: 'GET',
-        url: 'https://example.test/long',
-      );
-      event.responseBody = longLine;
-      event.statusCode = 200;
-      event.completedAt = DateTime.now();
-      store.complete(event);
+  testWidgets('a long single line in the response body scrolls horizontally '
+      'inside its code block instead of wrapping to fit the screen', (
+    tester,
+  ) async {
+    final store = CorextraDevTools.instance.network;
+    final longLine = 'x' * 500;
+    final event = store.begin(method: 'GET', url: 'https://example.test/long');
+    event.responseBody = longLine;
+    event.statusCode = 200;
+    event.completedAt = DateTime.now();
+    store.complete(event);
 
-      await tester.pumpWidget(_wrap(400));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap(400));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('/long'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Response'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('/long'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Response'));
+    await tester.pumpAndSettle();
 
-      final scrollViews = tester.widgetList<SingleChildScrollView>(
-        find.ancestor(
-          of: find.text(longLine),
-          matching: find.byType(SingleChildScrollView),
-        ),
-      );
-      expect(
-        scrollViews.any((view) => view.scrollDirection == Axis.horizontal),
-        isTrue,
-      );
-    },
-  );
+    final scrollViews = tester.widgetList<SingleChildScrollView>(
+      find.ancestor(
+        of: find.text(longLine),
+        matching: find.byType(SingleChildScrollView),
+      ),
+    );
+    expect(
+      scrollViews.any((view) => view.scrollDirection == Axis.horizontal),
+      isTrue,
+    );
+  });
 
-  testWidgets(
-    'a large response body fits on screen and scrolls inside its own '
-    'block — its vertical scrollbar (right edge) and horizontal scrollbar '
-    '(bottom edge) are both draggable, and the toolbar stays reachable',
-    (tester) async {
-      await _openBigResponse(tester);
+  testWidgets('a large response body fits on screen and scrolls inside its own '
+      'block — its vertical scrollbar (right edge) and horizontal scrollbar '
+      '(bottom edge) are both draggable, and the toolbar stays reachable', (
+    tester,
+  ) async {
+    await _openBigResponse(tester);
 
-      var block = tester.getRect(_bodyScrollArea());
-      expect(
-        block.bottom,
-        lessThanOrEqualTo(tester.getRect(find.byType(NetworkTab)).bottom),
-      );
+    var block = tester.getRect(_bodyScrollArea());
+    expect(
+      block.bottom,
+      lessThanOrEqualTo(tester.getRect(find.byType(NetworkTab)).bottom),
+    );
 
-      // Grabbed 20px in from the edge — well off the slim thumb itself, but inside its wide touch strip. Dragging it down scrolls down; dragging the content itself that way would scroll up (i.e. nowhere).
-      await tester.dragFrom(
-        block.topRight + const Offset(-20, 60),
-        const Offset(0, 100),
-      );
-      await tester.pumpAndSettle();
-      expect(_bodyScrollPosition(tester, Axis.vertical).pixels, greaterThan(0));
+    // Grabbed 20px in from the edge — well off the slim thumb itself, but inside its wide touch strip. Dragging it down scrolls down; dragging the content itself that way would scroll up (i.e. nowhere).
+    await tester.dragFrom(
+      block.topRight + const Offset(-20, 60),
+      const Offset(0, 100),
+    );
+    await tester.pumpAndSettle();
+    expect(_bodyScrollPosition(tester, Axis.vertical).pixels, greaterThan(0));
 
-      // Same for the horizontal thumb — at the block's bottom edge, not under the last line.
-      block = tester.getRect(_bodyScrollArea());
-      await tester.dragFrom(
-        block.bottomLeft + const Offset(30, -20),
-        const Offset(100, 0),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        _bodyScrollPosition(tester, Axis.horizontal).pixels,
-        greaterThan(0),
-      );
+    // Same for the horizontal thumb — at the block's bottom edge, not under the last line.
+    block = tester.getRect(_bodyScrollArea());
+    await tester.dragFrom(
+      block.bottomLeft + const Offset(30, -20),
+      const Offset(100, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(_bodyScrollPosition(tester, Axis.horizontal).pixels, greaterThan(0));
 
-      expect(find.byTooltip('Copy').hitTestable(), findsOneWidget);
-      expect(find.byTooltip('Collapse all').hitTestable(), findsOneWidget);
-    },
-  );
+    expect(find.byTooltip('Copy').hitTestable(), findsOneWidget);
+    expect(find.byTooltip('Collapse all').hitTestable(), findsOneWidget);
+  });
 
   testWidgets(
     'scrolling inside a large Response block collapses the summary above '
@@ -574,84 +556,72 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a JSON object body renders as a collapsible tree — tapping its '
-    'opening brace folds a nested object to a one-line summary, and '
-    'tapping it again restores the nested content',
-    (tester) async {
-      final store = CorextraDevTools.instance.network;
-      final event = store.begin(
-        method: 'GET',
-        url: 'https://example.test/user',
-      );
-      event.responseBody = {
-        'user': {'name': 'Ada', 'age': 30},
-        'active': true,
-      };
-      event.statusCode = 200;
-      event.completedAt = DateTime.now();
-      store.complete(event);
+  testWidgets('a JSON object body renders as a collapsible tree — tapping its '
+      'opening brace folds a nested object to a one-line summary, and '
+      'tapping it again restores the nested content', (tester) async {
+    final store = CorextraDevTools.instance.network;
+    final event = store.begin(method: 'GET', url: 'https://example.test/user');
+    event.responseBody = {
+      'user': {'name': 'Ada', 'age': 30},
+      'active': true,
+    };
+    event.statusCode = 200;
+    event.completedAt = DateTime.now();
+    store.complete(event);
 
-      await tester.pumpWidget(_wrap(400));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap(400));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('/user'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Response'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('/user'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Response'));
+    await tester.pumpAndSettle();
 
-      expect(find.textContaining('"name": "Ada"'), findsOneWidget);
-      expect(find.textContaining('"age": 30'), findsOneWidget);
+    expect(find.textContaining('"name": "Ada"'), findsOneWidget);
+    expect(find.textContaining('"age": 30'), findsOneWidget);
 
-      // "user"'s own toggle is the 2nd chevron-down (root's is the 1st).
-      await tester.tap(find.byIcon(LucideIcons.chevronDown).at(1));
-      await tester.pumpAndSettle();
+    // "user"'s own toggle is the 2nd chevron-down (root's is the 1st).
+    await tester.tap(find.byIcon(LucideIcons.chevronDown).at(1));
+    await tester.pumpAndSettle();
 
-      expect(find.textContaining('"name": "Ada"'), findsNothing);
-      expect(find.textContaining('2 keys'), findsOneWidget);
+    expect(find.textContaining('"name": "Ada"'), findsNothing);
+    expect(find.textContaining('2 keys'), findsOneWidget);
 
-      await tester.tap(find.byIcon(LucideIcons.chevronRight));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(LucideIcons.chevronRight));
+    await tester.pumpAndSettle();
 
-      expect(find.textContaining('"name": "Ada"'), findsOneWidget);
-    },
-  );
+    expect(find.textContaining('"name": "Ada"'), findsOneWidget);
+  });
 
-  testWidgets(
-    "the JSON tree's Collapse all / Expand all actions fold and "
-    'restore every nested object at once',
-    (tester) async {
-      final store = CorextraDevTools.instance.network;
-      final event = store.begin(
-        method: 'GET',
-        url: 'https://example.test/user',
-      );
-      event.responseBody = {
-        'user': {'name': 'Ada', 'age': 30},
-      };
-      event.statusCode = 200;
-      event.completedAt = DateTime.now();
-      store.complete(event);
+  testWidgets("the JSON tree's Collapse all / Expand all actions fold and "
+      'restore every nested object at once', (tester) async {
+    final store = CorextraDevTools.instance.network;
+    final event = store.begin(method: 'GET', url: 'https://example.test/user');
+    event.responseBody = {
+      'user': {'name': 'Ada', 'age': 30},
+    };
+    event.statusCode = 200;
+    event.completedAt = DateTime.now();
+    store.complete(event);
 
-      await tester.pumpWidget(_wrap(400));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap(400));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('/user'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Response'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('/user'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Response'));
+    await tester.pumpAndSettle();
 
-      expect(find.textContaining('"name": "Ada"'), findsOneWidget);
+    expect(find.textContaining('"name": "Ada"'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Collapse all'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('"name": "Ada"'), findsNothing);
+    await tester.tap(find.byTooltip('Collapse all'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('"name": "Ada"'), findsNothing);
 
-      await tester.tap(find.byTooltip('Expand all'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('"name": "Ada"'), findsOneWidget);
-    },
-  );
+    await tester.tap(find.byTooltip('Expand all'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('"name": "Ada"'), findsOneWidget);
+  });
 
   testWidgets(
     "a JSON string value's color adapts to the host theme's brightness "
@@ -678,15 +648,18 @@ void main() {
         await tester.tap(find.text('Response'));
         await tester.pumpAndSettle();
 
-        final span = tester
-            .widget<SelectableText>(
-              find.byWidgetPredicate(
-                (widget) =>
-                    widget is SelectableText &&
-                    (widget.textSpan?.toPlainText() ?? '').contains('"Ada"'),
-              ),
-            )
-            .textSpan!;
+        final span =
+            tester
+                .widget<SelectableText>(
+                  find.byWidgetPredicate(
+                    (widget) =>
+                        widget is SelectableText &&
+                        (widget.textSpan?.toPlainText() ?? '').contains(
+                          '"Ada"',
+                        ),
+                  ),
+                )
+                .textSpan!;
         return span.children!
             .whereType<TextSpan>()
             .firstWhere((s) => s.text == '"Ada"')
@@ -695,16 +668,14 @@ void main() {
       }
 
       final lightColor = await pumpAndGetValueColor(Brightness.light);
-      final lightColors = Theme.of(
-        tester.element(find.text('/user')),
-      ).colorScheme;
+      final lightColors =
+          Theme.of(tester.element(find.text('/user'))).colorScheme;
       expect(lightColor, lightColors.onTertiaryContainer);
       expect(lightColor, isNot(lightColors.tertiary));
 
       final darkColor = await pumpAndGetValueColor(Brightness.dark);
-      final darkColors = Theme.of(
-        tester.element(find.text('/user')),
-      ).colorScheme;
+      final darkColors =
+          Theme.of(tester.element(find.text('/user'))).colorScheme;
       expect(darkColor, darkColors.tertiary);
     },
   );
@@ -757,35 +728,32 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a request header recognized as an auth credential (e.g. '
-    'Authorization) gets a TOKEN badge and its own copy button in the '
-    'Headers tab; an ordinary header does not',
-    (tester) async {
-      final store = CorextraDevTools.instance.network;
-      final event = store.begin(
-        method: 'GET',
-        url: 'https://example.test/todos/1',
-        requestHeaders: {
-          'Authorization': 'Bearer abc123',
-          'Content-Type': 'application/json',
-        },
-      );
-      event.completedAt = DateTime.now();
-      store.complete(event);
+  testWidgets('a request header recognized as an auth credential (e.g. '
+      'Authorization) gets a TOKEN badge and its own copy button in the '
+      'Headers tab; an ordinary header does not', (tester) async {
+    final store = CorextraDevTools.instance.network;
+    final event = store.begin(
+      method: 'GET',
+      url: 'https://example.test/todos/1',
+      requestHeaders: {
+        'Authorization': 'Bearer abc123',
+        'Content-Type': 'application/json',
+      },
+    );
+    event.completedAt = DateTime.now();
+    store.complete(event);
 
-      await tester.pumpWidget(_wrap(900));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap(900));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('/todos/1'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('/todos/1'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('TOKEN'), findsOneWidget);
-      expect(find.text('Bearer abc123'), findsOneWidget);
-      expect(find.text('Content-Type'), findsOneWidget);
-      expect(find.byTooltip('Copy'), findsOneWidget);
-    },
-  );
+    expect(find.text('TOKEN'), findsOneWidget);
+    expect(find.text('Bearer abc123'), findsOneWidget);
+    expect(find.text('Content-Type'), findsOneWidget);
+    expect(find.byTooltip('Copy'), findsOneWidget);
+  });
 
   testWidgets(
     'a header masked via hiddenHeaderKeys still gets a TOKEN badge and a '
@@ -831,75 +799,69 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a masked header short enough that revealing its last characters '
-    'would expose most of it is fully masked instead',
-    (tester) async {
-      final store = CorextraDevTools.instance.network;
-      final event = store.begin(
-        method: 'GET',
-        url: 'https://example.test/todos/1',
-        requestHeaders: {'X-Api-Key': 'short1'},
-        hiddenHeaderKeys: {'x-api-key'},
-      );
-      event.completedAt = DateTime.now();
-      store.complete(event);
+  testWidgets('a masked header short enough that revealing its last characters '
+      'would expose most of it is fully masked instead', (tester) async {
+    final store = CorextraDevTools.instance.network;
+    final event = store.begin(
+      method: 'GET',
+      url: 'https://example.test/todos/1',
+      requestHeaders: {'X-Api-Key': 'short1'},
+      hiddenHeaderKeys: {'x-api-key'},
+    );
+    event.completedAt = DateTime.now();
+    store.complete(event);
 
-      await tester.pumpWidget(_wrap(900));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap(900));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('/todos/1'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('/todos/1'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('***'), findsOneWidget);
-      expect(find.text('short1'), findsNothing);
-    },
-  );
+    expect(find.text('***'), findsOneWidget);
+    expect(find.text('short1'), findsNothing);
+  });
 
-  testWidgets(
-    'tapping Share on a TOKEN header row invokes the OS share sheet '
-    'with the real header value, even when it is masked on screen',
-    (tester) async {
-      MethodCall? sharedCall;
-      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(
-            const MethodChannel('dev.fluttercommunity.plus/share'),
-            (call) async {
-              sharedCall = call;
-              return 'dev.fluttercommunity.plus/share/none';
-            },
-          );
+  testWidgets('tapping Share on a TOKEN header row invokes the OS share sheet '
+      'with the real header value, even when it is masked on screen', (
+    tester,
+  ) async {
+    MethodCall? sharedCall;
+    TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('dev.fluttercommunity.plus/share'),
+          (call) async {
+            sharedCall = call;
+            return 'dev.fluttercommunity.plus/share/none';
+          },
+        );
 
-      final store = CorextraDevTools.instance.network;
-      final event = store.begin(
-        method: 'GET',
-        url: 'https://example.test/todos/1',
-        requestHeaders: {'Authorization': 'Bearer real-secret-value'},
-        hiddenHeaderKeys: {'authorization'},
-      );
-      event.completedAt = DateTime.now();
-      store.complete(event);
+    final store = CorextraDevTools.instance.network;
+    final event = store.begin(
+      method: 'GET',
+      url: 'https://example.test/todos/1',
+      requestHeaders: {'Authorization': 'Bearer real-secret-value'},
+      hiddenHeaderKeys: {'authorization'},
+    );
+    event.completedAt = DateTime.now();
+    store.complete(event);
 
-      await tester.pumpWidget(_wrap(900));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('/todos/1'));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap(900));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('/todos/1'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('***alue'), findsOneWidget);
+    expect(find.text('***alue'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Share'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Share'));
+    await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
-      expect(sharedCall, isNotNull);
-      expect(
-        Map<String, dynamic>.from(
-          sharedCall!.arguments as Map,
-        ).values.join(),
-        contains('Bearer real-secret-value'),
-      );
-    },
-  );
+    expect(tester.takeException(), isNull);
+    expect(sharedCall, isNotNull);
+    expect(
+      Map<String, dynamic>.from(sharedCall!.arguments as Map).values.join(),
+      contains('Bearer real-secret-value'),
+    );
+  });
 
   testWidgets(
     'the fixed summary above the tabs shrinks to a compact strip while '
@@ -944,41 +906,40 @@ void main() {
     },
   );
 
-  testWidgets(
-    'the fullscreen button on the Response block opens the body '
-    'full-screen, and Close returns to the normal detail view',
-    (tester) async {
-      final store = CorextraDevTools.instance.network;
-      final event = store.begin(
-        method: 'GET',
-        url: 'https://example.test/todos/1',
-      );
-      event.responseBody = {'name': 'Ada'};
-      event.statusCode = 200;
-      event.completedAt = DateTime.now();
-      store.complete(event);
+  testWidgets('the fullscreen button on the Response block opens the body '
+      'full-screen, and Close returns to the normal detail view', (
+    tester,
+  ) async {
+    final store = CorextraDevTools.instance.network;
+    final event = store.begin(
+      method: 'GET',
+      url: 'https://example.test/todos/1',
+    );
+    event.responseBody = {'name': 'Ada'};
+    event.statusCode = 200;
+    event.completedAt = DateTime.now();
+    store.complete(event);
 
-      await tester.pumpWidget(_wrap(900));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('/todos/1'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Response'));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_wrap(900));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('/todos/1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Response'));
+    await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Close'), findsNothing);
+    expect(find.byTooltip('Close'), findsNothing);
 
-      await tester.tap(find.byTooltip('View fullscreen'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('View fullscreen'));
+    await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Close'), findsOneWidget);
-      expect(find.textContaining('"name": "Ada"'), findsWidgets);
+    expect(find.byTooltip('Close'), findsOneWidget);
+    expect(find.textContaining('"name": "Ada"'), findsWidgets);
 
-      await tester.tap(find.byTooltip('Close'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Close'), findsNothing);
-    },
-  );
+    expect(find.byTooltip('Close'), findsNothing);
+  });
 
   testWidgets(
     'a JSON toggle row ({ or [) has a generously sized tap target, not '
@@ -1104,9 +1065,7 @@ void main() {
     },
   );
 
-  testWidgets('the search box also matches socket event names', (
-    tester,
-  ) async {
+  testWidgets('the search box also matches socket event names', (tester) async {
     _seedTwoEvents();
     const CorextraSocketLogger(
       url: 'https://socket.example.test',

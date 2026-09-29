@@ -92,8 +92,10 @@ class _ThemeToggleButton extends StatelessWidget {
         return IconButton(
           tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
           icon: Icon(isDark ? LucideIcons.sun : LucideIcons.moon),
-          onPressed: () => CorextraDevTools.instance.themeMode =
-              isDark ? ThemeMode.light : ThemeMode.dark,
+          onPressed:
+              () =>
+                  CorextraDevTools.instance.themeMode =
+                      isDark ? ThemeMode.light : ThemeMode.dark,
         );
       },
     );

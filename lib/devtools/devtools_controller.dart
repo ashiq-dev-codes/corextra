@@ -105,17 +105,19 @@ class FrameSampleStore extends ChangeNotifier {
   /// Average FPS over the most recent [window] samples (~1s at 60Hz).
   double get currentFps {
     if (_samples.isEmpty) return 60;
-    final recent = _samples.length > 60
-        ? _samples.sublist(_samples.length - 60)
-        : _samples;
+    final recent =
+        _samples.length > 60
+            ? _samples.sublist(_samples.length - 60)
+            : _samples;
     final total = recent.fold<double>(0, (sum, s) => sum + s.fps);
     return total / recent.length;
   }
 
   int recentJankyCount({int window = 60}) {
-    final recent = _samples.length > window
-        ? _samples.sublist(_samples.length - window)
-        : _samples;
+    final recent =
+        _samples.length > window
+            ? _samples.sublist(_samples.length - window)
+            : _samples;
     return recent.where((s) => s.isJanky).length;
   }
 

@@ -52,7 +52,10 @@ void main() {
         );
       }
       expect(store.samples, hasLength(3));
-      expect(store.samples.first.buildDuration, const Duration(milliseconds: 2));
+      expect(
+        store.samples.first.buildDuration,
+        const Duration(milliseconds: 2),
+      );
       expect(store.samples.last.buildDuration, const Duration(milliseconds: 4));
     });
 
@@ -75,5 +78,4 @@ void main() {
       expect(store.recentJankyCount(), 1);
     });
   });
-
 }

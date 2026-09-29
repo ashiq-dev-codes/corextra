@@ -71,20 +71,14 @@ extension ResponsiveContextExtensions on BuildContext {
   bool get isLandscape => screenOrientation == Orientation.landscape;
 
   /// Picks the highest-matching value for the current screen width, falling back to [base].
-  T responsive<T>({
-    required T base,
-    T? sm,
-    T? md,
-    T? lg,
-    T? xl,
-    T? xxl,
-  }) => ResponsiveBreakpoints.valueOf<T>(
-    screenWidth,
-    base: base,
-    sm: sm,
-    md: md,
-    lg: lg,
-    xl: xl,
-    xxl: xxl,
-  );
+  T responsive<T>({required T base, T? sm, T? md, T? lg, T? xl, T? xxl}) =>
+      ResponsiveBreakpoints.valueOf<T>(
+        screenWidth,
+        base: base,
+        sm: sm,
+        md: md,
+        lg: lg,
+        xl: xl,
+        xxl: xxl,
+      );
 }

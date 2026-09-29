@@ -47,20 +47,17 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Performance is hidden behind the "More" button, not shown as a '
-    'primary tab',
-    (tester) async {
-      await tester.pumpWidget(_wrap());
-      await tester.pumpAndSettle();
+  testWidgets('Performance is hidden behind the "More" button, not shown as a '
+      'primary tab', (tester) async {
+    await tester.pumpWidget(_wrap());
+    await tester.pumpAndSettle();
 
-      expect(find.text('Network'), findsOneWidget);
-      expect(find.text('Logs'), findsOneWidget);
-      expect(find.text('Info'), findsOneWidget);
-      expect(find.text('Performance'), findsNothing);
-      expect(find.byTooltip('More'), findsOneWidget);
-    },
-  );
+    expect(find.text('Network'), findsOneWidget);
+    expect(find.text('Logs'), findsOneWidget);
+    expect(find.text('Info'), findsOneWidget);
+    expect(find.text('Performance'), findsNothing);
+    expect(find.byTooltip('More'), findsOneWidget);
+  });
 
   testWidgets(
     'tapping "More" then a secondary item switches to that tab and shows '

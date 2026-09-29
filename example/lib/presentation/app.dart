@@ -8,7 +8,9 @@ class MyDemoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = ColorScheme.fromSeed(seedColor: const Color(0xFF6750F4));
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF6750F4),
+    );
 
     return MaterialApp(
       title: 'Corextra Demo',
@@ -34,19 +36,25 @@ class MyDemoApp extends StatelessWidget {
           color: colorScheme.surfaceContainerLow,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+            side: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+            ),
           ),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
         ),
@@ -57,13 +65,18 @@ class MyDemoApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
         ),
         chipTheme: ChipThemeData(
           backgroundColor: colorScheme.secondaryContainer,
           labelStyle: TextStyle(color: colorScheme.onSecondaryContainer),
           side: BorderSide.none,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       ),
       builder: (context, child) {

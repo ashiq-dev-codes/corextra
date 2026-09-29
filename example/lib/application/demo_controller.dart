@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+
 import '../infrastructure/network/network_service.dart';
+
 import 'package:corextra/corextra.dart';
 
 class DemoController extends ChangeNotifier {
@@ -27,7 +29,10 @@ class DemoController extends ChangeNotifier {
   }
 
   void logWarning() {
-    debugLog('Cache miss for key "user_profile_42" — refetching', level: LogLevel.warning);
+    debugLog(
+      'Cache miss for key "user_profile_42" — refetching',
+      level: LogLevel.warning,
+    );
   }
 
   void logError() {
@@ -96,7 +101,10 @@ class DemoController extends ChangeNotifier {
 
   Future<void> sendPutWithBody() async {
     try {
-      await networkService.dio.put('/put', data: {'name': 'corextra', 'version': '2.0.0'});
+      await networkService.dio.put(
+        '/put',
+        data: {'name': 'corextra', 'version': '2.0.0'},
+      );
     } on DioException {
       /* ignore */
     }
@@ -211,7 +219,10 @@ class DemoController extends ChangeNotifier {
 
   Future<void> sendConflict() async {
     try {
-      await networkService.dio.post('/simulate/409', data: {'email': 'jane@example.com'});
+      await networkService.dio.post(
+        '/simulate/409',
+        data: {'email': 'jane@example.com'},
+      );
     } on DioException {
       /* ignore */
     }

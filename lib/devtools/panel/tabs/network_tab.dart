@@ -238,9 +238,9 @@ class _NarrowDetailScreen extends StatelessWidget {
                 ),
                 Text(
                   'Request detail',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -1366,7 +1366,8 @@ class _KeyValueList extends StatelessWidget {
           data.entries.map((entry) {
             final hidden = hiddenKeys.contains(entry.key.toLowerCase());
             final sensitive = _isSensitiveHeader(entry.key) || hidden;
-            final displayValue = hidden ? _maskedPreview(entry.value) : entry.value;
+            final displayValue =
+                hidden ? _maskedPreview(entry.value) : entry.value;
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(
@@ -1769,9 +1770,10 @@ class _ScrollableCodeState extends State<_ScrollableCode> {
     return DevToolsScrollToTop(
       onScroll: widget.onScroll,
       builder:
-          (context, vertical) => NotificationListener<
-            ScrollMetricsNotification
-          >(
+          (
+            context,
+            vertical,
+          ) => NotificationListener<ScrollMetricsNotification>(
             // Content or box size changed (e.g. a JSON node folded) — resize the thumbs to match.
             onNotification: (_) {
               setState(() {});
@@ -2001,7 +2003,9 @@ class _EdgeScrollbarState extends State<_EdgeScrollbar> {
                       right: _vertical ? 2 : null,
                       bottom: _vertical ? null : 2,
                       child: AnimatedContainer(
-                        key: ValueKey('code-scrollbar-thumb-${widget.axis.name}'),
+                        key: ValueKey(
+                          'code-scrollbar-thumb-${widget.axis.name}',
+                        ),
                         duration: const Duration(milliseconds: 120),
                         width: _vertical ? thickness : thumbLength,
                         height: _vertical ? thumbLength : thickness,

@@ -40,9 +40,10 @@ void main() {
   test(
     'captures method, url, status and duration for a successful request',
     () async {
-      final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
-        ..httpClientAdapter = _FakeAdapter()
-        ..interceptors.add(const CorextraDevToolsInterceptor());
+      final dio =
+          Dio(BaseOptions(baseUrl: 'https://example.test'))
+            ..httpClientAdapter = _FakeAdapter()
+            ..interceptors.add(const CorextraDevToolsInterceptor());
 
       await dio.get('/ping');
 
@@ -59,9 +60,10 @@ void main() {
   );
 
   test('captures query parameters separately from the url', () async {
-    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
-      ..httpClientAdapter = _FakeAdapter()
-      ..interceptors.add(const CorextraDevToolsInterceptor());
+    final dio =
+        Dio(BaseOptions(baseUrl: 'https://example.test'))
+          ..httpClientAdapter = _FakeAdapter()
+          ..interceptors.add(const CorextraDevToolsInterceptor());
 
     await dio.get('/search', queryParameters: {'q': 'flutter', 'page': 2});
 
@@ -73,9 +75,10 @@ void main() {
   test('does not capture when disabled', () async {
     CorextraDevTools.instance.enabled = false;
 
-    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
-      ..httpClientAdapter = _FakeAdapter()
-      ..interceptors.add(const CorextraDevToolsInterceptor());
+    final dio =
+        Dio(BaseOptions(baseUrl: 'https://example.test'))
+          ..httpClientAdapter = _FakeAdapter()
+          ..interceptors.add(const CorextraDevToolsInterceptor());
 
     await dio.get('/ping');
 
@@ -85,11 +88,12 @@ void main() {
   test(
     'flags hidden headers case-insensitively without discarding their real value',
     () async {
-      final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
-        ..httpClientAdapter = _FakeAdapter()
-        ..interceptors.add(
-          const CorextraDevToolsInterceptor(hiddenHeaders: {'x-api-key'}),
-        );
+      final dio =
+          Dio(BaseOptions(baseUrl: 'https://example.test'))
+            ..httpClientAdapter = _FakeAdapter()
+            ..interceptors.add(
+              const CorextraDevToolsInterceptor(hiddenHeaders: {'x-api-key'}),
+            );
 
       await dio.get(
         '/ping',
@@ -132,9 +136,10 @@ void main() {
         'data': {'packages': List.generate(50, (_) => package)},
       };
 
-      final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
-        ..httpClientAdapter = _FakeAdapter(responseBody: largeResponse)
-        ..interceptors.add(const CorextraDevToolsInterceptor());
+      final dio =
+          Dio(BaseOptions(baseUrl: 'https://example.test'))
+            ..httpClientAdapter = _FakeAdapter(responseBody: largeResponse)
+            ..interceptors.add(const CorextraDevToolsInterceptor());
 
       await dio.get('/packages');
 

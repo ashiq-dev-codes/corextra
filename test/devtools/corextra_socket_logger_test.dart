@@ -33,11 +33,9 @@ void main() {
 
   test('emitWithAck stays pending until the ack, then stores it', () async {
     final ackCompleter = Completer<Object?>();
-    final future = logger.emitWithAck(
-      'chat:latest_messages',
-      {'page': 1},
-      () => ackCompleter.future,
-    );
+    final future = logger.emitWithAck('chat:latest_messages', {
+      'page': 1,
+    }, () => ackCompleter.future);
 
     final event = CorextraDevTools.instance.network.events.single;
     expect(event.isPending, isTrue);
@@ -50,21 +48,24 @@ void main() {
     expect(event.duration, isNotNull);
   });
 
-  test('emitWithAck marks the row failed and rethrows when the ack fails', () async {
-    await expectLater(
-      logger.emitWithAck(
-        'chat:latest_messages',
-        null,
-        () async => throw Exception('operation has timed out'),
-      ),
-      throwsException,
-    );
+  test(
+    'emitWithAck marks the row failed and rethrows when the ack fails',
+    () async {
+      await expectLater(
+        logger.emitWithAck(
+          'chat:latest_messages',
+          null,
+          () async => throw Exception('operation has timed out'),
+        ),
+        throwsException,
+      );
 
-    final event = CorextraDevTools.instance.network.events.single;
-    expect(event.isError, isTrue);
-    expect(event.errorMessage, contains('timed out'));
-    expect(event.isPending, isFalse);
-  });
+      final event = CorextraDevTools.instance.network.events.single;
+      expect(event.isError, isTrue);
+      expect(event.errorMessage, contains('timed out'));
+      expect(event.isPending, isFalse);
+    },
+  );
 
   test('receive records an ON row with the pushed data as the response', () {
     logger.receive('message:new', {'chat_id': 7});

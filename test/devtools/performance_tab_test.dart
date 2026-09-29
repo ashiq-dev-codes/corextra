@@ -100,11 +100,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: SizedBox(
-              width: 280,
-              height: 239,
-              child: PerformanceTab(),
-            ),
+            body: SizedBox(width: 280, height: 239, child: PerformanceTab()),
           ),
         ),
       );

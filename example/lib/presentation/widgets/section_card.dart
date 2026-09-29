@@ -35,13 +35,19 @@ class SectionCard extends StatelessWidget {
                     color: colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, size: 20, color: colorScheme.onPrimaryContainer),
+                  child: Icon(
+                    icon,
+                    size: 20,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     title,
-                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -52,7 +58,9 @@ class SectionCard extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 44),
                 child: Text(
                   subtitle!,
-                  style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],

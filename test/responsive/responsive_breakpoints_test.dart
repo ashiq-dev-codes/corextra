@@ -18,29 +18,23 @@ void main() {
   });
 
   group('ResponsiveBreakpoints.valueOf', () {
-    test('falls back to base when width is below every provided breakpoint', () {
-      expect(
-        ResponsiveBreakpoints.valueOf<int>(300, base: 1, md: 2, lg: 3),
-        1,
-      );
-    });
+    test(
+      'falls back to base when width is below every provided breakpoint',
+      () {
+        expect(
+          ResponsiveBreakpoints.valueOf<int>(300, base: 1, md: 2, lg: 3),
+          1,
+        );
+      },
+    );
 
     test('returns the highest-matching provided value', () {
-      expect(
-        ResponsiveBreakpoints.valueOf<int>(600, base: 1, sm: 2, md: 3),
-        3,
-      );
-      expect(
-        ResponsiveBreakpoints.valueOf<int>(900, base: 1, md: 2, lg: 3),
-        3,
-      );
+      expect(ResponsiveBreakpoints.valueOf<int>(600, base: 1, sm: 2, md: 3), 3);
+      expect(ResponsiveBreakpoints.valueOf<int>(900, base: 1, md: 2, lg: 3), 3);
     });
 
     test('skips breakpoints with no value and keeps looking downward', () {
-      expect(
-        ResponsiveBreakpoints.valueOf<int>(2000, base: 1, lg: 3),
-        3,
-      );
+      expect(ResponsiveBreakpoints.valueOf<int>(2000, base: 1, lg: 3), 3);
     });
   });
 
@@ -77,14 +71,8 @@ void main() {
 
   group('ResponsiveConstraintsExtensions', () {
     test('deviceType classifies maxWidth', () {
-      expect(
-        const BoxConstraints(maxWidth: 320).deviceType,
-        DeviceType.mobile,
-      );
-      expect(
-        const BoxConstraints(maxWidth: 800).deviceType,
-        DeviceType.tablet,
-      );
+      expect(const BoxConstraints(maxWidth: 320).deviceType, DeviceType.mobile);
+      expect(const BoxConstraints(maxWidth: 800).deviceType, DeviceType.tablet);
       expect(
         const BoxConstraints(maxWidth: 1200).deviceType,
         DeviceType.desktop,
@@ -100,17 +88,11 @@ void main() {
 
     test('isPortrait / isLandscape compare maxWidth and maxHeight', () {
       expect(
-        const BoxConstraints(
-          maxWidth: 300,
-          maxHeight: 600,
-        ).isPortrait,
+        const BoxConstraints(maxWidth: 300, maxHeight: 600).isPortrait,
         isTrue,
       );
       expect(
-        const BoxConstraints(
-          maxWidth: 600,
-          maxHeight: 300,
-        ).isLandscape,
+        const BoxConstraints(maxWidth: 600, maxHeight: 300).isLandscape,
         isTrue,
       );
     });

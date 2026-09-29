@@ -48,7 +48,8 @@ class FakeScenarioInterceptor extends Interceptor {
       statusMessage: 'Bad Request',
       body: {
         'error': 'bad_request',
-        'message': 'The request could not be understood due to malformed syntax.',
+        'message':
+            'The request could not be understood due to malformed syntax.',
       },
     ),
     '401': _FakeScenario(
@@ -147,7 +148,8 @@ class FakeScenarioInterceptor extends Interceptor {
     'malformed-json': _FakeScenario(
       statusCode: 200,
       statusMessage: 'OK',
-      body: '{"user": {"id": 1, "name": "Jane Doe", "email": "jane@example.com"',
+      body:
+          '{"user": {"id": 1, "name": "Jane Doe", "email": "jane@example.com"',
     ),
     'html-error-page': _FakeScenario(
       statusCode: 502,

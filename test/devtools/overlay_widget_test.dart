@@ -30,10 +30,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: CorextraDevToolsOverlay(
-            enabled: true,
-            child: Text('host app'),
-          ),
+          home: CorextraDevToolsOverlay(enabled: true, child: Text('host app')),
         ),
       );
 
@@ -63,10 +60,7 @@ void main() {
 
     await tester.pumpWidget(
       const MaterialApp(
-        home: CorextraDevToolsOverlay(
-          enabled: true,
-          child: SizedBox.shrink(),
-        ),
+        home: CorextraDevToolsOverlay(enabled: true, child: SizedBox.shrink()),
       ),
     );
 
@@ -126,8 +120,10 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          builder: (context, child) =>
-              CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
+          builder:
+              (context, child) => CorextraDevToolsOverlay(
+                child: child ?? const SizedBox.shrink(),
+              ),
           home: Scaffold(
             body: ElevatedButton(
               onPressed: () => hostButtonTapped = true,
@@ -416,10 +412,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(
-        tester.getSize(find.byType(DevToolsFloatingWindow)),
-        initialSize,
-      );
+      expect(tester.getSize(find.byType(DevToolsFloatingWindow)), initialSize);
     },
   );
 
@@ -428,10 +421,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: CorextraDevToolsOverlay(
-          enabled: true,
-          child: SizedBox.shrink(),
-        ),
+        home: CorextraDevToolsOverlay(enabled: true, child: SizedBox.shrink()),
       ),
     );
 
@@ -491,87 +481,73 @@ void main() {
     },
   );
 
-  testWidgets(
-    'landing merely "somewhere near" an edge no longer peeks the '
-    "bubble — only landing within a quarter of its own (small) width "
-    'does, so it does not hide overeagerly on a small screen',
-    (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: CorextraDevToolsOverlay(
-            enabled: true,
-            child: SizedBox.shrink(),
-          ),
-        ),
-      );
+  testWidgets('landing merely "somewhere near" an edge no longer peeks the '
+      "bubble — only landing within a quarter of its own (small) width "
+      'does, so it does not hide overeagerly on a small screen', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: CorextraDevToolsOverlay(enabled: true, child: SizedBox.shrink()),
+      ),
+    );
 
-      // Lands 20px from the left edge: well within the old fixed 80px
-      // threshold, but outside the new one (25% of the 48px bubble's
-      // own width = 12px) — should stay fully visible, not peek.
-      await tester.drag(find.byType(DevToolsBubble), const Offset(-716, 0));
-      await tester.pumpAndSettle();
+    // Lands 20px from the left edge: well within the old fixed 80px
+    // threshold, but outside the new one (25% of the 48px bubble's
+    // own width = 12px) — should stay fully visible, not peek.
+    await tester.drag(find.byType(DevToolsBubble), const Offset(-716, 0));
+    await tester.pumpAndSettle();
 
-      expect(find.byIcon(LucideIcons.bug), findsOneWidget);
-      expect(find.byIcon(LucideIcons.chevronRight), findsNothing);
-    },
-  );
+    expect(find.byIcon(LucideIcons.bug), findsOneWidget);
+    expect(find.byIcon(LucideIcons.chevronRight), findsNothing);
+  });
 
-  testWidgets(
-    'releasing a drag away from either screen edge leaves the bubble '
-    'exactly where it was dropped, without peeking',
-    (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: CorextraDevToolsOverlay(
-            enabled: true,
-            child: SizedBox.shrink(),
-          ),
-        ),
-      );
+  testWidgets('releasing a drag away from either screen edge leaves the bubble '
+      'exactly where it was dropped, without peeking', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: CorextraDevToolsOverlay(enabled: true, child: SizedBox.shrink()),
+      ),
+    );
 
-      // Move it toward the middle of the screen, away from both edges.
-      await tester.drag(find.byType(DevToolsBubble), const Offset(-300, 0));
-      await tester.pumpAndSettle();
+    // Move it toward the middle of the screen, away from both edges.
+    await tester.drag(find.byType(DevToolsBubble), const Offset(-300, 0));
+    await tester.pumpAndSettle();
 
-      expect(find.byIcon(LucideIcons.bug), findsOneWidget);
-      expect(find.byIcon(LucideIcons.chevronLeft), findsNothing);
-      expect(find.byIcon(LucideIcons.chevronRight), findsNothing);
-    },
-  );
+    expect(find.byIcon(LucideIcons.bug), findsOneWidget);
+    expect(find.byIcon(LucideIcons.chevronLeft), findsNothing);
+    expect(find.byIcon(LucideIcons.chevronRight), findsNothing);
+  });
 
-  testWidgets(
-    'dragging the floating window to the screen edge docks and peeks '
-    'it there; tapping the peek nub reveals its tab content again',
-    (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: CorextraDevToolsOverlay(
-            enabled: true,
-            child: SizedBox.shrink(),
-          ),
-        ),
-      );
+  testWidgets('dragging the floating window to the screen edge docks and peeks '
+      'it there; tapping the peek nub reveals its tab content again', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: CorextraDevToolsOverlay(enabled: true, child: SizedBox.shrink()),
+      ),
+    );
 
-      await tester.tap(find.byType(DevToolsBubble));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Minimize'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byType(DevToolsBubble));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Minimize'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Network'), findsOneWidget);
+    expect(find.text('Network'), findsOneWidget);
 
-      // Drag the window (by its header) far to the right, past the edge.
-      await tester.drag(find.text('DevTools'), const Offset(700, 0));
-      await tester.pumpAndSettle();
+    // Drag the window (by its header) far to the right, past the edge.
+    await tester.drag(find.text('DevTools'), const Offset(700, 0));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Network'), findsNothing);
-      expect(find.byIcon(LucideIcons.chevronLeft), findsOneWidget);
+    expect(find.text('Network'), findsNothing);
+    expect(find.byIcon(LucideIcons.chevronLeft), findsOneWidget);
 
-      await tester.tap(find.byIcon(LucideIcons.chevronLeft));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(LucideIcons.chevronLeft));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Network'), findsOneWidget);
-    },
-  );
+    expect(find.text('Network'), findsOneWidget);
+  });
 
   testWidgets(
     'dragging the bubble past the edge without releasing visibly slides '
@@ -587,9 +563,7 @@ void main() {
       );
 
       final bubbleFinder = find.byType(DevToolsBubble);
-      final gesture = await tester.startGesture(
-        tester.getCenter(bubbleFinder),
-      );
+      final gesture = await tester.startGesture(tester.getCenter(bubbleFinder));
       // The very first move that exceeds the pan recognizer's touch
       // slop is consumed entirely by gesture *acceptance* — it never
       // reaches onPanUpdate, regardless of its own size. Only moves
@@ -628,9 +602,7 @@ void main() {
 
       final bubbleFinder = find.byType(DevToolsBubble);
       final before = tester.getTopLeft(bubbleFinder);
-      final gesture = await tester.startGesture(
-        tester.getCenter(bubbleFinder),
-      );
+      final gesture = await tester.startGesture(tester.getCenter(bubbleFinder));
       // First move just triggers gesture acceptance (see the test
       // above) and is discarded — the bubble is still exactly where it
       // started until the *next* move.
@@ -653,44 +625,39 @@ void main() {
     },
   );
 
-  testWidgets(
-    'dragging the bubble straight up on a device with a status bar / '
-    'notch never lets it cross into the top safe area, so it can never '
-    "end up stuck in the OS's own edge-gesture zone",
-    (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: MediaQuery(
-            data: const MediaQueryData(
-              size: Size(800, 600),
-              padding: EdgeInsets.only(top: 47, bottom: 34),
-            ),
-            child: const CorextraDevToolsOverlay(
-              enabled: true,
-              child: SizedBox.shrink(),
-            ),
+  testWidgets('dragging the bubble straight up on a device with a status bar / '
+      'notch never lets it cross into the top safe area, so it can never '
+      "end up stuck in the OS's own edge-gesture zone", (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(800, 600),
+            padding: EdgeInsets.only(top: 47, bottom: 34),
+          ),
+          child: const CorextraDevToolsOverlay(
+            enabled: true,
+            child: SizedBox.shrink(),
           ),
         ),
-      );
+      ),
+    );
 
-      final bubbleFinder = find.byType(DevToolsBubble);
-      final gesture = await tester.startGesture(
-        tester.getCenter(bubbleFinder),
-      );
-      await gesture.moveBy(const Offset(0, -50)); // accepting move, discarded
-      await tester.pump();
-      await gesture.moveBy(const Offset(0, -800)); // drag far past the top
-      await tester.pump();
+    final bubbleFinder = find.byType(DevToolsBubble);
+    final gesture = await tester.startGesture(tester.getCenter(bubbleFinder));
+    await gesture.moveBy(const Offset(0, -50)); // accepting move, discarded
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, -800)); // drag far past the top
+    await tester.pump();
 
-      // Still mid-drag, and already clamped well clear of the 47px status
-      // bar inset (47 + the 12px safety margin) rather than flush at 0.
-      expect(tester.getTopLeft(bubbleFinder).dy, 59);
+    // Still mid-drag, and already clamped well clear of the 47px status
+    // bar inset (47 + the 12px safety margin) rather than flush at 0.
+    expect(tester.getTopLeft(bubbleFinder).dy, 59);
 
-      await gesture.up();
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(bubbleFinder).dy, 59);
-    },
-  );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(bubbleFinder).dy, 59);
+  });
 
   testWidgets(
     'dragging the floating window straight up on a device with a status '
@@ -717,9 +684,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final headerFinder = find.text('DevTools');
-      final gesture = await tester.startGesture(
-        tester.getCenter(headerFinder),
-      );
+      final gesture = await tester.startGesture(tester.getCenter(headerFinder));
       await gesture.moveBy(const Offset(0, -50));
       await tester.pump();
       await gesture.moveBy(const Offset(0, -800));
@@ -734,38 +699,37 @@ void main() {
     },
   );
 
-  testWidgets(
-    "Android's hardware back button closes the open panel instead of "
-    'reaching the host app underneath it, even with no Navigator above '
-    'this widget (the MaterialApp.builder mounting style)',
-    (tester) async {
-      var hostButtonTapped = false;
-      await tester.pumpWidget(
-        MaterialApp(
-          builder: (context, child) =>
-              CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
-          home: Scaffold(
-            body: ElevatedButton(
-              onPressed: () => hostButtonTapped = true,
-              child: const Text('host button'),
+  testWidgets("Android's hardware back button closes the open panel instead of "
+      'reaching the host app underneath it, even with no Navigator above '
+      'this widget (the MaterialApp.builder mounting style)', (tester) async {
+    var hostButtonTapped = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        builder:
+            (context, child) => CorextraDevToolsOverlay(
+              child: child ?? const SizedBox.shrink(),
             ),
+        home: Scaffold(
+          body: ElevatedButton(
+            onPressed: () => hostButtonTapped = true,
+            child: const Text('host button'),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(DevToolsBubble));
-      await tester.pumpAndSettle();
-      expect(find.byType(DevToolsPanel), findsOneWidget);
+    await tester.tap(find.byType(DevToolsBubble));
+    await tester.pumpAndSettle();
+    expect(find.byType(DevToolsPanel), findsOneWidget);
 
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
 
-      expect(find.byType(DevToolsPanel), findsNothing);
-      expect(find.byType(DevToolsBubble), findsOneWidget);
-      expect(hostButtonTapped, isFalse);
-    },
-  );
+    expect(find.byType(DevToolsPanel), findsNothing);
+    expect(find.byType(DevToolsBubble), findsOneWidget);
+    expect(hostButtonTapped, isFalse);
+  });
 
   testWidgets(
     'back undoes a drilled-in request detail one step at a time — first '
@@ -782,8 +746,10 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          builder: (context, child) =>
-              CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
+          builder:
+              (context, child) => CorextraDevToolsOverlay(
+                child: child ?? const SizedBox.shrink(),
+              ),
           home: const Scaffold(body: SizedBox.shrink()),
         ),
       );

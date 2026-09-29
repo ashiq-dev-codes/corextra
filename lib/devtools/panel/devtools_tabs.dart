@@ -39,12 +39,7 @@ class DevToolsTabs extends StatelessWidget {
           Expanded(
             child: TabBarView(
               physics: NeverScrollableScrollPhysics(),
-              children: [
-                NetworkTab(),
-                LogsTab(),
-                InfoTab(),
-                PerformanceTab(),
-              ],
+              children: [NetworkTab(), LogsTab(), InfoTab(), PerformanceTab()],
             ),
           ),
         ],
@@ -102,13 +97,15 @@ class _TabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = selected
-        ? theme.colorScheme.primary
-        : theme.colorScheme.onSurfaceVariant;
+    final color =
+        selected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onSurfaceVariant;
     return Material(
-      color: selected
-          ? theme.colorScheme.primary.withValues(alpha: 0.14)
-          : Colors.transparent,
+      color:
+          selected
+              ? theme.colorScheme.primary.withValues(alpha: 0.14)
+              : Colors.transparent,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -158,16 +155,18 @@ class _MoreTabButtonState extends State<_MoreTabButton> {
     final rawIndex = widget.controller.index - widget.startIndex;
     final activeIndex =
         (rawIndex >= 0 && rawIndex < DevToolsTabs._secondaryTabs.length)
-        ? rawIndex
-        : null;
+            ? rawIndex
+            : null;
     final selected = activeIndex != null;
-    final color = selected
-        ? theme.colorScheme.primary
-        : theme.colorScheme.onSurfaceVariant;
+    final color =
+        selected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onSurfaceVariant;
     // Swap to the active secondary tab's own icon so it's never ambiguous which page is showing.
-    final icon = selected
-        ? DevToolsTabs._secondaryTabs[activeIndex].icon
-        : LucideIcons.ellipsisVertical;
+    final icon =
+        selected
+            ? DevToolsTabs._secondaryTabs[activeIndex].icon
+            : LucideIcons.ellipsisVertical;
 
     return MenuAnchor(
       controller: _menuController,
@@ -194,15 +193,18 @@ class _MoreTabButtonState extends State<_MoreTabButton> {
         return Tooltip(
           message: 'More',
           child: Material(
-            color: selected
-                ? theme.colorScheme.primary.withValues(alpha: 0.14)
-                : Colors.transparent,
+            color:
+                selected
+                    ? theme.colorScheme.primary.withValues(alpha: 0.14)
+                    : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             child: InkWell(
               borderRadius: BorderRadius.circular(10),
-              onTap: () => menuController.isOpen
-                  ? menuController.close()
-                  : menuController.open(),
+              onTap:
+                  () =>
+                      menuController.isOpen
+                          ? menuController.close()
+                          : menuController.open(),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -232,15 +234,15 @@ class _MoreMenuItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = selected
-        ? theme.colorScheme.primary
-        : theme.colorScheme.onSurface;
+    final color =
+        selected ? theme.colorScheme.primary : theme.colorScheme.onSurface;
     return InkWell(
       onTap: onTap,
       child: Container(
-        color: selected
-            ? theme.colorScheme.primary.withValues(alpha: 0.08)
-            : Colors.transparent,
+        color:
+            selected
+                ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                : Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
           mainAxisSize: MainAxisSize.min,

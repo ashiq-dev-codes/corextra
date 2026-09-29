@@ -49,9 +49,8 @@ class CorextraDevToolsInterceptor extends Interceptor {
         requestHeaders: options.headers.map(
           (key, value) => MapEntry(key, value.toString()),
         ),
-        requestBody: captureBody
-            ? truncateBody(options.data, maxBodyLength)
-            : null,
+        requestBody:
+            captureBody ? truncateBody(options.data, maxBodyLength) : null,
         hiddenHeaderKeys: hiddenHeaders.map((h) => h.toLowerCase()).toSet(),
       );
       options.extra[_extraKey] = event;
@@ -68,9 +67,8 @@ class CorextraDevToolsInterceptor extends Interceptor {
       event.responseHeaders = response.headers.map.map(
         (key, value) => MapEntry(key, value.join(', ')),
       );
-      event.responseBody = captureBody
-          ? truncateBody(response.data, maxBodyLength)
-          : null;
+      event.responseBody =
+          captureBody ? truncateBody(response.data, maxBodyLength) : null;
       event.completedAt = DateTime.now();
       CorextraDevTools.instance.network.complete(event);
     }
@@ -87,9 +85,8 @@ class CorextraDevToolsInterceptor extends Interceptor {
       event.errorMessage = err.message ?? 'Unknown error';
       final responseData = err.response?.data;
       if (responseData != null) {
-        event.responseBody = captureBody
-            ? truncateBody(responseData, maxBodyLength)
-            : null;
+        event.responseBody =
+            captureBody ? truncateBody(responseData, maxBodyLength) : null;
       }
       event.completedAt = DateTime.now();
       CorextraDevTools.instance.network.complete(event);

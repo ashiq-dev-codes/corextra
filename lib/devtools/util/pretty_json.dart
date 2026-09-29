@@ -133,12 +133,14 @@ Object? _boundForLogging(
     final result = [];
     for (final item in value.take(maxListItems)) {
       if (remaining[0] <= 0) break;
-      result.add(_boundForLogging(
-        item,
-        remaining,
-        maxListItems: maxListItems,
-        maxStringLength: maxStringLength,
-      ));
+      result.add(
+        _boundForLogging(
+          item,
+          remaining,
+          maxListItems: maxListItems,
+          maxStringLength: maxStringLength,
+        ),
+      );
     }
     if (value.length > result.length) {
       result.add('… ${value.length - result.length} more items');
