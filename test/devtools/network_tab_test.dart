@@ -21,6 +21,39 @@ void _seedTwoEvents() {
   store.complete(second);
 }
 
+/// A JSON response both taller and wider than any test window, so its block has to scroll both ways.
+void _seedBigJsonResponse() {
+  final store = CorextraDevTools.instance.network;
+  final event = store.begin(method: 'GET', url: 'https://example.test/big');
+  event.responseBody = {for (var i = 0; i < 300; i++) 'key_$i': 'x' * 120};
+  event.statusCode = 200;
+  event.completedAt = DateTime.now();
+  store.complete(event);
+}
+
+/// The scrolling area inside the (first) open body block — its edges are where the block's scrollbars sit.
+Finder _bodyScrollArea() =>
+    find.byKey(const ValueKey('code-block-scroll-area')).first;
+
+/// The live scroll position along [axis] inside the (first) open body block.
+ScrollPosition _bodyScrollPosition(WidgetTester tester, Axis axis) => tester
+    .stateList<ScrollableState>(
+      find.descendant(of: _bodyScrollArea(), matching: find.byType(Scrollable)),
+    )
+    .firstWhere((state) => state.position.axis == axis)
+    .position;
+
+/// Opens the Response tab of the request seeded by [_seedBigJsonResponse].
+Future<void> _openBigResponse(WidgetTester tester) async {
+  _seedBigJsonResponse();
+  await tester.pumpWidget(_wrap(400));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('/big'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Response'));
+  await tester.pumpAndSettle();
+}
+
 Widget _wrap(double width, {double height = 600}) {
   return MaterialApp(
     home: Scaffold(
@@ -391,6 +424,153 @@ void main() {
         scrollViews.any((view) => view.scrollDirection == Axis.horizontal),
         isTrue,
       );
+    },
+  );
+
+  testWidgets(
+    'a large response body fits on screen and scrolls inside its own '
+    'block — its vertical scrollbar (right edge) and horizontal scrollbar '
+    '(bottom edge) are both draggable, and the toolbar stays reachable',
+    (tester) async {
+      await _openBigResponse(tester);
+
+      var block = tester.getRect(_bodyScrollArea());
+      expect(
+        block.bottom,
+        lessThanOrEqualTo(tester.getRect(find.byType(NetworkTab)).bottom),
+      );
+
+      // Grabbed 20px in from the edge — well off the slim thumb itself, but inside its wide touch strip. Dragging it down scrolls down; dragging the content itself that way would scroll up (i.e. nowhere).
+      await tester.dragFrom(
+        block.topRight + const Offset(-20, 60),
+        const Offset(0, 100),
+      );
+      await tester.pumpAndSettle();
+      expect(_bodyScrollPosition(tester, Axis.vertical).pixels, greaterThan(0));
+
+      // Same for the horizontal thumb — at the block's bottom edge, not under the last line.
+      block = tester.getRect(_bodyScrollArea());
+      await tester.dragFrom(
+        block.bottomLeft + const Offset(30, -20),
+        const Offset(100, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        _bodyScrollPosition(tester, Axis.horizontal).pixels,
+        greaterThan(0),
+      );
+
+      expect(find.byTooltip('Copy').hitTestable(), findsOneWidget);
+      expect(find.byTooltip('Collapse all').hitTestable(), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'scrolling inside a large Response block collapses the summary above '
+    'the tabs, and its own scroll-to-top button brings it back to the top',
+    (tester) async {
+      await _openBigResponse(tester);
+
+      expect(find.byKey(const ValueKey('full-summary')), findsOneWidget);
+
+      await tester.dragFrom(
+        tester.getRect(_bodyScrollArea()).center,
+        const Offset(0, -400),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('compact-summary')), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Scroll to top'));
+      await tester.pumpAndSettle();
+
+      expect(_bodyScrollPosition(tester, Axis.vertical).pixels, 0);
+      expect(find.byKey(const ValueKey('full-summary')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a small response body keeps its natural height instead of stretching '
+    'to fill the tab',
+    (tester) async {
+      _seedTwoEvents();
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/todos/1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(_bodyScrollArea()).height, lessThan(120));
+      // Nothing to scroll, so no scrollbar to show.
+      expect(
+        find.byKey(const ValueKey('code-scrollbar-thumb-vertical')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'tapping the scrollbar edge away from the thumb jumps straight there '
+    '— near the bottom of the edge lands near the end of the body',
+    (tester) async {
+      await _openBigResponse(tester);
+
+      final block = tester.getRect(_bodyScrollArea());
+      await tester.tapAt(block.bottomRight + const Offset(-10, -24));
+      await tester.pumpAndSettle();
+
+      final position = _bodyScrollPosition(tester, Axis.vertical);
+      expect(position.pixels, greaterThan(position.maxScrollExtent * 0.9));
+    },
+  );
+
+  testWidgets(
+    'the scrollbar thumb stays slim at rest, thickens while held so it is '
+    'clear it has been grabbed, and slims back down on release',
+    (tester) async {
+      await _openBigResponse(tester);
+
+      final thumb = find.byKey(const ValueKey('code-scrollbar-thumb-vertical'));
+      final restingWidth = tester.getSize(thumb).width;
+
+      final gesture = await tester.startGesture(
+        tester.getRect(_bodyScrollArea()).topRight + const Offset(-20, 60),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getSize(thumb).width, greaterThan(restingWidth));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.getSize(thumb).width, restingWidth);
+    },
+  );
+
+  testWidgets(
+    'the Payload tab with both query parameters and a large body does not '
+    "overflow at the PIP floating window's minimum height",
+    (tester) async {
+      final store = CorextraDevTools.instance.network;
+      final event = store.begin(
+        method: 'POST',
+        url: 'https://example.test/search',
+        queryParameters: {for (var i = 0; i < 30; i++) 'q$i': 'v$i'},
+        requestBody: {for (var i = 0; i < 300; i++) 'key_$i': 'x' * 120},
+      );
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+
+      await tester.pumpWidget(_wrap(280, height: 220));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('/search'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Payload'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('QUERY PARAMETERS'), findsOneWidget);
     },
   );
 

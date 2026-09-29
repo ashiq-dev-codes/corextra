@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart' show Drag, DragStartBehavior;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
@@ -1081,30 +1083,38 @@ class _PayloadTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DevToolsScrollToTop(
-      onScroll: onScroll,
-      builder:
-          (context, controller) => SingleChildScrollView(
-            controller: controller,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (event.queryParameters.isNotEmpty) ...[
-                  const _SubsectionLabel('QUERY PARAMETERS'),
-                  const SizedBox(height: 4),
-                  _BodyView(
-                    data: event.queryParameters,
-                    title: 'Query Parameters',
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                const _SubsectionLabel('REQUEST BODY'),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxHeight = _maxBodyHeight(constraints);
+        return SingleChildScrollView(
+          primary: false,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (event.queryParameters.isNotEmpty) ...[
+                const _SubsectionLabel('QUERY PARAMETERS'),
                 const SizedBox(height: 4),
-                _BodyView(data: event.requestBody, title: 'Request Body'),
+                _BodyView(
+                  data: event.queryParameters,
+                  title: 'Query Parameters',
+                  maxHeight: maxHeight,
+                  onScroll: onScroll,
+                ),
+                const SizedBox(height: 20),
               ],
-            ),
+              const _SubsectionLabel('REQUEST BODY'),
+              const SizedBox(height: 4),
+              _BodyView(
+                data: event.requestBody,
+                title: 'Request Body',
+                maxHeight: maxHeight,
+                onScroll: onScroll,
+              ),
+            ],
           ),
+        );
+      },
     );
   }
 }
@@ -1119,17 +1129,25 @@ class _ResponseTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DevToolsScrollToTop(
-      onScroll: onScroll,
+    return LayoutBuilder(
       builder:
-          (context, controller) => SingleChildScrollView(
-            controller: controller,
+          (context, constraints) => SingleChildScrollView(
+            primary: false,
             padding: const EdgeInsets.all(16),
-            child: _BodyView(data: event.responseBody, title: 'Response'),
+            child: _BodyView(
+              data: event.responseBody,
+              title: 'Response',
+              maxHeight: _maxBodyHeight(constraints),
+              onScroll: onScroll,
+            ),
           ),
     );
   }
 }
+
+/// Tall enough for a body block to fill its tab below the tab's padding, so a large body scrolls inside its own block — toolbar and both scrollbars in view — instead of stretching the tab; never shorter than a usable block in a tiny floating window, where the tab itself scrolls instead.
+double _maxBodyHeight(BoxConstraints constraints) =>
+    math.max(constraints.maxHeight - 32, 200);
 
 /// Method + path + status/duration/time — a fixed-*height* block
 /// shown above the detail pane's tabs, even though the path itself
@@ -1441,22 +1459,39 @@ class _TokenBadge extends StatelessWidget {
 
 /// Shows [data] as a collapsible JSON tree when it decodes to an object or array, falling back to a plain scrollable code block otherwise.
 class _BodyView extends StatelessWidget {
-  const _BodyView({required this.data, required this.title});
+  const _BodyView({
+    required this.data,
+    required this.title,
+    this.maxHeight = double.infinity,
+    this.onScroll,
+  });
 
   final Object? data;
   final String title;
 
+  /// A body taller than this scrolls inside its own block rather than growing past it.
+  final double maxHeight;
+  final void Function(double offset, ScrollDirection direction)? onScroll;
+
   @override
   Widget build(BuildContext context) {
     final decoded = _decodeJsonContainer(data);
-    if (decoded != null) {
-      return _JsonCodeBlock(
-        value: decoded.value,
-        rawText: decoded.rawText,
-        title: title,
-      );
-    }
-    return _CodeBlock(content: prettyFormatBody(data), title: title);
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child:
+          decoded != null
+              ? _JsonCodeBlock(
+                value: decoded.value,
+                rawText: decoded.rawText,
+                title: title,
+                onScroll: onScroll,
+              )
+              : _CodeBlock(
+                content: prettyFormatBody(data),
+                title: title,
+                onScroll: onScroll,
+              ),
+    );
   }
 }
 
@@ -1487,6 +1522,7 @@ class _CodeBlock extends StatelessWidget {
     required this.content,
     required this.title,
     this.standalone = true,
+    this.onScroll,
   });
 
   final String content;
@@ -1494,12 +1530,14 @@ class _CodeBlock extends StatelessWidget {
 
   /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
   final bool standalone;
+  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   Widget build(BuildContext context) {
     return _CodeBlockChrome(
       copyText: content,
       title: title,
+      onScroll: onScroll,
       fullscreenBuilder:
           standalone
               ? (context) =>
@@ -1513,7 +1551,7 @@ class _CodeBlock extends StatelessWidget {
   }
 }
 
-/// The shared box, horizontal scroll, and action buttons behind both [_CodeBlock] and [_JsonCodeBlock] — actions float over the top-right corner instead of narrowing every line's scroll width for a button only the top needs.
+/// The shared box, scrolling, and action buttons behind both [_CodeBlock] and [_JsonCodeBlock] — actions float over the top-right corner instead of narrowing every line's scroll width for a button only the top needs, and stay pinned there while the content scrolls underneath.
 class _CodeBlockChrome extends StatelessWidget {
   const _CodeBlockChrome({
     required this.child,
@@ -1521,6 +1559,7 @@ class _CodeBlockChrome extends StatelessWidget {
     required this.title,
     this.actions = const [],
     this.fullscreenBuilder,
+    this.onScroll,
   });
 
   final Widget child;
@@ -1530,6 +1569,7 @@ class _CodeBlockChrome extends StatelessWidget {
 
   /// Builds a fresh, independent copy of this block for the fullscreen view — not [child] itself, so interacting with it there (e.g. folding a JSON node) doesn't desync from the inline view's own state.
   final WidgetBuilder? fullscreenBuilder;
+  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   Widget build(BuildContext context) {
@@ -1543,10 +1583,7 @@ class _CodeBlockChrome extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(2, 8, 4, 8),
-            child: _ScrollableCode(child: child),
-          ),
+          _ScrollableCode(onScroll: onScroll, child: child),
           Positioned(
             top: 4,
             right: 4,
@@ -1688,14 +1725,11 @@ class _FullscreenContentView extends StatelessWidget {
                   ),
                 ),
                 const Divider(height: 1),
+                // The block scrolls itself, so here it just gets the whole screen as its limit.
                 Expanded(
-                  child: DevToolsScrollToTop(
-                    builder:
-                        (context, controller) => SingleChildScrollView(
-                          controller: controller,
-                          padding: const EdgeInsets.all(16),
-                          child: child,
-                        ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Align(alignment: Alignment.topCenter, child: child),
                   ),
                 ),
               ],
@@ -1707,35 +1741,287 @@ class _FullscreenContentView extends StatelessWidget {
   }
 }
 
-/// The horizontally-scrolling content inside a [_CodeBlockChrome] — start/end padding lives on the scrollable itself so it travels with the content, and a visible [Scrollbar] shows how far there is to scroll.
+/// The content inside a [_CodeBlockChrome], scrolling both ways within the block's own box — both scrollbars always show and can be dragged, pinned to the box's right and bottom edges, so neither ends up far below the fold on a large body the way a scrollbar under the last line would.
 class _ScrollableCode extends StatefulWidget {
-  const _ScrollableCode({required this.child});
+  const _ScrollableCode({required this.child, this.onScroll});
 
   final Widget child;
+
+  /// Reports vertical scrolling, e.g. so the detail view can collapse its summary.
+  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   State<_ScrollableCode> createState() => _ScrollableCodeState();
 }
 
 class _ScrollableCodeState extends State<_ScrollableCode> {
-  final _controller = ScrollController();
+  final _horizontal = ScrollController();
 
   @override
   void dispose() {
-    _controller.dispose();
+    _horizontal.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scrollbar(
-      controller: _controller,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _controller,
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-        child: widget.child,
+    // Its own scroll-to-top button, sitting inside the box clear of both scrollbars.
+    return DevToolsScrollToTop(
+      onScroll: widget.onScroll,
+      builder:
+          (context, vertical) => NotificationListener<
+            ScrollMetricsNotification
+          >(
+            // Content or box size changed (e.g. a JSON node folded) — resize the thumbs to match.
+            onNotification: (_) {
+              setState(() {});
+              return false;
+            },
+            child: Stack(
+              key: const ValueKey('code-block-scroll-area'),
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: SingleChildScrollView(
+                    controller: vertical,
+                    padding: const EdgeInsets.only(top: 8, bottom: 16),
+                    child: SingleChildScrollView(
+                      controller: _horizontal,
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(left: 10, right: 16),
+                      // One cached layer, so scrolling a huge body doesn't repaint every line each frame.
+                      child: RepaintBoundary(child: widget.child),
+                    ),
+                  ),
+                ),
+                // Starts below the floating action bar, so the bar never covers the thumb.
+                _EdgeScrollbar(
+                  controller: vertical,
+                  axis: Axis.vertical,
+                  startInset: 48,
+                  endInset: 16,
+                ),
+                _EdgeScrollbar(
+                  controller: _horizontal,
+                  axis: Axis.horizontal,
+                  endInset: 16,
+                ),
+              ],
+            ),
+          ),
+    );
+  }
+}
+
+/// A slim scrollbar along one edge of a code block that's easy to grab without looking any bigger: its touch area is a wide invisible strip down the whole edge, so a finger never has to land on the thin thumb itself. Drag anywhere in the strip to scroll — starting away from the thumb first jumps it under the finger — or tap to jump there. While held, the thumb thickens and takes the accent color, so it's clear it's been grabbed.
+class _EdgeScrollbar extends StatefulWidget {
+  const _EdgeScrollbar({
+    required this.controller,
+    required this.axis,
+    this.startInset = 0,
+    this.endInset = 0,
+  });
+
+  final ScrollController controller;
+  final Axis axis;
+
+  /// How far the track stays clear of the edge's start/end, e.g. of the floating action bar.
+  final double startInset;
+  final double endInset;
+
+  @override
+  State<_EdgeScrollbar> createState() => _EdgeScrollbarState();
+}
+
+class _EdgeScrollbarState extends State<_EdgeScrollbar> {
+  static const _touchWidth = 32.0;
+  static const _thickness = 5.0;
+  static const _activeThickness = 9.0;
+  static const _minThumbLength = 36.0;
+
+  /// A drag starting this close to the thumb grabs it where it is rather than jumping.
+  static const _grabTolerance = 12.0;
+
+  bool _active = false;
+  Drag? _drag;
+  double _trackLength = 0;
+
+  bool get _vertical => widget.axis == Axis.vertical;
+
+  /// The position to drive, or null while there's nothing to scroll along this axis.
+  ScrollPosition? get _position {
+    if (!widget.controller.hasClients) return null;
+    final position = widget.controller.position;
+    if (!position.hasContentDimensions ||
+        !position.hasViewportDimension ||
+        position.maxScrollExtent <= 0) {
+      return null;
+    }
+    return position;
+  }
+
+  double _thumbLength(ScrollPosition position) {
+    final visibleFraction =
+        position.viewportDimension /
+        (position.viewportDimension + position.maxScrollExtent);
+    return (_trackLength * visibleFraction).clamp(
+      math.min(_minThumbLength, _trackLength),
+      _trackLength,
+    );
+  }
+
+  double _thumbStart(ScrollPosition position, double thumbLength) {
+    final scrolledFraction = (position.pixels / position.maxScrollExtent).clamp(
+      0.0,
+      1.0,
+    );
+    return (_trackLength - thumbLength) * scrolledFraction;
+  }
+
+  /// The scroll offset that centers the thumb on [trackOffset].
+  double _pixelsCenteredOn(ScrollPosition position, double trackOffset) {
+    final thumbLength = _thumbLength(position);
+    final travel = _trackLength - thumbLength;
+    if (travel <= 0) return position.pixels;
+    final fraction = ((trackOffset - thumbLength / 2) / travel).clamp(0.0, 1.0);
+    return fraction * position.maxScrollExtent;
+  }
+
+  double _alongTrack(Offset localPosition) =>
+      _vertical ? localPosition.dy : localPosition.dx;
+
+  void _setActive(bool active) {
+    if (_active != active) setState(() => _active = active);
+  }
+
+  void _handleDragStart(DragStartDetails details) {
+    final position = _position;
+    if (position == null) return;
+    final along = _alongTrack(details.localPosition);
+    final thumbLength = _thumbLength(position);
+    final thumbStart = _thumbStart(position, thumbLength);
+    if (along < thumbStart - _grabTolerance ||
+        along > thumbStart + thumbLength + _grabTolerance) {
+      position.jumpTo(_pixelsCenteredOn(position, along));
+    }
+    _drag = position.drag(details, () => _drag = null);
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    final position = _position;
+    if (position == null || _drag == null) return;
+    final travel = _trackLength - _thumbLength(position);
+    if (travel <= 0) return;
+    // Thumb pixels → content pixels, negated: a thumb moves the opposite way to content dragged by hand.
+    final delta = -details.primaryDelta! * position.maxScrollExtent / travel;
+    _drag!.update(
+      DragUpdateDetails(
+        globalPosition: details.globalPosition,
+        localPosition: details.localPosition,
+        delta: _vertical ? Offset(0, delta) : Offset(delta, 0),
+        primaryDelta: delta,
+      ),
+    );
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    // No fling: the content stops where the thumb was let go.
+    _drag?.end(DragEndDetails(primaryVelocity: 0));
+    _drag = null;
+    _setActive(false);
+  }
+
+  void _handleDragCancel() {
+    _drag?.cancel();
+    _drag = null;
+    _setActive(false);
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    final position = _position;
+    if (position == null) return;
+    position.animateTo(
+      _pixelsCenteredOn(position, _alongTrack(details.localPosition)),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _drag?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Positioned(
+      top: _vertical ? widget.startInset : null,
+      bottom: _vertical ? widget.endInset : 0,
+      left: _vertical ? null : widget.startInset,
+      right: _vertical ? 0 : widget.endInset,
+      width: _vertical ? _touchWidth : null,
+      height: _vertical ? null : _touchWidth,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          _trackLength =
+              _vertical ? constraints.maxHeight : constraints.maxWidth;
+          return ListenableBuilder(
+            listenable: widget.controller,
+            builder: (context, _) {
+              final position = _position;
+              // Nothing to scroll: no thumb, and touches fall through to the content.
+              if (position == null) return const SizedBox.shrink();
+
+              final thumbLength = _thumbLength(position);
+              final thumbStart = _thumbStart(position, thumbLength);
+              final thickness = _active ? _activeThickness : _thickness;
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                dragStartBehavior: DragStartBehavior.down,
+                onTapUp: _handleTapUp,
+                onVerticalDragDown: _vertical ? (_) => _setActive(true) : null,
+                onVerticalDragStart: _vertical ? _handleDragStart : null,
+                onVerticalDragUpdate: _vertical ? _handleDragUpdate : null,
+                onVerticalDragEnd: _vertical ? _handleDragEnd : null,
+                onVerticalDragCancel: _vertical ? _handleDragCancel : null,
+                onHorizontalDragDown:
+                    _vertical ? null : (_) => _setActive(true),
+                onHorizontalDragStart: _vertical ? null : _handleDragStart,
+                onHorizontalDragUpdate: _vertical ? null : _handleDragUpdate,
+                onHorizontalDragEnd: _vertical ? null : _handleDragEnd,
+                onHorizontalDragCancel: _vertical ? null : _handleDragCancel,
+                child: Stack(
+                  children: [
+                    // Hugs the box's edge, however wide the touch strip around it is.
+                    Positioned(
+                      top: _vertical ? thumbStart : null,
+                      left: _vertical ? null : thumbStart,
+                      right: _vertical ? 2 : null,
+                      bottom: _vertical ? null : 2,
+                      child: AnimatedContainer(
+                        key: ValueKey('code-scrollbar-thumb-${widget.axis.name}'),
+                        duration: const Duration(milliseconds: 120),
+                        width: _vertical ? thickness : thumbLength,
+                        height: _vertical ? thumbLength : thickness,
+                        decoration: BoxDecoration(
+                          color:
+                              _active
+                                  ? colors.primary
+                                  : colors.onSurfaceVariant.withValues(
+                                    alpha: 0.45,
+                                  ),
+                          borderRadius: BorderRadius.circular(thickness / 2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -1748,6 +2034,7 @@ class _JsonCodeBlock extends StatefulWidget {
     required this.rawText,
     required this.title,
     this.standalone = true,
+    this.onScroll,
   });
 
   final Object value;
@@ -1756,6 +2043,7 @@ class _JsonCodeBlock extends StatefulWidget {
 
   /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
   final bool standalone;
+  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   State<_JsonCodeBlock> createState() => _JsonCodeBlockState();
@@ -1810,6 +2098,7 @@ class _JsonCodeBlockState extends State<_JsonCodeBlock> {
     return _CodeBlockChrome(
       copyText: widget.rawText,
       title: widget.title,
+      onScroll: widget.onScroll,
       fullscreenBuilder:
           widget.standalone
               ? (context) => _JsonCodeBlock(
