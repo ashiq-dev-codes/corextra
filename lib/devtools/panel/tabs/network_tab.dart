@@ -55,13 +55,14 @@ class _NetworkTabState extends State<NetworkTab> {
   /// message, the fields already visible in each row, so a match is
   /// never a surprise.
   bool _matches(NetworkEvent event, String query) {
-    if (!_activeMethods.contains(_methodFilterFor(event.method))) {
+    if (!_activeMethods.contains(_methodFilterFor(event))) {
       return false;
     }
     if (!_activeStatuses.contains(_statusFilterFor(event))) return false;
     if (query.isEmpty) return true;
     return event.method.toLowerCase().contains(query) ||
         event.url.toLowerCase().contains(query) ||
+        (event.socketEvent?.toLowerCase().contains(query) ?? false) ||
         event.statusCode?.toString() == query ||
         (event.errorMessage?.toLowerCase().contains(query) ?? false);
   }
@@ -110,9 +111,7 @@ class _NetworkTabState extends State<NetworkTab> {
           return const DevToolsEmptyState(
             icon: LucideIcons.network,
             message: 'No requests captured yet',
-            hint:
-                'Add CorextraDevToolsInterceptor to a Dio instance to see '
-                'requests here.',
+            hint: 'Add CorextraDevToolsInterceptor or CorextraSocketLogger.',
           );
         }
 
@@ -148,7 +147,7 @@ class _NetworkTabState extends State<NetworkTab> {
               children: [
                 DevToolsSearchField(
                   controller: _searchController,
-                  hintText: 'Search by method, URL, or status',
+                  hintText: 'Search by method, URL, event, or status',
                   onChanged: (value) => setState(() => _query = value),
                 ),
                 _NetworkFilterBar(
@@ -357,8 +356,7 @@ class _CompactNetworkRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final uri = Uri.tryParse(event.url);
-    final path = (uri != null && uri.path.isNotEmpty) ? uri.path : event.url;
+    final path = _displayPath(event);
     final durationMs = event.duration?.inMilliseconds;
 
     return Material(
@@ -422,6 +420,13 @@ class _CompactNetworkRow extends StatelessWidget {
   }
 }
 
+/// The path for HTTP, or the event name for a socket message — whose name (e.g. `chat:open`) would otherwise parse as a URL scheme.
+String _displayPath(NetworkEvent event) {
+  if (event.isSocket) return event.socketEvent!;
+  final uri = Uri.tryParse(event.url);
+  return (uri != null && uri.path.isNotEmpty) ? uri.path : event.url;
+}
+
 Color _methodColor(String method) {
   switch (method.toUpperCase()) {
     case 'GET':
@@ -434,6 +439,11 @@ Color _methodColor(String method) {
       return Colors.purple;
     case 'DELETE':
       return Colors.red;
+    case 'EMIT':
+    case 'SOCKET':
+      return Colors.teal;
+    case 'ON':
+      return Colors.indigo;
     default:
       return Colors.blueGrey;
   }
@@ -442,6 +452,7 @@ Color _methodColor(String method) {
 Color _statusColorFor(NetworkEvent event) {
   if (event.isPending) return Colors.grey;
   if (event.isError && event.statusCode == null) return Colors.red;
+  if (event.isSocket) return Colors.green;
   final code = event.statusCode ?? 0;
   if (code >= 200 && code < 300) return Colors.green;
   if (code >= 300 && code < 400) return Colors.blue;
@@ -452,13 +463,14 @@ Color _statusColorFor(NetworkEvent event) {
 String _statusLabelFor(NetworkEvent event) {
   if (event.isPending) return '···';
   if (event.isError && event.statusCode == null) return 'ERR';
+  if (event.isSocket) return 'OK';
   return '${event.statusCode}';
 }
 
 /// A fixed set of HTTP method buckets to filter by — matches the
 /// coloring [_methodColor] already gives each method elsewhere in this
 /// tab, plus a catch-all for anything less common (HEAD, OPTIONS, …).
-enum _MethodFilter { get, post, put, patch, delete, other }
+enum _MethodFilter { get, post, put, patch, delete, socket, other }
 
 extension on _MethodFilter {
   String get label => switch (this) {
@@ -467,12 +479,14 @@ extension on _MethodFilter {
     _MethodFilter.put => 'PUT',
     _MethodFilter.patch => 'PATCH',
     _MethodFilter.delete => 'DELETE',
+    _MethodFilter.socket => 'Socket',
     _MethodFilter.other => 'Other',
   };
 }
 
-_MethodFilter _methodFilterFor(String method) {
-  switch (method.toUpperCase()) {
+_MethodFilter _methodFilterFor(NetworkEvent event) {
+  if (event.isSocket) return _MethodFilter.socket;
+  switch (event.method.toUpperCase()) {
     case 'GET':
       return _MethodFilter.get;
     case 'POST':
@@ -524,6 +538,7 @@ extension on _StatusFilter {
 _StatusFilter _statusFilterFor(NetworkEvent event) {
   if (event.isPending) return _StatusFilter.pending;
   if (event.isError && event.statusCode == null) return _StatusFilter.failed;
+  if (event.isSocket) return _StatusFilter.success;
   final code = event.statusCode ?? 0;
   if (code >= 200 && code < 300) return _StatusFilter.success;
   if (code >= 300 && code < 400) return _StatusFilter.redirect;
@@ -969,11 +984,11 @@ class _NetworkEventDetailState extends State<_NetworkEventDetail> {
             child: Column(
               children: [
                 const Divider(height: 1),
-                const TabBar(
+                TabBar(
                   tabs: [
-                    Tab(text: 'Headers'),
-                    Tab(text: 'Payload'),
-                    Tab(text: 'Response'),
+                    Tab(text: event.isSocket ? 'General' : 'Headers'),
+                    const Tab(text: 'Payload'),
+                    const Tab(text: 'Response'),
                   ],
                 ),
                 const Divider(height: 1),
@@ -1033,20 +1048,22 @@ class _HeadersTab extends StatelessWidget {
                   const SizedBox(height: 4),
                   _ErrorBanner(message: event.errorMessage!),
                 ],
-                const SizedBox(height: 20),
-                const _SubsectionLabel('REQUEST HEADERS'),
-                const SizedBox(height: 4),
-                _KeyValueList(
-                  data: event.requestHeaders,
-                  hiddenKeys: event.hiddenHeaderKeys,
-                ),
-                const SizedBox(height: 20),
-                const _SubsectionLabel('RESPONSE HEADERS'),
-                const SizedBox(height: 4),
-                _KeyValueList(
-                  data: event.responseHeaders,
-                  hiddenKeys: event.hiddenHeaderKeys,
-                ),
+                if (!event.isSocket) ...[
+                  const SizedBox(height: 20),
+                  const _SubsectionLabel('REQUEST HEADERS'),
+                  const SizedBox(height: 4),
+                  _KeyValueList(
+                    data: event.requestHeaders,
+                    hiddenKeys: event.hiddenHeaderKeys,
+                  ),
+                  const SizedBox(height: 20),
+                  const _SubsectionLabel('RESPONSE HEADERS'),
+                  const SizedBox(height: 4),
+                  _KeyValueList(
+                    data: event.responseHeaders,
+                    hiddenKeys: event.hiddenHeaderKeys,
+                  ),
+                ],
               ],
             ),
           ),
@@ -1137,8 +1154,7 @@ class _DetailSummary extends StatelessWidget {
     final theme = Theme.of(context);
     final statusColor = _statusColorFor(event);
     final durationMs = event.duration?.inMilliseconds;
-    final uri = Uri.tryParse(event.url);
-    final path = (uri != null && uri.path.isNotEmpty) ? uri.path : event.url;
+    final path = _displayPath(event);
 
     if (compact) {
       return Row(

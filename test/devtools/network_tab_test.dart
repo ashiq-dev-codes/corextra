@@ -251,7 +251,7 @@ void main() {
       expect(find.text('/todos'), findsOneWidget);
       // The Method button's summary reflects the narrowed selection;
       // the Status button is untouched and still shows "All".
-      expect(find.text('5 selected'), findsOneWidget);
+      expect(find.text('6 selected'), findsOneWidget);
       expect(find.text('All'), findsOneWidget);
 
       // Re-selecting it (the dropdown is still open) restores the full
@@ -871,4 +871,75 @@ void main() {
       expect(toggleLineText, findsOneWidget);
     },
   );
+
+  testWidgets(
+    'a socket row shows its event name (not a URL path) with an ON pill '
+    'and OK status, and its detail has a General tab instead of Headers',
+    (tester) async {
+      const CorextraSocketLogger(
+        url: 'https://socket.example.test',
+        consoleEnabled: false,
+      ).receive('message:new', {'chat_id': 7});
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+
+      expect(find.text('message:new'), findsOneWidget);
+      expect(find.text('ON'), findsOneWidget);
+
+      await tester.tap(find.text('message:new'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('OK'), findsOneWidget);
+      expect(find.text('General'), findsOneWidget);
+      expect(find.text('Headers'), findsNothing);
+      expect(find.text('REQUEST HEADERS'), findsNothing);
+      expect(find.text('https://socket.example.test'), findsOneWidget);
+
+      await tester.tap(find.text('Response'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('"chat_id": 7'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the Method filter has a Socket option that hides socket rows only',
+    (tester) async {
+      _seedTwoEvents();
+      const CorextraSocketLogger(
+        url: 'https://socket.example.test',
+        consoleEnabled: false,
+      ).emit('chat:open', {'chat_id': 7});
+
+      await tester.pumpWidget(_wrap(400));
+      await tester.pumpAndSettle();
+      expect(find.text('chat:open'), findsOneWidget);
+
+      await _openFilterMenu(tester, 'Method');
+      await _tapFilterOption(tester, 'Method', 'Socket');
+
+      expect(find.text('chat:open'), findsNothing);
+      expect(find.text('/todos/1'), findsOneWidget);
+      expect(find.text('/todos'), findsOneWidget);
+    },
+  );
+
+  testWidgets('the search box also matches socket event names', (
+    tester,
+  ) async {
+    _seedTwoEvents();
+    const CorextraSocketLogger(
+      url: 'https://socket.example.test',
+      consoleEnabled: false,
+    ).emit('chat:latest_messages', null);
+
+    await tester.pumpWidget(_wrap(400));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'latest');
+    await tester.pumpAndSettle();
+
+    expect(find.text('chat:latest_messages'), findsOneWidget);
+    expect(find.text('/todos/1'), findsNothing);
+  });
 }

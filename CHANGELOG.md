@@ -1,3 +1,10 @@
+## 1.2.9
+
+- Added `CorextraSocketLogger` — logs socket messages to both the console and the DevTools panel. Works with Socket.IO or any WebSocket library.
+- The DevTools **Network** tab now shows socket messages next to HTTP requests, with a new **Socket** filter. Each row shows the event name, `EMIT` (sent) or `ON` (received), and its status.
+- Added `NetworkEvent.socketEvent` and `NetworkEvent.isSocket`.
+- Fixed: `debugLog` messages now show in the DevTools Logs tab whenever DevTools is enabled, including release (QA) builds. Console output is still debug-only.
+
 ## 1.2.8
 
 - Fixed: DevTools network capture no longer blocks the UI thread. Bodies are now formatted only when a request is opened in the panel, not on every capture.

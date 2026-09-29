@@ -34,9 +34,10 @@ Handy Dart extensions and utility functions for `String`, `int`, `double`, `List
 - `DioErrorHandler` maps Dio errors to user-friendly, typed exceptions
 
 ### Logging
-- `debugLog` — lightweight, debug-only logger with `LogLevel` (`info` / `warning` / `error`)
+- `debugLog` — simple logger with `LogLevel` (`info` / `warning` / `error`). Prints to the console in debug builds and shows in the DevTools Logs tab
 - `AppLogger` — structured logging for app events and Dio requests/responses/errors
 - `AppLoggerInterceptor` — pretty, color-coded Dio logs, one block per event (toggle with `enabled: false`)
+- `CorextraSocketLogger` — logs socket messages to the console **and** DevTools — see [Socket logging](#socket-logging)
 
 ### Animation
 - `FadeSlideTransition` — combined fade + slide transition, with `top` / `bottom` / `left` / `right` / `custom` directions
@@ -56,7 +57,7 @@ dio.interceptors.add(const CorextraDevToolsInterceptor());
 
 A draggable bubble opens the panel:
 
-- **Network** — every request/response, searchable and filterable by method or status. Headers, query params, and body each get their own tab. Sensitive headers (`Authorization`, `Cookie`, etc.) get a **TOKEN** badge — mask the value with `hiddenHeaders` while keeping copy/share working. JSON renders as a collapsible, syntax-highlighted tree.
+- **Network** — every request/response, searchable and filterable by method or status. Headers, query params, and body each get their own tab. Sensitive headers (`Authorization`, `Cookie`, etc.) get a **TOKEN** badge — mask the value with `hiddenHeaders` while keeping copy/share working. JSON renders as a collapsible, syntax-highlighted tree. Socket messages show here too (filter by **Socket**).
 - **Logs** — every `debugLog`/`AppLogger` call, searchable and filterable by level.
 - **Info** — app and device details via `package_info_plus`/`device_info_plus`.
 - **Performance** (under **More**) — a live FPS/frame-time chart with jank highlighting.
@@ -64,6 +65,42 @@ A draggable bubble opens the panel:
 Tap **Minimize** to shrink the panel into a small floating window. Android's back button closes whatever's open in the panel one step at a time, instead of affecting the host app underneath it. Toggle everything at runtime with `CorextraDevTools.instance.enabled`.
 
 Planned: a widget/layout inspector, memory heap snapshots, a storage viewer, and a route/navigation inspector.
+
+### Socket logging
+`CorextraSocketLogger` logs every socket message in two places:
+
+- **Console** — a color-coded block per message (debug builds only)
+- **DevTools** — a row in the **Network** tab (filter by **Socket**)
+
+It works with any socket library (Socket.IO, WebSocket, etc.). Call it wherever you send or receive:
+
+```dart
+final logger = CorextraSocketLogger(url: socketUrl);
+
+// Messages from the server
+socket.onAny((event, [data]) => logger.receive(event, data));
+socket.onConnectError((error) => logger.receive('connect_error', error, isError: true));
+
+// Messages you send
+logger.emit('chat:open', payload);
+socket.emit('chat:open', payload);
+
+// Messages you send and wait for a reply (ack)
+final ack = await logger.emitWithAck(
+  'chat:latest_messages',
+  payload,
+  () => socket.timeout(15000).emitWithAckAsync('chat:latest_messages', payload),
+);
+```
+
+In DevTools, each row shows the event name, `EMIT` (sent) or `ON` (received), and its status: `OK`, `ERR`, or pending while waiting for an ack.
+
+| Option | Default | What it does |
+|---|---|---|
+| `consoleEnabled` | `true` | Turn console logs on or off |
+| `devToolsEnabled` | follows `CorextraDevTools.instance.enabled` | Turn DevTools capture on or off |
+| `captureBody` | `true` | Save message data in DevTools |
+| `maxBodyLength` | `100000` | Trims text messages longer than this |
 
 ---
 
@@ -73,7 +110,7 @@ Add the dependency:
 
 ```yaml
 dependencies:
-  corextra: ^1.2.8
+  corextra: ^1.2.9
 ```
 
 Import it:
