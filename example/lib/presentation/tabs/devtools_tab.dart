@@ -53,6 +53,24 @@ class DevToolsTab extends StatelessWidget {
           ),
         ),
         SectionCard(
+          title: 'Socket Messages',
+          icon: Icons.swap_vert_rounded,
+          subtitle:
+              'Simulated socket traffic logged with CorextraSocketLogger. '
+              'Filter by Socket in the Network tab.',
+          child: _ScenarioGrid(
+            color: Colors.teal,
+            scenarios: {
+              'Emit': controller.socketEmit,
+              'Receive': controller.socketReceive,
+              'Emit + Ack': controller.socketEmitWithAck,
+              'Ack Timeout': controller.socketAckTimeout,
+              'Connect Error': controller.socketConnectError,
+            },
+            onRun: _run,
+          ),
+        ),
+        SectionCard(
           title: 'Success Requests',
           icon: Icons.check_circle_outline_rounded,
           subtitle: 'Common request shapes captured by the Network tab.',

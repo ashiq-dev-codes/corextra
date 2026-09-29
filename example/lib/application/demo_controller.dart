@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
@@ -37,6 +39,62 @@ class DemoController extends ChangeNotifier {
 
   void logError() {
     AppLogger.logError('Failed to decode push notification payload');
+  }
+
+  // No real socket in this demo: in your app, call the logger next to your socket library's emit/on calls.
+  static const _socketLogger = CorextraSocketLogger(
+    url: 'wss://chat.example.com',
+  );
+
+  Future<void> socketEmit() async {
+    _socketLogger.emit('chat:send', {'roomId': 42, 'text': 'Hello!'});
+  }
+
+  Future<void> socketReceive() async {
+    _socketLogger.receive('chat:new_message', {
+      'roomId': 42,
+      'from': 'Jane',
+      'text': 'Hi there 👋',
+    });
+  }
+
+  Future<void> socketEmitWithAck() async {
+    await _socketLogger.emitWithAck(
+      'chat:latest_messages',
+      {'roomId': 42, 'limit': 2},
+      () => Future.delayed(
+        const Duration(milliseconds: 600),
+        () => {
+          'messages': [
+            {'from': 'Jane', 'text': 'Hi there 👋'},
+            {'from': 'You', 'text': 'Hello!'},
+          ],
+        },
+      ),
+    );
+  }
+
+  Future<void> socketAckTimeout() async {
+    try {
+      await _socketLogger.emitWithAck<Map<String, dynamic>>(
+        'chat:typing',
+        {'roomId': 42},
+        () async {
+          await Future.delayed(const Duration(seconds: 2));
+          throw TimeoutException('No ack within 2s');
+        },
+      );
+    } on TimeoutException {
+      /* ignore */
+    }
+  }
+
+  Future<void> socketConnectError() async {
+    _socketLogger.receive(
+      'connect_error',
+      'WebSocket connection failed: 401 Unauthorized',
+      isError: true,
+    );
   }
 
   Future<void> sendGet200() async {

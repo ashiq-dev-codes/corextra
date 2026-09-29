@@ -9,9 +9,19 @@ flutter pub get
 flutter run
 ```
 
-The app demonstrates the core extensions, form validators, responsive
-helpers, and the animation widget — and wraps itself with
-`CorextraDevToolsOverlay`, so a floating bubble is visible on screen. Tap
-it to open the DevTools panel (Network / Logs / Performance / Info tabs),
-then use the on-screen buttons to generate logs and network requests and
-watch the panel update live.
+Runs on Android, iOS, macOS, Windows, Linux, and web. To try the web build with WebAssembly:
+
+```sh
+flutter run -d chrome --wasm
+```
+
+## What's inside
+
+The app has two tabs:
+
+- **Features** — responsive helpers, a state update with the fade-slide animation, and form validators.
+- **DevTools** — buttons that create logs, HTTP requests, and socket messages.
+
+The app is wrapped in `CorextraDevToolsOverlay`, so a floating bubble shows on screen. Tap it to open the DevTools panel (Network / Logs / Info / Performance), then tap the buttons and watch the panel update live.
+
+The **Socket Messages** buttons simulate socket traffic with `CorextraSocketLogger`, so no server is needed. Filter by **Socket** in the Network tab to see them.
