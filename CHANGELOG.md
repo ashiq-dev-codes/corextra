@@ -1,3 +1,12 @@
+## 1.2.9
+
+- Added `CorextraSocketLogger` — logs socket messages to the console and DevTools. Works with Socket.IO or any WebSocket.
+- The DevTools **Network** tab now shows socket messages, with a new **Socket** filter.
+- Large bodies now scroll inside their own box, with easy-to-grab scrollbars: drag along the edge, or tap it to jump.
+- The Copy, Share, and Fullscreen buttons stay in view while you scroll a body.
+- Added `NetworkEvent.socketEvent` and `NetworkEvent.isSocket`.
+- Fixed: `debugLog` messages now show in the DevTools Logs tab in release (QA) builds too, when DevTools is enabled.
+
 ## 1.2.8
 
 - Fixed: DevTools network capture no longer blocks the UI thread. Bodies are now formatted only when a request is opened in the panel, not on every capture.
