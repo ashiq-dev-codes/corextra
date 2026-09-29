@@ -1,3 +1,9 @@
+## 1.2.10
+
+- Now WebAssembly (WASM) compatible — supports all 6 platforms: Android, iOS, Web, macOS, Windows, and Linux.
+- DevTools on web: **Share** opens the browser's share sheet (or copies to the clipboard if there isn't one), and the **Info** tab shows your app version and browser.
+- No changes on Android, iOS, macOS, Windows, or Linux.
+
 ## 1.2.9
 
 - Added `CorextraSocketLogger` — logs socket messages to the console and DevTools. Works with Socket.IO or any WebSocket.

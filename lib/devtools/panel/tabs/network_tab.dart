@@ -7,11 +7,11 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../devtools_controller.dart';
 import '../../models/network_event.dart';
 import '../../util/pretty_json.dart';
+import '../../util/platform_services.dart';
 import '../back_handler_scope.dart';
 import '../empty_state.dart';
 import '../scroll_to_top_fab.dart';
@@ -2460,7 +2460,7 @@ class _CopyIconButtonState extends State<_CopyIconButton> {
   }
 }
 
-/// Opens the OS share sheet for [text] via `share_plus`, anchored to this button's own position so it doesn't crash iPad's popover-based presentation.
+/// Opens the platform share sheet for [text], anchored to this button's own position so it doesn't crash iPad's popover-based presentation.
 class _ShareIconButton extends StatelessWidget {
   const _ShareIconButton({required this.text});
 
@@ -2471,9 +2471,7 @@ class _ShareIconButton extends StatelessWidget {
     final origin =
         box == null ? null : box.localToGlobal(Offset.zero) & box.size;
     try {
-      await SharePlus.instance.share(
-        ShareParams(text: text, sharePositionOrigin: origin),
-      );
+      await shareText(text, origin: origin);
     } catch (_) {}
   }
 

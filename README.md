@@ -4,6 +4,8 @@ Handy Dart extensions and utilities for Flutter — plus form validators, respon
 
 [![pub package](https://img.shields.io/pub/v/corextra.svg)](https://pub.dev/packages/corextra)
 
+Works on **Android, iOS, Web (including WASM), macOS, Windows, and Linux**.
+
 ---
 
 ## Getting Started
@@ -12,7 +14,7 @@ Add the dependency:
 
 ```yaml
 dependencies:
-  corextra: ^1.2.9
+  corextra: ^1.2.10
 ```
 
 Import it:
@@ -81,7 +83,7 @@ Tap the floating bubble to open the panel.
 |---|---|
 | **Network** | Every HTTP request and socket message. Search and filter by method or status. |
 | **Logs** | Every `debugLog` / `AppLogger` call. Search and filter by level. |
-| **Info** | App and device details. |
+| **Info** | App version and device details (the browser, on web). |
 | **Performance** (under **More**) | Live FPS chart with jank highlighting. |
 
 **In the Network tab:**
@@ -94,6 +96,7 @@ Tap the floating bubble to open the panel.
 **Good to know:**
 - Tap **Minimize** to shrink the panel into a small floating window
 - Android's back button closes the panel step by step, without affecting your app
+- On web, **Share** opens the browser's share sheet, or copies to the clipboard if the browser doesn't have one
 - On in debug builds, off in release. Change it anytime with `CorextraDevTools.instance.enabled = true`
 
 Coming later: widget inspector, memory snapshots, storage viewer, and route inspector.
