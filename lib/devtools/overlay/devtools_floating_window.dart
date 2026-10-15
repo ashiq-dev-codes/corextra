@@ -9,7 +9,7 @@ import '../util/devtools_theme.dart';
 import 'draggable_floating_widget.dart';
 
 /// A small, draggable, resizable floating window showing the *same*
-/// DevTools tab content (Network / Logs / Performance / Info) as the
+/// DevTools tab content (Network / Logs / Info) as the
 /// full panel — not a stripped-down summary — just confined to a
 /// smaller window that floats over the app instead of covering the
 /// whole screen. Lets a developer watch live activity while still

@@ -8,6 +8,7 @@ import '../../find/devtools_find.dart';
 import '../../find/find_text.dart';
 import '../../models/log_entry.dart';
 import '../empty_state.dart';
+import '../live_builder.dart';
 import '../scroll_to_top_fab.dart';
 
 const _emptyMessage = 'No logs captured yet';
@@ -106,9 +107,9 @@ class _LogsTabState extends State<LogsTab> with FindAware<LogsTab> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final store = CorextraDevTools.instance.logs;
-    return ListenableBuilder(
+    return DevToolsLiveBuilder(
       listenable: store,
-      builder: (context, _) {
+      builder: (context) {
         final entries = store.entries.reversed.toList();
         if (entries.isEmpty) {
           return const DevToolsEmptyState(
@@ -165,10 +166,12 @@ class _LogsTabState extends State<LogsTab> with FindAware<LogsTab> {
                         message: 'No logs match the selected levels',
                       )
                       : DevToolsScrollToTop(
+                        scrollbar: true,
                         builder:
                             (context, controller) => FindListView(
                               controller: controller,
                               itemCount: filtered.length,
+                              itemKey: (index) => filtered[index],
                               indexOfHit: (hit) {
                                 final entry = hit.target.meta;
                                 return entry is LogEntry

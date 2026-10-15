@@ -275,6 +275,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('line 0'), findsOneWidget);
+      // Lines are built only while on screen, so the last one doesn't exist yet.
+      expect(find.textContaining('line 199'), findsNothing);
+
+      await tester.dragUntilVisible(
+        find.textContaining('line 199'),
+        _bodyScrollArea(),
+        const Offset(0, -300),
+      );
+      await tester.pumpAndSettle();
       expect(find.textContaining('line 199'), findsOneWidget);
     },
   );
@@ -610,7 +619,7 @@ void main() {
 
       // Roughly what's left for NetworkTab inside a floating window at
       // its minimum size (280x360), after the window's own header and
-      // the outer Network/Logs/Performance/Info tab bar.
+      // the outer Network/Logs/Info tab bar.
       await tester.pumpWidget(_wrap(280, height: 220));
       await tester.pumpAndSettle();
 
@@ -940,6 +949,29 @@ void main() {
       expect(find.textContaining('"chat_id": 7'), findsOneWidget);
     },
   );
+
+  testWidgets('a long request list gets an edge scrollbar, and tapping a '
+      'row still opens it', (tester) async {
+    final store = CorextraDevTools.instance.network;
+    for (var i = 0; i < 60; i++) {
+      final event = store.begin(method: 'GET', url: 'https://example.test/r$i');
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+    }
+
+    await tester.pumpWidget(_wrap(400));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('list-scrollbar-thumb-vertical')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('/r59'));
+    await tester.pumpAndSettle();
+    expect(find.text('Headers'), findsOneWidget);
+  });
 
   testWidgets(
     'the Method filter has a Socket option that hides socket rows only',

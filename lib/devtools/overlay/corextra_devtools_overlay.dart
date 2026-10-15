@@ -1,14 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 import '../devtools_controller.dart';
-import '../models/frame_sample.dart';
 import '../panel/devtools_panel.dart';
 import '../util/devtools_theme.dart';
-import '../util/memory_probe.dart';
 import 'devtools_bubble.dart';
 import 'devtools_floating_window.dart';
 
@@ -17,8 +12,7 @@ import 'devtools_floating_window.dart';
 enum _DisplayMode { closed, open, pip }
 
 /// Wraps an app (or a subtree of one) with a floating DevTools bubble
-/// that opens an in-app inspector panel (Network / Logs / Performance /
-/// Info tabs).
+/// that opens an in-app inspector panel (Network / Logs / Info tabs).
 ///
 /// Typical usage — wrap via `MaterialApp.builder` so the panel sits
 /// above the app's own Navigator/Directionality:
@@ -63,15 +57,12 @@ class CorextraDevToolsOverlay extends StatefulWidget {
 class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay>
     with WidgetsBindingObserver {
   _DisplayMode _mode = _DisplayMode.closed;
-  bool _capturing = false;
-  Timer? _memoryTimer;
 
   @override
   void initState() {
     super.initState();
     CorextraDevTools.instance.enabled = widget.enabled;
     CorextraDevTools.instance.enabledNotifier.addListener(_onEnabledChanged);
-    _syncCapture();
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -79,7 +70,6 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     CorextraDevTools.instance.enabledNotifier.removeListener(_onEnabledChanged);
-    _stopCapture();
     super.dispose();
   }
 
@@ -92,48 +82,7 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay>
     return true;
   }
 
-  void _onEnabledChanged() {
-    _syncCapture();
-    setState(() {});
-  }
-
-  void _syncCapture() {
-    if (CorextraDevTools.instance.enabled) {
-      _startCapture();
-    } else {
-      _stopCapture();
-    }
-  }
-
-  void _startCapture() {
-    if (_capturing) return;
-    _capturing = true;
-    SchedulerBinding.instance.addTimingsCallback(_onFrameTimings);
-    _memoryTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      CorextraDevTools.instance.performance.setRssBytes(currentRssBytes());
-    });
-  }
-
-  void _stopCapture() {
-    if (!_capturing) return;
-    _capturing = false;
-    SchedulerBinding.instance.removeTimingsCallback(_onFrameTimings);
-    _memoryTimer?.cancel();
-    _memoryTimer = null;
-  }
-
-  void _onFrameTimings(List<FrameTiming> timings) {
-    final store = CorextraDevTools.instance.performance;
-    for (final timing in timings) {
-      store.add(
-        FrameSample(
-          buildDuration: timing.buildDuration,
-          rasterDuration: timing.rasterDuration,
-          timestamp: DateTime.now(),
-        ),
-      );
-    }
-  }
+  void _onEnabledChanged() => setState(() {});
 
   void _openPanel() => setState(() => _mode = _DisplayMode.open);
 

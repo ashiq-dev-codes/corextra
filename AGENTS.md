@@ -68,7 +68,7 @@ Keeping these files useful:
 - Give every public member a one-line `///` doc comment; pub.dev scores documented APIs.
 - Add tests in the matching `test/` folder. Tests import `package:corextra/corextra.dart`, like apps do.
 - Document user-facing additions in the README, and add a demo to the example app.
-- Log with `log` from `dart:developer`, like the rest of the package. Never use `print` or `debugPrint`.
+- Send console output through `deferredLog` ([deferred_log.dart](lib/logs/deferred_log.dart)), passing a function that builds the message, so formatting happens between frames instead of inside the caller. Never use `print`, `debugPrint` or `log` directly.
 
 ## UI
 

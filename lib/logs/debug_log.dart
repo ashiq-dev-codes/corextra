@@ -1,9 +1,12 @@
-import 'dart:developer';
-
 import 'package:corextra/devtools/devtools_controller.dart';
 import 'package:corextra/devtools/models/log_entry.dart';
 import 'package:corextra/logs/enum/log_level.dart';
 import 'package:flutter/foundation.dart';
+
+import 'deferred_log.dart';
+
+// Beyond this a single entry costs the Logs tab more to lay out than it's worth reading there; the console keeps the full text.
+const _maxPanelMessageLength = 4000;
 
 /// Logs messages to console in debug mode with optional level.
 ///
@@ -17,12 +20,22 @@ import 'package:flutter/foundation.dart';
 /// debugLog('This is an error', level: LogLevel.error);
 /// ```
 void debugLog(String message, {LogLevel level = LogLevel.info}) {
-  if (kDebugMode) log('[${level.name.toUpperCase()}] $message');
+  if (kDebugMode) {
+    deferredLog(() => '[${level.name.toUpperCase()}] $message');
+  }
 
   // Not gated on kDebugMode: DevTools can be switched on in a release (e.g. QA) build.
   if (CorextraDevTools.instance.enabled) {
     CorextraDevTools.instance.logs.add(
-      LogEntry(message: message, level: level, timestamp: DateTime.now()),
+      LogEntry(
+        message:
+            message.length > _maxPanelMessageLength
+                ? '${message.substring(0, _maxPanelMessageLength)}… '
+                    '[${message.length} chars total — full text in the console]'
+                : message,
+        level: level,
+        timestamp: DateTime.now(),
+      ),
     );
   }
 }

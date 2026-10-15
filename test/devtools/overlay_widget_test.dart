@@ -197,11 +197,6 @@ void main() {
       expect(find.text('Network'), findsOneWidget);
       expect(find.text('Logs'), findsOneWidget);
       expect(find.text('Info'), findsOneWidget);
-      await tester.tap(find.byTooltip('More'));
-      await tester.pumpAndSettle();
-      expect(find.text('Performance'), findsOneWidget);
-      await tester.tap(find.byTooltip('More'));
-      await tester.pumpAndSettle();
 
       // Tapping Expand (inside the draggable header) restores the full
       // panel — proving the header's tap targets still work alongside

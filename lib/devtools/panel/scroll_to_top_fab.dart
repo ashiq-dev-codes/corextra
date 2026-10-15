@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 
+import 'edge_scrollbar.dart';
+
 /// A small floating "scroll to top" button overlaid on a scrollable built by [builder].
 class DevToolsScrollToTop extends StatefulWidget {
-  const DevToolsScrollToTop({super.key, required this.builder, this.onScroll});
+  const DevToolsScrollToTop({
+    super.key,
+    required this.builder,
+    this.onScroll,
+    this.scrollbar = false,
+  });
 
   /// Must attach the given [ScrollController] to its scrollable.
   final Widget Function(BuildContext context, ScrollController controller)
@@ -11,6 +18,9 @@ class DevToolsScrollToTop extends StatefulWidget {
 
   /// Called on every scroll update with the live offset and the user's scroll direction — e.g. so a parent can collapse a header while scrolling down and restore it near the top.
   final void Function(double offset, ScrollDirection direction)? onScroll;
+
+  /// Adds an easy-to-grab scrollbar along the right edge, for long lists where flicking alone is slow.
+  final bool scrollbar;
 
   @override
   State<DevToolsScrollToTop> createState() => _DevToolsScrollToTopState();
@@ -59,7 +69,26 @@ class _DevToolsScrollToTopState extends State<DevToolsScrollToTop> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        widget.builder(context, _controller),
+        if (widget.scrollbar)
+          // The list's length changes as data arrives; resize the thumb to match.
+          NotificationListener<ScrollMetricsNotification>(
+            onNotification: (_) {
+              setState(() {});
+              return false;
+            },
+            child: widget.builder(context, _controller),
+          )
+        else
+          widget.builder(context, _controller),
+        if (widget.scrollbar)
+          // Stops above the scroll-to-top button, so the two never overlap.
+          DevToolsEdgeScrollbar(
+            controller: _controller,
+            axis: Axis.vertical,
+            endInset: 60,
+            touchWidth: 24,
+            thumbKeyPrefix: 'list-scrollbar-thumb',
+          ),
         Positioned(
           right: 12,
           bottom: 12,

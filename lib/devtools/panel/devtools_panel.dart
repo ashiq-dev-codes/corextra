@@ -4,7 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../devtools_controller.dart';
 import 'devtools_tabs.dart';
 
-/// The DevTools inspector panel: Network / Logs / Performance / Info
+/// The DevTools inspector panel: Network / Logs / Info
 /// tabs, plus a header with theme, minimize, "Clear all", and close
 /// controls.
 class DevToolsPanel extends StatelessWidget {

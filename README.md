@@ -84,7 +84,6 @@ Tap the floating bubble to open the panel.
 | **Network** | Every HTTP request and socket message. Filter by method or status. |
 | **Logs** | Every `debugLog` / `AppLogger` call. Filter by level. |
 | **Info** | App version and device details (the browser, on web). |
-| **Performance** (under **More**) | Live FPS chart with jank highlighting. |
 
 **Find anything** — the search box at the top works like a browser's find:
 - Searches every tab at once: URLs, headers, request and response bodies, logs, and app info
@@ -105,6 +104,7 @@ Tap the floating bubble to open the panel.
 - Android's back button closes the panel step by step, without affecting your app
 - On web, **Share** opens the browser's share sheet, or copies to the clipboard if the browser doesn't have one
 - On in debug builds, off in release. Change it anytime with `CorextraDevTools.instance.enabled = true`
+- Built to stay out of your way, even with constant API traffic: console logs are formatted between frames instead of inside your requests, the panel refreshes a few times a second at most, and huge responses open instantly
 
 Coming later: widget inspector, memory snapshots, storage viewer, and route inspector.
 

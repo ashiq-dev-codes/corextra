@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
+
+import '../util/throttle.dart';
 
 /// One piece of text a DevTools tab can show, as handed to the find bar.
 class FindTarget {
@@ -58,17 +61,23 @@ List<int> findMatches(String text, String needle) {
 class DevToolsFind extends ChangeNotifier {
   DevToolsFind(this.sources) : _hits = List.filled(sources.length, const []) {
     for (var tab = 0; tab < sources.length; tab++) {
-      void listener() => _refresh(tab);
-      _sourceListeners.add(listener);
-      sources[tab].changes?.addListener(listener);
+      // A busy app changes its data constantly; re-searching on every change would keep the panel busy too.
+      final refresh = Throttle(_refreshInterval, () => _refresh(tab));
+      _refreshers.add(refresh);
+      sources[tab].changes?.addListener(refresh.call);
     }
   }
 
   static const _debounce = Duration(milliseconds: 150);
+  static const _refreshInterval = Duration(milliseconds: 250);
+  static const _maxCachedCounts = 100000;
 
   /// One per tab, in tab order.
   final List<FindSource> sources;
-  final List<VoidCallback> _sourceListeners = [];
+  final List<Throttle> _refreshers = [];
+
+  // Captured text never changes, so each string is counted once per query, not on every refresh.
+  final _counts = HashMap<String, int>.identity();
 
   List<List<FindHit>> _hits;
   List<FindHit>? _flatHits;
@@ -122,6 +131,7 @@ class DevToolsFind extends ChangeNotifier {
   void _apply(String needle) {
     if (needle == _needle) return;
     _needle = needle;
+    _counts.clear();
     _hits = [for (var tab = 0; tab < sources.length; tab++) _search(tab)];
     _flatHits = null;
     _index = null;
@@ -147,8 +157,10 @@ class DevToolsFind extends ChangeNotifier {
   List<FindHit> _search(int tab) {
     if (_needle.isEmpty) return const [];
     final out = <FindHit>[];
+    if (_counts.length > _maxCachedCounts) _counts.clear();
     for (final target in sources[tab].targets()) {
-      final count = findMatches(target.text, _needle).length;
+      final count =
+          _counts[target.text] ??= findMatches(target.text, _needle).length;
       for (var i = 0; i < count; i++) {
         out.add(FindHit(tab: tab, target: target, occurrence: i));
       }
@@ -206,7 +218,8 @@ class DevToolsFind extends ChangeNotifier {
   void dispose() {
     _debounceTimer?.cancel();
     for (var tab = 0; tab < sources.length; tab++) {
-      sources[tab].changes?.removeListener(_sourceListeners[tab]);
+      sources[tab].changes?.removeListener(_refreshers[tab].call);
+      _refreshers[tab].dispose();
     }
     super.dispose();
   }
@@ -270,7 +283,7 @@ mixin FindAware<T extends StatefulWidget> on State<T> {
   }
 }
 
-/// A [ListView.separated] that scrolls to the row holding the current match, even one it hasn't built yet.
+/// A separated, lazily-built list that scrolls to the row holding the current match, even one it hasn't built yet.
 class FindListView extends StatefulWidget {
   const FindListView({
     super.key,
@@ -279,14 +292,18 @@ class FindListView extends StatefulWidget {
     required this.itemBuilder,
     required this.separatorBuilder,
     required this.indexOfHit,
+    this.itemKey,
     this.padding,
   });
 
   final ScrollController controller;
   final int itemCount;
-  final NullableIndexedWidgetBuilder itemBuilder;
+  final IndexedWidgetBuilder itemBuilder;
   final IndexedWidgetBuilder separatorBuilder;
   final EdgeInsetsGeometry? padding;
+
+  /// A stable identity per row, so when new data arrives at the top the existing rows are moved rather than rebuilt with different content.
+  final Object Function(int index)? itemKey;
 
   /// The row [hit] lives in, or null if it isn't in this list.
   final int? Function(FindHit hit) indexOfHit;
@@ -312,12 +329,36 @@ class _FindListViewState extends State<FindListView>
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
+    final itemKey = widget.itemKey;
+    Map<Object, int>? indexByKey;
+    // A builder with each separator under its row, not ListView.separated, whose key-lookup API differs across supported Flutter versions.
+    return ListView.builder(
       controller: widget.controller,
       padding: widget.padding,
       itemCount: widget.itemCount,
-      itemBuilder: widget.itemBuilder,
-      separatorBuilder: widget.separatorBuilder,
+      findChildIndexCallback:
+          itemKey == null
+              ? null
+              : (key) {
+                indexByKey ??= {
+                  for (var i = 0; i < widget.itemCount; i++) itemKey(i): i,
+                };
+                return key is ValueKey ? indexByKey![key.value] : null;
+              },
+      itemBuilder: (context, index) {
+        final row = widget.itemBuilder(context, index);
+        final child =
+            index == widget.itemCount - 1
+                ? row
+                : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [row, widget.separatorBuilder(context, index)],
+                );
+        return itemKey == null
+            ? child
+            : KeyedSubtree(key: ValueKey(itemKey(index)), child: child);
+      },
     );
   }
 }

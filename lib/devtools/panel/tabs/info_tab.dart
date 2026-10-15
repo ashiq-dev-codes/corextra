@@ -5,6 +5,7 @@ import '../../devtools_controller.dart';
 import '../../find/devtools_find.dart';
 import '../../find/find_text.dart';
 import '../../util/platform_services.dart';
+import '../live_builder.dart';
 import '../scroll_to_top_fab.dart';
 
 /// App + device details, plus current capture-buffer counts from `CorextraDevTools.instance`.
@@ -26,9 +27,9 @@ class InfoTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     _ensureAppInfo();
-    return ListenableBuilder(
+    return DevToolsLiveBuilder(
       listenable: _changes,
-      builder: (context, _) {
+      builder: (context) {
         return DevToolsScrollToTop(
           builder:
               (context, controller) => SingleChildScrollView(
@@ -69,7 +70,6 @@ final _changes = Listenable.merge([
   _appInfo,
   CorextraDevTools.instance.network,
   CorextraDevTools.instance.logs,
-  CorextraDevTools.instance.performance,
 ]);
 
 /// A section header (with [icon]) or a label/value row — one list drives both the screen and find, so they can't drift apart.
@@ -95,10 +95,6 @@ Iterable<_InfoItem> _items(Map<String, String>? app) sync* {
   yield const _InfoItem.header('Capture buffers', LucideIcons.database);
   yield _InfoItem.row('Network events', '${devtools.network.events.length}');
   yield _InfoItem.row('Log entries', '${devtools.logs.entries.length}');
-  yield _InfoItem.row(
-    'Frame samples',
-    '${devtools.performance.samples.length}',
-  );
 }
 
 class _InfoRowView extends StatelessWidget {

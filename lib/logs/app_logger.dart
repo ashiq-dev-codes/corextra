@@ -1,7 +1,12 @@
 import 'package:corextra/logs/enum/log_level.dart';
 import 'package:dio/dio.dart';
 
+import '../devtools/util/pretty_json.dart';
 import 'debug_log.dart'; // Import debugLog for internal logging
+
+/// Bounded, so logging a huge body never turns the whole thing into text on the caller's thread.
+String _body(Object? data, String fallback) =>
+    data == null ? fallback : boundedPrettyFormatBody(data);
 
 /// AppLogger provides structured logging for app events, Dio requests, responses, and errors.
 class AppLogger {
@@ -31,7 +36,7 @@ class AppLogger {
     debugLog('Path: $path', level: LogLevel.info);
     debugLog('Query: ${query ?? 'None'}', level: LogLevel.info);
     debugLog('Headers: ${headers ?? 'None'}', level: LogLevel.info);
-    debugLog('Data: ${data ?? 'None'}', level: LogLevel.info);
+    debugLog('Data: ${_body(data, 'None')}', level: LogLevel.info);
     debugLog('------ End App Request ------', level: LogLevel.info);
   }
 
@@ -54,7 +59,10 @@ class AppLogger {
       'Status Message: ${response.statusMessage ?? 'N/A'}',
       level: LogLevel.info,
     );
-    debugLog('Response Data: ${response.data ?? 'N/A'}', level: LogLevel.info);
+    debugLog(
+      'Response Data: ${_body(response.data, 'N/A')}',
+      level: LogLevel.info,
+    );
     debugLog('------ End App Response ------', level: LogLevel.info);
   }
 
@@ -80,7 +88,10 @@ class AppLogger {
       level: LogLevel.error,
     );
     debugLog('Request Headers: ${request.headers}', level: LogLevel.error);
-    debugLog('Request Data: ${request.data ?? 'None'}', level: LogLevel.error);
+    debugLog(
+      'Request Data: ${_body(request.data, 'None')}',
+      level: LogLevel.error,
+    );
 
     // Response info
     if (response != null) {
@@ -93,7 +104,7 @@ class AppLogger {
         level: LogLevel.error,
       );
       debugLog(
-        'Response Data: ${response.data ?? 'N/A'}',
+        'Response Data: ${_body(response.data, 'N/A')}',
         level: LogLevel.error,
       );
       debugLog(

@@ -38,44 +38,4 @@ void main() {
       expect(store.entries.last.message, 'message 4');
     });
   });
-
-  group('FrameSampleStore', () {
-    test('caps at maxEntries, evicting oldest first', () {
-      final store = FrameSampleStore(maxEntries: 3);
-      for (var i = 0; i < 5; i++) {
-        store.add(
-          FrameSample(
-            buildDuration: Duration(milliseconds: i),
-            rasterDuration: Duration.zero,
-            timestamp: DateTime.now(),
-          ),
-        );
-      }
-      expect(store.samples, hasLength(3));
-      expect(
-        store.samples.first.buildDuration,
-        const Duration(milliseconds: 2),
-      );
-      expect(store.samples.last.buildDuration, const Duration(milliseconds: 4));
-    });
-
-    test('recentJankyCount counts only janky samples in the window', () {
-      final store = FrameSampleStore();
-      store.add(
-        FrameSample(
-          buildDuration: const Duration(milliseconds: 8),
-          rasterDuration: const Duration(milliseconds: 8),
-          timestamp: DateTime.fromMillisecondsSinceEpoch(0),
-        ),
-      );
-      store.add(
-        FrameSample(
-          buildDuration: const Duration(milliseconds: 20),
-          rasterDuration: const Duration(milliseconds: 20),
-          timestamp: DateTime.fromMillisecondsSinceEpoch(16),
-        ),
-      );
-      expect(store.recentJankyCount(), 1);
-    });
-  });
 }

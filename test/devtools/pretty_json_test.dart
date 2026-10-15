@@ -121,6 +121,16 @@ void main() {
   });
 
   group('boundedPrettyFormatBody', () {
+    test('cuts a huge string down as text instead of decoding all of it', () {
+      final huge = '[${List.filled(30000, '1').join(',')}]';
+
+      final result = boundedPrettyFormatBody(huge);
+
+      expect(result, startsWith('[1,1,1'));
+      expect(result, contains('${huge.length} chars total'));
+      expect(result.length, lessThan(2100));
+    });
+
     test('formats a small body exactly like prettyFormatBody', () {
       final small = {'name': 'corextra', 'feature': 'DevTools'};
 

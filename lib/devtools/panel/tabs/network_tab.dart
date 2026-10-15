@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart' show Drag, DragStartBehavior;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../devtools_controller.dart';
@@ -15,7 +15,9 @@ import '../../models/network_event.dart';
 import '../../util/pretty_json.dart';
 import '../../util/platform_services.dart';
 import '../back_handler_scope.dart';
+import '../edge_scrollbar.dart';
 import '../empty_state.dart';
+import '../live_builder.dart';
 import '../scroll_to_top_fab.dart';
 
 /// Lists captured HTTP exchanges from `CorextraDevTools.instance.network`.
@@ -115,38 +117,17 @@ Iterable<FindTarget> _networkFindTargets() sync* {
         }
       }
     }
-    for (final (section, data) in [
-      if (event.queryParameters.isNotEmpty)
-        (_Section.query, event.queryParameters),
-      (_Section.requestBody, event.requestBody),
-      (_Section.responseBody, event.responseBody),
+    for (final section in [
+      if (event.queryParameters.isNotEmpty) _Section.query,
+      _Section.requestBody,
+      _Section.responseBody,
     ]) {
-      final lines = _bodyFindLines(event, section, data);
+      final lines = _bodyOf(event, section).plainLines;
       for (var i = 0; i < lines.length; i++) {
         yield target(section, '$i', lines[i]);
       }
     }
   }
-}
-
-final _bodyLineCache = Expando<Map<_Section, (Object?, List<String>)>>();
-
-/// The lines a [_BodyView] shows for [data] — cached per request, since re-decoding every body on each keystroke would stall typing.
-List<String> _bodyFindLines(
-  NetworkEvent event,
-  _Section section,
-  Object? data,
-) {
-  final cache = _bodyLineCache[event] ??= {};
-  final cached = cache[section];
-  if (cached != null && identical(cached.$1, data)) return cached.$2;
-  final decoded = _decodeJsonContainer(data);
-  final lines =
-      decoded != null
-          ? [for (final line in _flattenJson(decoded.value)) line.plainText]
-          : [prettyFormatBody(data)];
-  cache[section] = (data, lines);
-  return lines;
 }
 
 int? _rowIndexOf(List<NetworkEvent> events, FindHit hit) {
@@ -222,9 +203,9 @@ class _NetworkTabState extends State<NetworkTab> with FindAware<NetworkTab> {
   @override
   Widget build(BuildContext context) {
     final store = CorextraDevTools.instance.network;
-    return ListenableBuilder(
+    return DevToolsLiveBuilder(
       listenable: store,
-      builder: (context, _) {
+      builder: (context) {
         final events = store.events.reversed.toList();
         if (events.isEmpty) {
           return const DevToolsEmptyState(
@@ -287,6 +268,7 @@ class _NetworkTabState extends State<NetworkTab> with FindAware<NetworkTab> {
                                 (event) => setState(() => _selected = event),
                           )
                           : DevToolsScrollToTop(
+                            scrollbar: true,
                             builder:
                                 (context, controller) => FindListView(
                                   controller: controller,
@@ -294,6 +276,7 @@ class _NetworkTabState extends State<NetworkTab> with FindAware<NetworkTab> {
                                     vertical: 4,
                                   ),
                                   itemCount: filtered.length,
+                                  itemKey: (index) => filtered[index].id,
                                   indexOfHit:
                                       (hit) => _rowIndexOf(filtered, hit),
                                   separatorBuilder:
@@ -412,10 +395,12 @@ class _MasterDetailView extends StatelessWidget {
               const Divider(height: 1),
               Expanded(
                 child: DevToolsScrollToTop(
+                  scrollbar: true,
                   builder:
                       (context, controller) => FindListView(
                         controller: controller,
                         itemCount: events.length,
+                        itemKey: (index) => events[index].id,
                         indexOfHit: (hit) => _rowIndexOf(events, hit),
                         separatorBuilder:
                             (context, index) => const Divider(
@@ -1239,9 +1224,9 @@ class _PayloadTab extends StatelessWidget {
                 const _SubsectionLabel('QUERY PARAMETERS'),
                 const SizedBox(height: 4),
                 _BodyView(
-                  data: event.queryParameters,
+                  event: event,
+                  section: _Section.query,
                   title: 'Query Parameters',
-                  findPrefix: _findPrefix(event, _Section.query),
                   maxHeight: maxHeight,
                   onScroll: onScroll,
                 ),
@@ -1250,9 +1235,9 @@ class _PayloadTab extends StatelessWidget {
               const _SubsectionLabel('REQUEST BODY'),
               const SizedBox(height: 4),
               _BodyView(
-                data: event.requestBody,
+                event: event,
+                section: _Section.requestBody,
                 title: 'Request Body',
-                findPrefix: _findPrefix(event, _Section.requestBody),
                 maxHeight: maxHeight,
                 onScroll: onScroll,
               ),
@@ -1280,9 +1265,9 @@ class _ResponseTab extends StatelessWidget {
             primary: false,
             padding: const EdgeInsets.all(16),
             child: _BodyView(
-              data: event.responseBody,
+              event: event,
+              section: _Section.responseBody,
               title: 'Response',
-              findPrefix: _findPrefix(event, _Section.responseBody),
               maxHeight: _maxBodyHeight(constraints),
               onScroll: onScroll,
             ),
@@ -1576,8 +1561,8 @@ class _KeyValueList extends StatelessWidget {
                     ),
                   ),
                   if (sensitive) ...[
-                    _CopyIconButton(text: entry.value),
-                    _ShareIconButton(text: entry.value),
+                    _CopyIconButton(text: () => entry.value),
+                    _ShareIconButton(text: () => entry.value),
                   ],
                 ],
               ),
@@ -1628,21 +1613,103 @@ class _TokenBadge extends StatelessWidget {
   }
 }
 
-/// Shows [data] as a collapsible JSON tree when it decodes to an object or array, falling back to a plain scrollable code block otherwise.
+/// A request body as the panel shows it — decoded and split into lines once per request, then shared by the view, find and Copy, so a busy app never pays to redo it.
+class _Body {
+  _Body._(this.data, this.lines, this._json);
+
+  factory _Body.of(Object? data) {
+    final json = _decodeJson(data);
+    if (json != null) {
+      try {
+        return _Body._(data, _flattenJson(json), json);
+      } catch (_) {
+        // A value JSON can't encode — show it as plain text below.
+      }
+    }
+    final text = prettyFormatBody(data);
+    return _Body._(data, [
+      for (final line in text.split('\n')) _CodeLine.text(line),
+    ], null);
+  }
+
+  final Object? data;
+  final List<_CodeLine> lines;
+  final Object? _json;
+
+  bool get isJson => _json != null;
+
+  late final List<String> plainLines = [
+    for (final line in lines) line.plainText,
+  ];
+
+  /// Encoded only when Copy or Share is tapped, never just to show the body.
+  String copyText() {
+    if (_json != null) {
+      try {
+        return const JsonEncoder.withIndent('  ').convert(_json);
+      } catch (_) {
+        // Falls through to the lines as shown.
+      }
+    }
+    return plainLines.join('\n');
+  }
+
+  final Map<double, double> _widths = {};
+
+  /// Monospace, so a line's width is its character count — wide characters (CJK, emoji) count double.
+  double contentWidth(double charWidth) =>
+      _widths[charWidth] ??= () {
+        var widest = 0.0;
+        for (final line in lines) {
+          var units = line.plainText.length + line.collapsedExtraChars;
+          for (final unit in line.plainText.codeUnits) {
+            if (unit >= 0x1100) units++;
+          }
+          widest = math.max(widest, line.indent + units * charWidth);
+        }
+        return widest;
+      }();
+}
+
+Object? _decodeJson(Object? data) {
+  if (data is Map || data is List) return data;
+  if (data is! String) return null;
+  try {
+    final value = jsonDecode(data);
+    return value is Map || value is List ? value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+final _bodyCache = Expando<Map<_Section, _Body>>();
+
+/// Cached on the request itself, so it's freed along with it once the request leaves the capture buffer.
+_Body _bodyOf(NetworkEvent event, _Section section) {
+  final data = switch (section) {
+    _Section.query => event.queryParameters,
+    _Section.requestBody => event.requestBody,
+    _ => event.responseBody,
+  };
+  final cache = _bodyCache[event] ??= {};
+  final cached = cache[section];
+  if (cached != null && identical(cached.data, data)) return cached;
+  return cache[section] = _Body.of(data);
+}
+
+/// Shows a request body as a collapsible JSON tree when it decodes to an object or array, falling back to plain lines otherwise.
 class _BodyView extends StatelessWidget {
   const _BodyView({
-    required this.data,
+    required this.event,
+    required this.section,
     required this.title,
-    required this.findPrefix,
     this.maxHeight = double.infinity,
     this.onScroll,
   });
 
-  final Object? data;
+  final NetworkEvent event;
+  final _Section section;
   final String title;
-
-  /// Each line's find id is this plus its index — the same lines [_bodyFindLines] lists.
-  final String findPrefix;
 
   /// A body taller than this scrolls inside its own block rather than growing past it.
   final double maxHeight;
@@ -1650,61 +1717,46 @@ class _BodyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final decoded = _decodeJsonContainer(data);
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxHeight),
-      child:
-          decoded != null
-              ? _JsonCodeBlock(
-                value: decoded.value,
-                rawText: decoded.rawText,
-                title: title,
-                findPrefix: findPrefix,
-                onScroll: onScroll,
-              )
-              : _CodeBlock(
-                content: prettyFormatBody(data),
-                title: title,
-                findPrefix: findPrefix,
-                onScroll: onScroll,
-              ),
+      child: _CodeView(
+        body: _bodyOf(event, section),
+        title: title,
+        findPrefix: _findPrefix(event, section),
+        onScroll: onScroll,
+      ),
     );
   }
 }
 
-/// Decodes [data] to a JSON Map/List plus its pretty-printed text, rejecting anything (a truncated body, a non-JSON-safe value) that can't round-trip through [jsonEncode].
-({Object value, String rawText})? _decodeJsonContainer(Object? data) {
-  Object? candidate;
-  if (data is Map || data is List) {
-    candidate = data;
-  } else if (data is String) {
-    try {
-      candidate = jsonDecode(data);
-    } catch (_) {
-      return null;
-    }
-  }
-  if (candidate is! Map && candidate is! List) return null;
-  try {
-    final rawText = const JsonEncoder.withIndent('  ').convert(candidate);
-    return (value: candidate!, rawText: rawText);
-  } catch (_) {
-    return null;
-  }
+const _codeStyle = TextStyle(fontFamily: 'monospace', fontSize: 12.5);
+
+/// One code line's height and one character's width at the current text scale — measured, so lines can be given exact heights up front.
+({double charWidth, double lineHeight}) _codeMetrics(TextScaler scaler) {
+  final painter = TextPainter(
+    text: const TextSpan(text: '0000000000', style: _codeStyle),
+    textDirection: TextDirection.ltr,
+    textScaler: scaler,
+  )..layout();
+  final metrics = (charWidth: painter.width / 10, lineHeight: painter.height);
+  painter.dispose();
+  return metrics;
 }
 
-/// A monospace "code block" for request/response bodies — long lines scroll horizontally instead of wrapping, so dense/minified data stays readable.
-class _CodeBlock extends StatelessWidget {
-  const _CodeBlock({
-    required this.content,
+/// A monospace code block that builds only the lines on screen, so even a huge body opens instantly and costs nothing while the app keeps capturing.
+class _CodeView extends StatefulWidget {
+  const _CodeView({
+    required this.body,
     required this.title,
     required this.findPrefix,
     this.standalone = true,
     this.onScroll,
   });
 
-  final String content;
+  final _Body body;
   final String title;
+
+  /// Each line's find id is this plus its index — the same lines the find source lists.
   final String findPrefix;
 
   /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
@@ -1712,31 +1764,173 @@ class _CodeBlock extends StatelessWidget {
   final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
+  State<_CodeView> createState() => _CodeViewState();
+}
+
+class _CodeViewState extends State<_CodeView> with FindAware<_CodeView> {
+  final Set<String> _collapsedPaths = {};
+  List<int>? _visible;
+  ScrollController? _vertical;
+  var _metrics = (charWidth: 7.5, lineHeight: 15.0);
+
+  List<_CodeLine> get _lines => widget.body.lines;
+
+  @override
+  void didUpdateWidget(_CodeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.body, widget.body)) _visible = null;
+  }
+
+  /// Indices of the lines not folded away, in order.
+  List<int> get _visibleLines =>
+      _visible ??= () {
+        final out = <int>[];
+        for (var i = 0; i < _lines.length; i++) {
+          out.add(i);
+          final line = _lines[i];
+          // Folded: its children and closing line are skipped; the toggle line shows them inline.
+          if (line.isOpen && _collapsedPaths.contains(line.path)) {
+            i = line.closeIndex!;
+          }
+        }
+        return out;
+      }();
+
+  double _extentOf(_CodeLine line) {
+    final text = _metrics.lineHeight;
+    if (line.isOpen) return math.max(34, text + 4);
+    return line.plain ? text + 4 : text + 10;
+  }
+
+  void _setCollapsed(void Function(Set<String> paths) change) {
+    setState(() {
+      change(_collapsedPaths);
+      _visible = null;
+    });
+  }
+
+  void _toggle(String path) => _setCollapsed((paths) {
+    if (!paths.add(path)) paths.remove(path);
+  });
+
+  void _expandAll() => _setCollapsed((paths) => paths.clear());
+
+  void _collapseAll() => _setCollapsed(
+    (paths) =>
+        paths
+          ..clear()
+          ..addAll([
+            for (final line in _lines)
+              if (line.isOpen) line.path,
+          ]),
+  );
+
+  /// Unfolds whatever hides the current match, then scrolls its line into the built range so its [FindText] can show the exact words.
+  @override
+  void onFindReveal(FindHit hit) {
+    final prefix = '${widget.findPrefix}/';
+    if (!hit.target.id.startsWith(prefix)) return;
+    final index = int.tryParse(hit.target.id.substring(prefix.length));
+    if (index == null || index >= _lines.length) return;
+    final hiding = [
+      for (var i = 0; i < index; i++)
+        if (_lines[i].isOpen &&
+            index <= _lines[i].closeIndex! &&
+            _collapsedPaths.contains(_lines[i].path))
+          _lines[i].path,
+    ];
+    if (hiding.isNotEmpty) _setCollapsed((paths) => paths.removeAll(hiding));
+    SchedulerBinding.instance.addPostFrameCallback((_) => _scrollTo(index));
+  }
+
+  void _scrollTo(int lineIndex) {
+    final vertical = _vertical;
+    if (!mounted || vertical == null || !vertical.hasClients) return;
+    final rows = _visibleLines;
+    final row = rows.indexOf(lineIndex);
+    if (row < 0) return;
+    var offset = _codeTopPadding;
+    for (var i = 0; i < row; i++) {
+      offset += _extentOf(_lines[rows[i]]);
+    }
+    final position = vertical.position;
+    position.jumpTo(
+      (offset - position.viewportDimension / 3).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    _metrics = _codeMetrics(MediaQuery.textScalerOf(context));
+    final rows = _visibleLines;
+    var height = _codeTopPadding + _codeBottomPadding;
+    for (final row in rows) {
+      height += _extentOf(_lines[row]);
+    }
     return _CodeBlockChrome(
-      copyText: content,
-      title: title,
-      onScroll: onScroll,
+      copyText: widget.body.copyText,
+      title: widget.title,
       fullscreenBuilder:
-          standalone
-              ? (context) => _CodeBlock(
-                content: content,
-                title: title,
-                findPrefix: findPrefix,
+          widget.standalone
+              ? (context) => _CodeView(
+                body: widget.body,
+                title: widget.title,
+                findPrefix: widget.findPrefix,
                 standalone: false,
               )
               : null,
-      child: FindText(
-        content,
-        id: '$findPrefix/0',
-        selectable: true,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+      actions: [
+        if (widget.body.isJson) ...[
+          IconButton(
+            tooltip: 'Expand all',
+            iconSize: 16,
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(LucideIcons.chevronsUpDown),
+            onPressed: _expandAll,
+          ),
+          IconButton(
+            tooltip: 'Collapse all',
+            iconSize: 16,
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(LucideIcons.chevronsDownUp),
+            onPressed: _collapseAll,
+          ),
+        ],
+      ],
+      child: _ScrollableCode(
+        onScroll: widget.onScroll,
+        onVerticalController: (controller) => _vertical = controller,
+        height: height,
+        contentWidth: widget.body.contentWidth(_metrics.charWidth),
+        itemCount: rows.length,
+        itemExtent: (row) => _extentOf(_lines[rows[row]]),
+        itemBuilder: (context, row) {
+          final index = rows[row];
+          final line = _lines[index];
+          final findId = '${widget.findPrefix}/$index';
+          return line.isOpen
+              ? _CodeToggleLine(
+                line: line,
+                collapsed: _collapsedPaths.contains(line.path),
+                findId: findId,
+                theme: theme,
+                onTap: () => _toggle(line.path),
+              )
+              : _CodeLeafLine(line: line, findId: findId, theme: theme);
+        },
       ),
     );
   }
 }
 
-/// The shared box, scrolling, and action buttons behind both [_CodeBlock] and [_JsonCodeBlock] — actions float over the top-right corner instead of narrowing every line's scroll width for a button only the top needs, and stay pinned there while the content scrolls underneath.
+const _codeTopPadding = 8.0;
+const _codeBottomPadding = 16.0;
+
+/// The shared box and action buttons around a [_CodeView] — actions float over the top-right corner instead of narrowing every line's scroll width for a button only the top needs, and stay pinned there while the content scrolls underneath.
 class _CodeBlockChrome extends StatelessWidget {
   const _CodeBlockChrome({
     required this.child,
@@ -1744,17 +1938,15 @@ class _CodeBlockChrome extends StatelessWidget {
     required this.title,
     this.actions = const [],
     this.fullscreenBuilder,
-    this.onScroll,
   });
 
   final Widget child;
-  final String copyText;
+  final ValueGetter<String> copyText;
   final String title;
   final List<Widget> actions;
 
   /// Builds a fresh, independent copy of this block for the fullscreen view — not [child] itself, so interacting with it there (e.g. folding a JSON node) doesn't desync from the inline view's own state.
   final WidgetBuilder? fullscreenBuilder;
-  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   Widget build(BuildContext context) {
@@ -1768,7 +1960,7 @@ class _CodeBlockChrome extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          _ScrollableCode(onScroll: onScroll, child: child),
+          child,
           Positioned(
             top: 4,
             right: 4,
@@ -1928,9 +2120,23 @@ class _FullscreenContentView extends StatelessWidget {
 
 /// The content inside a [_CodeBlockChrome], scrolling both ways within the block's own box — both scrollbars always show and can be dragged, pinned to the box's right and bottom edges, so neither ends up far below the fold on a large body the way a scrollbar under the last line would.
 class _ScrollableCode extends StatefulWidget {
-  const _ScrollableCode({required this.child, this.onScroll});
+  const _ScrollableCode({
+    required this.height,
+    required this.contentWidth,
+    required this.itemCount,
+    required this.itemExtent,
+    required this.itemBuilder,
+    required this.onVerticalController,
+    this.onScroll,
+  });
 
-  final Widget child;
+  /// The natural height of every line; the block shrinks to it when that's less than its limit.
+  final double height;
+  final double contentWidth;
+  final int itemCount;
+  final double Function(int index) itemExtent;
+  final IndexedWidgetBuilder itemBuilder;
+  final ValueChanged<ScrollController> onVerticalController;
 
   /// Reports vertical scrolling, e.g. so the detail view can collapse its summary.
   final void Function(double offset, ScrollDirection direction)? onScroll;
@@ -1953,271 +2159,83 @@ class _ScrollableCodeState extends State<_ScrollableCode> {
     // Its own scroll-to-top button, sitting inside the box clear of both scrollbars.
     return DevToolsScrollToTop(
       onScroll: widget.onScroll,
-      builder:
-          (
-            context,
-            vertical,
-          ) => NotificationListener<ScrollMetricsNotification>(
-            // Content or box size changed (e.g. a JSON node folded) — resize the thumbs to match.
-            onNotification: (_) {
-              setState(() {});
-              return false;
-            },
+      builder: (context, vertical) {
+        widget.onVerticalController(vertical);
+        return NotificationListener<ScrollMetricsNotification>(
+          // Content or box size changed (e.g. a JSON node folded) — resize the thumbs to match.
+          onNotification: (_) {
+            setState(() {});
+            return false;
+          },
+          child: SizedBox(
+            height: widget.height,
             child: Stack(
               key: const ValueKey('code-block-scroll-area'),
               children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: SingleChildScrollView(
-                    controller: vertical,
-                    padding: const EdgeInsets.only(top: 8, bottom: 16),
-                    child: SingleChildScrollView(
-                      controller: _horizontal,
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.only(left: 10, right: 16),
-                      // One cached layer, so scrolling a huge body doesn't repaint every line each frame.
-                      child: RepaintBoundary(child: widget.child),
-                    ),
-                  ),
+                LayoutBuilder(
+                  builder:
+                      (context, box) => SingleChildScrollView(
+                        controller: _horizontal,
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.only(left: 10, right: 16),
+                        child: SizedBox(
+                          width: math.max(
+                            widget.contentWidth,
+                            box.maxWidth - 26,
+                          ),
+                          // Lines are built only while on screen, each at a known height, so a huge body costs no more than a small one.
+                          child: ListView.builder(
+                            controller: vertical,
+                            padding: const EdgeInsets.only(
+                              top: _codeTopPadding,
+                              bottom: _codeBottomPadding,
+                            ),
+                            itemCount: widget.itemCount,
+                            itemExtentBuilder:
+                                (index, _) =>
+                                    index < widget.itemCount
+                                        ? widget.itemExtent(index)
+                                        : null,
+                            itemBuilder:
+                                (context, index) => OverflowBox(
+                                  alignment: Alignment.centerLeft,
+                                  maxWidth: double.infinity,
+                                  // Never wraps: a line wider than the estimate just runs on, like an editor.
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: widget.itemBuilder(context, index),
+                                  ),
+                                ),
+                          ),
+                        ),
+                      ),
                 ),
                 // Starts below the floating action bar, so the bar never covers the thumb.
-                _EdgeScrollbar(
+                DevToolsEdgeScrollbar(
                   controller: vertical,
                   axis: Axis.vertical,
                   startInset: 48,
                   endInset: 16,
+                  thumbKeyPrefix: 'code-scrollbar-thumb',
                 ),
-                _EdgeScrollbar(
+                DevToolsEdgeScrollbar(
                   controller: _horizontal,
                   axis: Axis.horizontal,
                   endInset: 16,
+                  thumbKeyPrefix: 'code-scrollbar-thumb',
                 ),
               ],
             ),
           ),
+        );
+      },
     );
   }
 }
 
-/// A slim scrollbar along one edge of a code block that's easy to grab without looking any bigger: its touch area is a wide invisible strip down the whole edge, so a finger never has to land on the thin thumb itself. Drag anywhere in the strip to scroll — starting away from the thumb first jumps it under the finger — or tap to jump there. While held, the thumb thickens and takes the accent color, so it's clear it's been grabbed.
-class _EdgeScrollbar extends StatefulWidget {
-  const _EdgeScrollbar({
-    required this.controller,
-    required this.axis,
-    this.startInset = 0,
-    this.endInset = 0,
-  });
-
-  final ScrollController controller;
-  final Axis axis;
-
-  /// How far the track stays clear of the edge's start/end, e.g. of the floating action bar.
-  final double startInset;
-  final double endInset;
-
-  @override
-  State<_EdgeScrollbar> createState() => _EdgeScrollbarState();
-}
-
-class _EdgeScrollbarState extends State<_EdgeScrollbar> {
-  static const _touchWidth = 32.0;
-  static const _thickness = 5.0;
-  static const _activeThickness = 9.0;
-  static const _minThumbLength = 36.0;
-
-  /// A drag starting this close to the thumb grabs it where it is rather than jumping.
-  static const _grabTolerance = 12.0;
-
-  bool _active = false;
-  Drag? _drag;
-  double _trackLength = 0;
-
-  bool get _vertical => widget.axis == Axis.vertical;
-
-  /// The position to drive, or null while there's nothing to scroll along this axis.
-  ScrollPosition? get _position {
-    if (!widget.controller.hasClients) return null;
-    final position = widget.controller.position;
-    if (!position.hasContentDimensions ||
-        !position.hasViewportDimension ||
-        position.maxScrollExtent <= 0) {
-      return null;
-    }
-    return position;
-  }
-
-  double _thumbLength(ScrollPosition position) {
-    final visibleFraction =
-        position.viewportDimension /
-        (position.viewportDimension + position.maxScrollExtent);
-    return (_trackLength * visibleFraction).clamp(
-      math.min(_minThumbLength, _trackLength),
-      _trackLength,
-    );
-  }
-
-  double _thumbStart(ScrollPosition position, double thumbLength) {
-    final scrolledFraction = (position.pixels / position.maxScrollExtent).clamp(
-      0.0,
-      1.0,
-    );
-    return (_trackLength - thumbLength) * scrolledFraction;
-  }
-
-  /// The scroll offset that centers the thumb on [trackOffset].
-  double _pixelsCenteredOn(ScrollPosition position, double trackOffset) {
-    final thumbLength = _thumbLength(position);
-    final travel = _trackLength - thumbLength;
-    if (travel <= 0) return position.pixels;
-    final fraction = ((trackOffset - thumbLength / 2) / travel).clamp(0.0, 1.0);
-    return fraction * position.maxScrollExtent;
-  }
-
-  double _alongTrack(Offset localPosition) =>
-      _vertical ? localPosition.dy : localPosition.dx;
-
-  void _setActive(bool active) {
-    if (_active != active) setState(() => _active = active);
-  }
-
-  void _handleDragStart(DragStartDetails details) {
-    final position = _position;
-    if (position == null) return;
-    final along = _alongTrack(details.localPosition);
-    final thumbLength = _thumbLength(position);
-    final thumbStart = _thumbStart(position, thumbLength);
-    if (along < thumbStart - _grabTolerance ||
-        along > thumbStart + thumbLength + _grabTolerance) {
-      position.jumpTo(_pixelsCenteredOn(position, along));
-    }
-    _drag = position.drag(details, () => _drag = null);
-  }
-
-  void _handleDragUpdate(DragUpdateDetails details) {
-    final position = _position;
-    if (position == null || _drag == null) return;
-    final travel = _trackLength - _thumbLength(position);
-    if (travel <= 0) return;
-    // Thumb pixels → content pixels, negated: a thumb moves the opposite way to content dragged by hand.
-    final delta = -details.primaryDelta! * position.maxScrollExtent / travel;
-    _drag!.update(
-      DragUpdateDetails(
-        globalPosition: details.globalPosition,
-        localPosition: details.localPosition,
-        delta: _vertical ? Offset(0, delta) : Offset(delta, 0),
-        primaryDelta: delta,
-      ),
-    );
-  }
-
-  void _handleDragEnd(DragEndDetails details) {
-    // No fling: the content stops where the thumb was let go.
-    _drag?.end(DragEndDetails(primaryVelocity: 0));
-    _drag = null;
-    _setActive(false);
-  }
-
-  void _handleDragCancel() {
-    _drag?.cancel();
-    _drag = null;
-    _setActive(false);
-  }
-
-  void _handleTapUp(TapUpDetails details) {
-    final position = _position;
-    if (position == null) return;
-    position.animateTo(
-      _pixelsCenteredOn(position, _alongTrack(details.localPosition)),
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
-  @override
-  void dispose() {
-    _drag?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Positioned(
-      top: _vertical ? widget.startInset : null,
-      bottom: _vertical ? widget.endInset : 0,
-      left: _vertical ? null : widget.startInset,
-      right: _vertical ? 0 : widget.endInset,
-      width: _vertical ? _touchWidth : null,
-      height: _vertical ? null : _touchWidth,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          _trackLength =
-              _vertical ? constraints.maxHeight : constraints.maxWidth;
-          return ListenableBuilder(
-            listenable: widget.controller,
-            builder: (context, _) {
-              final position = _position;
-              // Nothing to scroll: no thumb, and touches fall through to the content.
-              if (position == null) return const SizedBox.shrink();
-
-              final thumbLength = _thumbLength(position);
-              final thumbStart = _thumbStart(position, thumbLength);
-              final thickness = _active ? _activeThickness : _thickness;
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                dragStartBehavior: DragStartBehavior.down,
-                onTapUp: _handleTapUp,
-                onVerticalDragDown: _vertical ? (_) => _setActive(true) : null,
-                onVerticalDragStart: _vertical ? _handleDragStart : null,
-                onVerticalDragUpdate: _vertical ? _handleDragUpdate : null,
-                onVerticalDragEnd: _vertical ? _handleDragEnd : null,
-                onVerticalDragCancel: _vertical ? _handleDragCancel : null,
-                onHorizontalDragDown:
-                    _vertical ? null : (_) => _setActive(true),
-                onHorizontalDragStart: _vertical ? null : _handleDragStart,
-                onHorizontalDragUpdate: _vertical ? null : _handleDragUpdate,
-                onHorizontalDragEnd: _vertical ? null : _handleDragEnd,
-                onHorizontalDragCancel: _vertical ? null : _handleDragCancel,
-                child: Stack(
-                  children: [
-                    // Hugs the box's edge, however wide the touch strip around it is.
-                    Positioned(
-                      top: _vertical ? thumbStart : null,
-                      left: _vertical ? null : thumbStart,
-                      right: _vertical ? 2 : null,
-                      bottom: _vertical ? null : 2,
-                      child: AnimatedContainer(
-                        key: ValueKey(
-                          'code-scrollbar-thumb-${widget.axis.name}',
-                        ),
-                        duration: const Duration(milliseconds: 120),
-                        width: _vertical ? thickness : thumbLength,
-                        height: _vertical ? thumbLength : thickness,
-                        decoration: BoxDecoration(
-                          color:
-                              _active
-                                  ? colors.primary
-                                  : colors.onSurfaceVariant.withValues(
-                                    alpha: 0.45,
-                                  ),
-                          borderRadius: BorderRadius.circular(thickness / 2),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// One line of a fully-expanded JSON tree — the tree view and find both read these, so they always agree on the text.
-class _JsonLine {
-  const _JsonLine({
+/// One line of a body — a JSON tree line or a plain text line; the view and find both read these, so they always agree on the text.
+class _CodeLine {
+  const _CodeLine({
     required this.path,
     required this.depth,
     required this.keyPrefix,
@@ -2229,13 +2247,26 @@ class _JsonLine {
     this.closeBrace = '',
     this.comma = '',
     this.countLabel = '',
-  });
+  }) : plain = false;
+
+  const _CodeLine.text(this.text)
+    : path = '',
+      depth = 0,
+      keyPrefix = '',
+      trailing = '',
+      value = null,
+      muted = false,
+      plain = true,
+      closeIndex = null,
+      closeBrace = '',
+      comma = '',
+      countLabel = '';
 
   final String path;
   final int depth;
   final String keyPrefix;
 
-  /// The literal, or a brace.
+  /// The literal, a brace, or for a plain line the whole line.
   final String text;
   final String trailing;
 
@@ -2244,6 +2275,9 @@ class _JsonLine {
 
   /// A brace or an empty `{}`/`[]` rather than a value.
   final bool muted;
+
+  /// A plain text line, not part of a JSON tree.
+  final bool plain;
 
   /// Set on a foldable container's opening line: the index of its closing line.
   final int? closeIndex;
@@ -2254,10 +2288,17 @@ class _JsonLine {
   bool get isOpen => closeIndex != null;
 
   String get plainText => '$keyPrefix$text$trailing';
+
+  /// Pixels before the text starts: the tree indent, plus the fold chevron on a toggle line.
+  double get indent => depth * 16.0 + (isOpen ? 30 : 0);
+
+  /// What a folded toggle line appends (` … }, 3 keys`), so the block is wide enough either way.
+  int get collapsedExtraChars =>
+      isOpen ? 6 + closeBrace.length + comma.length + countLabel.length : 0;
 }
 
-List<_JsonLine> _flattenJson(Object value) {
-  final lines = <_JsonLine?>[];
+List<_CodeLine> _flattenJson(Object value) {
+  final lines = <_CodeLine?>[];
 
   void visit(
     Object? node,
@@ -2284,7 +2325,7 @@ List<_JsonLine> _flattenJson(Object value) {
             : null;
     if (children == null) {
       lines.add(
-        _JsonLine(
+        _CodeLine(
           path: path,
           depth: depth,
           keyPrefix: keyPrefix,
@@ -2299,7 +2340,7 @@ List<_JsonLine> _flattenJson(Object value) {
     final (openBrace, closeBrace) = node is Map ? ('{', '}') : ('[', ']');
     if (children.isEmpty) {
       lines.add(
-        _JsonLine(
+        _CodeLine(
           path: path,
           depth: depth,
           keyPrefix: keyPrefix,
@@ -2325,7 +2366,7 @@ List<_JsonLine> _flattenJson(Object value) {
       );
     }
     lines.add(
-      _JsonLine(
+      _CodeLine(
         path: '$path/close',
         depth: depth,
         keyPrefix: '',
@@ -2335,7 +2376,7 @@ List<_JsonLine> _flattenJson(Object value) {
       ),
     );
     final noun = node is Map ? 'key' : 'item';
-    lines[openIndex] = _JsonLine(
+    lines[openIndex] = _CodeLine(
       path: path,
       depth: depth,
       keyPrefix: keyPrefix,
@@ -2350,141 +2391,6 @@ List<_JsonLine> _flattenJson(Object value) {
 
   visit(value, 'root', '', '', 0);
   return [for (final line in lines) line!];
-}
-
-/// A collapsible, syntax-highlighted JSON tree, codebeautify-viewer style — tap a `{`/`[` line to fold it, or use the header actions to fold/unfold everything; starts fully expanded.
-class _JsonCodeBlock extends StatefulWidget {
-  const _JsonCodeBlock({
-    required this.value,
-    required this.rawText,
-    required this.title,
-    required this.findPrefix,
-    this.standalone = true,
-    this.onScroll,
-  });
-
-  final Object value;
-  final String rawText;
-  final String title;
-  final String findPrefix;
-
-  /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
-  final bool standalone;
-  final void Function(double offset, ScrollDirection direction)? onScroll;
-
-  @override
-  State<_JsonCodeBlock> createState() => _JsonCodeBlockState();
-}
-
-class _JsonCodeBlockState extends State<_JsonCodeBlock>
-    with FindAware<_JsonCodeBlock> {
-  final Set<String> _collapsedPaths = {};
-  late List<_JsonLine> _lines = _flattenJson(widget.value);
-
-  @override
-  void didUpdateWidget(_JsonCodeBlock oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.value, widget.value)) {
-      _lines = _flattenJson(widget.value);
-    }
-  }
-
-  /// Unfolds whatever the current match is folded away inside.
-  @override
-  void onFindReveal(FindHit hit) {
-    final prefix = '${widget.findPrefix}/';
-    if (!hit.target.id.startsWith(prefix)) return;
-    final index = int.tryParse(hit.target.id.substring(prefix.length));
-    if (index == null) return;
-    final hiding = [
-      for (var i = 0; i < index && i < _lines.length; i++)
-        if (_lines[i].isOpen &&
-            index <= _lines[i].closeIndex! &&
-            _collapsedPaths.contains(_lines[i].path))
-          _lines[i].path,
-    ];
-    if (hiding.isNotEmpty) setState(() => _collapsedPaths.removeAll(hiding));
-  }
-
-  void _toggle(String path) {
-    setState(() {
-      if (!_collapsedPaths.add(path)) _collapsedPaths.remove(path);
-    });
-  }
-
-  void _expandAll() => setState(_collapsedPaths.clear);
-
-  void _collapseAll() {
-    setState(() {
-      _collapsedPaths
-        ..clear()
-        ..addAll([
-          for (final line in _lines)
-            if (line.isOpen) line.path,
-        ]);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final rows = <Widget>[];
-    for (var i = 0; i < _lines.length; i++) {
-      final line = _lines[i];
-      final findId = '${widget.findPrefix}/$i';
-      if (line.isOpen) {
-        final collapsed = _collapsedPaths.contains(line.path);
-        rows.add(
-          _JsonToggleLine(
-            line: line,
-            collapsed: collapsed,
-            findId: findId,
-            theme: theme,
-            onTap: () => _toggle(line.path),
-          ),
-        );
-        // Folded: skip its children and its closing line, which the toggle line shows inline.
-        if (collapsed) i = line.closeIndex!;
-      } else {
-        rows.add(_JsonLeafLine(line: line, findId: findId, theme: theme));
-      }
-    }
-    return _CodeBlockChrome(
-      copyText: widget.rawText,
-      title: widget.title,
-      onScroll: widget.onScroll,
-      fullscreenBuilder:
-          widget.standalone
-              ? (context) => _JsonCodeBlock(
-                value: widget.value,
-                rawText: widget.rawText,
-                title: widget.title,
-                findPrefix: widget.findPrefix,
-                standalone: false,
-              )
-              : null,
-      actions: [
-        IconButton(
-          tooltip: 'Expand all',
-          iconSize: 16,
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(LucideIcons.chevronsUpDown),
-          onPressed: _expandAll,
-        ),
-        IconButton(
-          tooltip: 'Collapse all',
-          iconSize: 16,
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(LucideIcons.chevronsDownUp),
-          onPressed: _collapseAll,
-        ),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: rows,
-      ),
-    );
-  }
 }
 
 /// Value colors from the DevTools theme's seeded [ColorScheme] — light mode uses the `on*Container` roles (M3's own choice for legible text) since the bare accent roles used in dark mode read pale on a light surface.
@@ -2503,30 +2409,38 @@ Color _literalColor(Object? value, ThemeData theme) {
   return colors.onSurfaceVariant;
 }
 
-/// One non-collapsible JSON line — a primitive value, an empty `{}`/`[]`, or a container's closing brace.
-class _JsonLeafLine extends StatelessWidget {
-  const _JsonLeafLine({
+/// One non-collapsible line — a plain text line, a JSON primitive, an empty `{}`/`[]`, or a container's closing brace.
+class _CodeLeafLine extends StatelessWidget {
+  const _CodeLeafLine({
     required this.line,
     required this.findId,
     required this.theme,
   });
 
-  final _JsonLine line;
+  final _CodeLine line;
   final String findId;
   final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
+    if (line.plain) {
+      return FindText(
+        line.text,
+        id: findId,
+        selectable: true,
+        style: _codeStyle,
+      );
+    }
     final valueColor =
         line.muted
             ? theme.colorScheme.onSurfaceVariant
             : _literalColor(line.value, theme);
     final italicValue = !line.muted && line.value == null;
     return Padding(
-      padding: EdgeInsets.only(left: line.depth * 16.0, top: 5, bottom: 5),
+      padding: EdgeInsets.only(left: line.depth * 16.0),
       child: FindText.rich(
         TextSpan(
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+          style: _codeStyle,
           children: [
             if (line.keyPrefix.isNotEmpty)
               TextSpan(
@@ -2557,8 +2471,8 @@ class _JsonLeafLine extends StatelessWidget {
 }
 
 /// A collapsible object/array's opening line — its chevron/`{`/`[` toggles [onTap]; collapsed, it also shows the closing brace and an item count inline.
-class _JsonToggleLine extends StatelessWidget {
-  const _JsonToggleLine({
+class _CodeToggleLine extends StatelessWidget {
+  const _CodeToggleLine({
     required this.line,
     required this.collapsed,
     required this.findId,
@@ -2566,7 +2480,7 @@ class _JsonToggleLine extends StatelessWidget {
     required this.onTap,
   });
 
-  final _JsonLine line;
+  final _CodeLine line;
   final bool collapsed;
   final String findId;
   final ThemeData theme;
@@ -2574,18 +2488,11 @@ class _JsonToggleLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final punctStyle = TextStyle(
-      fontFamily: 'monospace',
-      fontSize: 12.5,
+    final punctStyle = _codeStyle.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
     return Padding(
-      padding: EdgeInsets.only(
-        left: line.depth * 16.0,
-        top: 2,
-        bottom: 2,
-        right: 8,
-      ),
+      padding: EdgeInsets.only(left: line.depth * 16.0, right: 8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -2650,7 +2557,7 @@ class _JsonToggleLine extends StatelessWidget {
 class _CopyIconButton extends StatefulWidget {
   const _CopyIconButton({required this.text});
 
-  final String text;
+  final ValueGetter<String> text;
 
   @override
   State<_CopyIconButton> createState() => _CopyIconButtonState();
@@ -2660,7 +2567,7 @@ class _CopyIconButtonState extends State<_CopyIconButton> {
   bool _copied = false;
 
   Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: widget.text));
+    await Clipboard.setData(ClipboardData(text: widget.text()));
     if (!mounted) return;
     setState(() => _copied = true);
     Future.delayed(const Duration(seconds: 1), () {
@@ -2684,14 +2591,14 @@ class _CopyIconButtonState extends State<_CopyIconButton> {
 class _ShareIconButton extends StatelessWidget {
   const _ShareIconButton({required this.text});
 
-  final String text;
+  final ValueGetter<String> text;
 
   Future<void> _share(BuildContext context) async {
     final box = context.findRenderObject() as RenderBox?;
     final origin =
         box == null ? null : box.localToGlobal(Offset.zero) & box.size;
     try {
-      await shareText(text, origin: origin);
+      await shareText(text(), origin: origin);
     } catch (_) {}
   }
 

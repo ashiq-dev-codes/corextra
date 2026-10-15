@@ -29,6 +29,16 @@ void main() {
       debugLog('not captured');
       expect(CorextraDevTools.instance.logs.entries, isEmpty);
     });
+
+    test('a huge debugLog message is shortened for the Logs tab, so one '
+        'giant entry can never stall the panel', () {
+      CorextraDevTools.instance.enabled = true;
+      debugLog('x' * 10000);
+
+      final message = CorextraDevTools.instance.logs.entries.single.message;
+      expect(message.length, lessThan(4100));
+      expect(message, contains('10000 chars total'));
+    });
   });
 
   group('CorextraDevTools back-handler stack', () {

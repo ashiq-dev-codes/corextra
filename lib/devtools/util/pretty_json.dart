@@ -77,10 +77,16 @@ String boundedPrettyFormatBody(
   int budget = 2000,
   int maxListItems = 50,
   int maxStringLength = 2000,
+  int maxDecodeLength = 50000,
 }) {
   if (data == null) return 'null';
   if (data is Uint8List) return _formatBytes(data);
   if (data is FormData) return _formatFormData(data);
+  // Decoding is all-or-nothing, so a huge string is cut down as text instead of decoded in full.
+  if (data is String && data.length > maxDecodeLength) {
+    final cut = maxStringLength < data.length ? maxStringLength : data.length;
+    return '${data.substring(0, cut)}… [${data.length} chars total]';
+  }
   Object? value;
   try {
     value = data is String ? jsonDecode(data) : data;
