@@ -50,28 +50,6 @@ void main() {
     expect(find.text('failed to load avatar'), findsOneWidget);
   });
 
-  testWidgets('the search box filters entries by message, and clearing it '
-      'restores the full list', (tester) async {
-    _seedThreeEntries();
-
-    await tester.pumpWidget(_wrap());
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField), 'avatar');
-    await tester.pumpAndSettle();
-
-    expect(find.text('user signed in'), findsNothing);
-    expect(find.text('cache miss for profile'), findsNothing);
-    expect(find.text('failed to load avatar'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Clear'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('user signed in'), findsOneWidget);
-    expect(find.text('cache miss for profile'), findsOneWidget);
-    expect(find.text('failed to load avatar'), findsOneWidget);
-  });
-
   testWidgets('deselecting a level chip hides entries at that level', (
     tester,
   ) async {
@@ -88,18 +66,20 @@ void main() {
     expect(find.text('cache miss for profile'), findsOneWidget);
   });
 
-  testWidgets('a search or filter combination with no matches shows an empty '
-      'state instead of an empty list', (tester) async {
+  testWidgets('deselecting every level shows an empty state instead of an '
+      'empty list', (tester) async {
     _seedThreeEntries();
 
     await tester.pumpWidget(_wrap());
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'nothing-matches-this');
-    await tester.pumpAndSettle();
+    for (final level in ['Info', 'Warning', 'Error']) {
+      await tester.tap(find.widgetWithText(FilterChip, level));
+      await tester.pumpAndSettle();
+    }
 
     expect(find.text('user signed in'), findsNothing);
-    expect(find.textContaining('No logs match'), findsOneWidget);
+    expect(find.text('No logs match the selected levels'), findsOneWidget);
   });
 
   testWidgets('with a long list, scrolling down reveals a scroll-to-top button '

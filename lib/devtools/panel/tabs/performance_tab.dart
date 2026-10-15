@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../devtools_controller.dart';
+import '../../find/devtools_find.dart';
+import '../../find/find_text.dart';
 import '../../models/frame_sample.dart';
 import '../empty_state.dart';
 import '../scroll_to_top_fab.dart';
 
 const _uiColor = Colors.blue;
 const _rasterColor = Colors.deepPurpleAccent;
+
+const _emptyMessage = 'Waiting for frames…';
+const _emptyHint = 'Interact with the app to generate frame timing data.';
+const _chartHint =
+    'Tap or drag the chart to inspect a frame. Frames past '
+    'the dashed 16.7 ms (60 FPS) line are janky.';
 
 /// Live FPS/jank monitor built from `CorextraDevTools.instance.performance`
 /// — modeled on Flutter DevTools' own Performance view (a scrolling frame
@@ -17,6 +25,31 @@ const _rasterColor = Colors.deepPurpleAccent;
 /// `SchedulerBinding`, nothing from the engine's own trace events.
 class PerformanceTab extends StatefulWidget {
   const PerformanceTab({super.key});
+
+  /// Only the fixed labels — the live numbers change every frame, so they're highlighted but never counted.
+  static final FindSource findSource = FindSource(
+    changes: CorextraDevTools.instance.performance,
+    targets: () sync* {
+      final store = CorextraDevTools.instance.performance;
+      if (store.samples.isEmpty) {
+        yield const FindTarget('perf/empty/message', _emptyMessage);
+        yield const FindTarget('perf/empty/hint', _emptyHint);
+        return;
+      }
+      for (final label in [
+        'FPS',
+        'Frame time',
+        'Janky frames',
+        if (store.lastRssBytes != null) 'Memory (RSS)',
+        'Frame times',
+        'UI',
+        'Raster',
+      ]) {
+        yield FindTarget('perf/$label', label);
+      }
+      yield const FindTarget('perf/hint', _chartHint);
+    },
+  );
 
   @override
   State<PerformanceTab> createState() => _PerformanceTabState();
@@ -46,8 +79,9 @@ class _PerformanceTabState extends State<PerformanceTab> {
         if (samples.isEmpty) {
           return const DevToolsEmptyState(
             icon: LucideIcons.gauge,
-            message: 'Waiting for frames…',
-            hint: 'Interact with the app to generate frame timing data.',
+            message: _emptyMessage,
+            hint: _emptyHint,
+            findId: 'perf/empty',
           );
         }
 
@@ -128,8 +162,9 @@ class _PerformanceTabState extends State<PerformanceTab> {
                           spacing: 12,
                           runSpacing: 4,
                           children: [
-                            Text(
+                            FindText(
                               'Frame times',
+                              id: 'perf/Frame times',
                               style: theme.textTheme.labelLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -139,9 +174,9 @@ class _PerformanceTabState extends State<PerformanceTab> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'Tap or drag the chart to inspect a frame. Frames past '
-                          'the dashed 16.7 ms (60 FPS) line are janky.',
+                        FindText(
+                          _chartHint,
+                          id: 'perf/hint',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -250,8 +285,9 @@ class _StatCard extends StatelessWidget {
             children: [
               Icon(icon, size: 13, color: mutedColor),
               const SizedBox(width: 5),
-              Text(
+              FindText(
                 label,
+                id: 'perf/$label',
                 style: theme.textTheme.bodySmall?.copyWith(color: mutedColor),
               ),
             ],
@@ -261,7 +297,7 @@ class _StatCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(
+              FindText(
                 value,
                 style: TextStyle(
                   fontSize: 18,
@@ -271,7 +307,7 @@ class _StatCard extends StatelessWidget {
               ),
               if (caption != null) ...[
                 const SizedBox(width: 6),
-                Text(
+                FindText(
                   caption!,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: valueColor ?? mutedColor,
@@ -324,7 +360,7 @@ class _ThreadSplitBar extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
+        FindText(
           'On average, UI work takes $buildPercent% of each frame, '
           'Raster the rest.',
           style: theme.textTheme.bodySmall?.copyWith(
@@ -353,7 +389,11 @@ class _Legend extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        FindText(
+          label,
+          id: 'perf/$label',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
       ],
     );
   }
@@ -386,22 +426,22 @@ class _SelectedFrameDetail extends StatelessWidget {
           size: 14,
           color: sample.isJanky ? Colors.red : Colors.green,
         ),
-        Text(
+        FindText(
           isPinned ? 'Selected frame' : 'Latest frame',
           style: theme.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.bold,
             color: mutedColor,
           ),
         ),
-        Text(
+        FindText(
           'UI ${buildMs.toStringAsFixed(1)} ms',
           style: const TextStyle(color: _uiColor, fontSize: 12.5),
         ),
-        Text(
+        FindText(
           'Raster ${rasterMs.toStringAsFixed(1)} ms',
           style: const TextStyle(color: _rasterColor, fontSize: 12.5),
         ),
-        Text(
+        FindText(
           'Total ${totalMs.toStringAsFixed(1)} ms',
           style: theme.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.bold,

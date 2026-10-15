@@ -9,13 +9,14 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../devtools_controller.dart';
+import '../../find/devtools_find.dart';
+import '../../find/find_text.dart';
 import '../../models/network_event.dart';
 import '../../util/pretty_json.dart';
 import '../../util/platform_services.dart';
 import '../back_handler_scope.dart';
 import '../empty_state.dart';
 import '../scroll_to_top_fab.dart';
-import '../search_field.dart';
 
 /// Lists captured HTTP exchanges from `CorextraDevTools.instance.network`.
 ///
@@ -33,40 +34,158 @@ import '../search_field.dart';
 class NetworkTab extends StatefulWidget {
   const NetworkTab({super.key});
 
+  static final FindSource findSource = FindSource(
+    changes: CorextraDevTools.instance.network,
+    targets: _networkFindTargets,
+  );
+
   @override
   State<NetworkTab> createState() => _NetworkTabState();
 }
 
-class _NetworkTabState extends State<NetworkTab> {
+const _emptyMessage = 'No requests captured yet';
+const _emptyHint = 'Add CorextraDevToolsInterceptor or CorextraSocketLogger.';
+
+/// Where a piece of a request's text lives — tells the tab what to open to show it.
+enum _Section {
+  row,
+  status,
+  url,
+  error,
+  requestHeaders,
+  responseHeaders,
+  query,
+  requestBody,
+  responseBody;
+
+  /// The detail tab (Headers / Payload / Response) showing this section, if any.
+  int? get detailTab => switch (this) {
+    row || status => null,
+    url || error || requestHeaders || responseHeaders => 0,
+    query || requestBody => 1,
+    responseBody => 2,
+  };
+}
+
+class _NetworkFindMeta {
+  const _NetworkFindMeta(this.eventId, this.section);
+
+  final String eventId;
+  final _Section section;
+}
+
+String _findPrefix(NetworkEvent event, _Section section) =>
+    '${event.id}/${section.name}';
+
+/// Mirrors exactly what the list row and detail view render, in the same order, with headers as masked on screen.
+Iterable<FindTarget> _networkFindTargets() sync* {
+  final events = CorextraDevTools.instance.network.events;
+  if (events.isEmpty) {
+    yield const FindTarget('network/empty/message', _emptyMessage);
+    yield const FindTarget('network/empty/hint', _emptyHint);
+    return;
+  }
+  for (final event in events.reversed) {
+    FindTarget target(_Section section, String key, String text) => FindTarget(
+      '${_findPrefix(event, section)}/$key',
+      text,
+      _NetworkFindMeta(event.id, section),
+    );
+
+    yield target(_Section.row, 'method', event.method.toUpperCase());
+    yield target(_Section.row, 'path', _displayPath(event));
+    yield target(_Section.row, 'caption', _rowCaption(event));
+    yield target(_Section.status, 'label', _statusLabelFor(event));
+    yield target(_Section.url, 'text', event.url);
+    if (event.errorMessage != null) {
+      yield target(_Section.error, 'text', event.errorMessage!);
+    }
+    if (!event.isSocket) {
+      for (final (section, headers) in [
+        (_Section.requestHeaders, event.requestHeaders),
+        (_Section.responseHeaders, event.responseHeaders),
+      ]) {
+        for (final entry in headers.entries) {
+          yield target(section, 'k/${entry.key}', entry.key);
+          yield target(
+            section,
+            'v/${entry.key}',
+            _headerDisplayValue(entry, event.hiddenHeaderKeys),
+          );
+        }
+      }
+    }
+    for (final (section, data) in [
+      if (event.queryParameters.isNotEmpty)
+        (_Section.query, event.queryParameters),
+      (_Section.requestBody, event.requestBody),
+      (_Section.responseBody, event.responseBody),
+    ]) {
+      final lines = _bodyFindLines(event, section, data);
+      for (var i = 0; i < lines.length; i++) {
+        yield target(section, '$i', lines[i]);
+      }
+    }
+  }
+}
+
+final _bodyLineCache = Expando<Map<_Section, (Object?, List<String>)>>();
+
+/// The lines a [_BodyView] shows for [data] — cached per request, since re-decoding every body on each keystroke would stall typing.
+List<String> _bodyFindLines(
+  NetworkEvent event,
+  _Section section,
+  Object? data,
+) {
+  final cache = _bodyLineCache[event] ??= {};
+  final cached = cache[section];
+  if (cached != null && identical(cached.$1, data)) return cached.$2;
+  final decoded = _decodeJsonContainer(data);
+  final lines =
+      decoded != null
+          ? [for (final line in _flattenJson(decoded.value)) line.plainText]
+          : [prettyFormatBody(data)];
+  cache[section] = (data, lines);
+  return lines;
+}
+
+int? _rowIndexOf(List<NetworkEvent> events, FindHit hit) {
+  final meta = hit.target.meta;
+  if (meta is! _NetworkFindMeta || meta.section != _Section.row) return null;
+  return events.indexWhere((event) => event.id == meta.eventId);
+}
+
+class _NetworkTabState extends State<NetworkTab> with FindAware<NetworkTab> {
   static const double _splitBreakpoint = 700;
 
-  final _searchController = TextEditingController();
-  String _query = '';
   NetworkEvent? _selected;
+  bool _isWide = false;
   final Set<_MethodFilter> _activeMethods = Set.of(_MethodFilter.values);
   final Set<_StatusFilter> _activeStatuses = Set.of(_StatusFilter.values);
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  bool _passesFilters(NetworkEvent event) =>
+      _activeMethods.contains(_methodFilterFor(event)) &&
+      _activeStatuses.contains(_statusFilterFor(event));
 
-  /// Matches against the active method/status filter chips, then — if
-  /// there's search text — against method, URL, status code, and error
-  /// message, the fields already visible in each row, so a match is
-  /// never a surprise.
-  bool _matches(NetworkEvent event, String query) {
-    if (!_activeMethods.contains(_methodFilterFor(event))) {
-      return false;
-    }
-    if (!_activeStatuses.contains(_statusFilterFor(event))) return false;
-    if (query.isEmpty) return true;
-    return event.method.toLowerCase().contains(query) ||
-        event.url.toLowerCase().contains(query) ||
-        (event.socketEvent?.toLowerCase().contains(query) ?? false) ||
-        event.statusCode?.toString() == query ||
-        (event.errorMessage?.toLowerCase().contains(query) ?? false);
+  /// Opens the request a match lives in — and, like a browser expanding a collapsed section, never leaves it hidden behind a filter.
+  @override
+  void onFindReveal(FindHit hit) {
+    final meta = hit.target.meta;
+    if (meta is! _NetworkFindMeta) return;
+    final event =
+        CorextraDevTools.instance.network.events
+            .where((event) => event.id == meta.eventId)
+            .firstOrNull;
+    if (event == null) return;
+    setState(() {
+      if (!_passesFilters(event)) _resetFilterSets();
+      if (meta.section != _Section.row) {
+        _selected = event;
+      } else if (!_isWide) {
+        // A row match needs the list, which a phone-width detail screen replaces.
+        _selected = null;
+      }
+    });
   }
 
   void _toggleMethod(_MethodFilter filter, bool active) {
@@ -89,18 +208,16 @@ class _NetworkTabState extends State<NetworkTab> {
     });
   }
 
-  void _resetFilters() {
-    setState(() {
-      _query = '';
-      _searchController.clear();
-      _activeMethods
-        ..clear()
-        ..addAll(_MethodFilter.values);
-      _activeStatuses
-        ..clear()
-        ..addAll(_StatusFilter.values);
-    });
+  void _resetFilterSets() {
+    _activeMethods
+      ..clear()
+      ..addAll(_MethodFilter.values);
+    _activeStatuses
+      ..clear()
+      ..addAll(_StatusFilter.values);
   }
+
+  void _resetFilters() => setState(_resetFilterSets);
 
   @override
   Widget build(BuildContext context) {
@@ -112,31 +229,31 @@ class _NetworkTabState extends State<NetworkTab> {
         if (events.isEmpty) {
           return const DevToolsEmptyState(
             icon: LucideIcons.network,
-            message: 'No requests captured yet',
-            hint: 'Add CorextraDevToolsInterceptor or CorextraSocketLogger.',
+            message: _emptyMessage,
+            hint: _emptyHint,
+            findId: 'network/empty',
           );
         }
 
-        final query = _query.trim().toLowerCase();
-        final filtered = events.where((e) => _matches(e, query)).toList();
+        final filtered = events.where(_passesFilters).toList();
 
         // The selected event may have scrolled out of the ring buffer,
-        // or been filtered out by the search box or filters; treat
-        // either as "nothing selected" rather than pointing the detail
-        // pane at something no longer in view.
+        // or been filtered out; treat either as "nothing selected"
+        // rather than pointing the detail pane at something no longer
+        // in view.
         final selected =
             (_selected != null && filtered.contains(_selected))
                 ? _selected
                 : null;
 
         final filtersActive =
-            query.isNotEmpty ||
             _activeMethods.length != _MethodFilter.values.length ||
             _activeStatuses.length != _StatusFilter.values.length;
 
         return LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= _splitBreakpoint;
+            _isWide = isWide;
 
             if (!isWide && selected != null) {
               return _NarrowDetailScreen(
@@ -147,11 +264,7 @@ class _NetworkTabState extends State<NetworkTab> {
 
             return Column(
               children: [
-                DevToolsSearchField(
-                  controller: _searchController,
-                  hintText: 'Search by method, URL, event, or status',
-                  onChanged: (value) => setState(() => _query = value),
-                ),
+                const SizedBox(height: 8),
                 _NetworkFilterBar(
                   activeMethods: _activeMethods,
                   activeStatuses: _activeStatuses,
@@ -162,12 +275,9 @@ class _NetworkTabState extends State<NetworkTab> {
                 Expanded(
                   child:
                       filtered.isEmpty
-                          ? DevToolsEmptyState(
+                          ? const DevToolsEmptyState(
                             icon: LucideIcons.searchX,
-                            message:
-                                query.isEmpty
-                                    ? 'No requests match the selected filters'
-                                    : 'No requests match "${_query.trim()}"',
+                            message: 'No requests match the selected filters',
                           )
                           : isWide
                           ? _MasterDetailView(
@@ -178,12 +288,14 @@ class _NetworkTabState extends State<NetworkTab> {
                           )
                           : DevToolsScrollToTop(
                             builder:
-                                (context, controller) => ListView.separated(
+                                (context, controller) => FindListView(
                                   controller: controller,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 4,
                                   ),
                                   itemCount: filtered.length,
+                                  indexOfHit:
+                                      (hit) => _rowIndexOf(filtered, hit),
                                   separatorBuilder:
                                       (context, index) => const Divider(
                                         height: 1,
@@ -236,7 +348,7 @@ class _NarrowDetailScreen extends StatelessWidget {
                   icon: const Icon(LucideIcons.arrowLeft),
                   onPressed: onBack,
                 ),
-                Text(
+                FindText(
                   'Request detail',
                   style: Theme.of(
                     context,
@@ -281,14 +393,14 @@ class _MasterDetailView extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
                 child: Row(
                   children: [
-                    Text(
+                    FindText(
                       'Requests',
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(
+                    FindText(
                       '(${events.length})',
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -301,9 +413,10 @@ class _MasterDetailView extends StatelessWidget {
               Expanded(
                 child: DevToolsScrollToTop(
                   builder:
-                      (context, controller) => ListView.separated(
+                      (context, controller) => FindListView(
                         controller: controller,
                         itemCount: events.length,
+                        indexOfHit: (hit) => _rowIndexOf(events, hit),
                         separatorBuilder:
                             (context, index) => const Divider(
                               height: 1,
@@ -353,13 +466,10 @@ class _CompactNetworkRow extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static final _timeFormat = DateFormat('HH:mm:ss');
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final path = _displayPath(event);
-    final durationMs = event.duration?.inMilliseconds;
+    final prefix = _findPrefix(event, _Section.row);
 
     return Material(
       color:
@@ -384,14 +494,16 @@ class _CompactNetworkRow extends StatelessWidget {
               _Pill(
                 text: event.method.toUpperCase(),
                 color: _methodColor(event.method),
+                findId: '$prefix/method',
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      path,
+                    FindText(
+                      _displayPath(event),
+                      id: '$prefix/path',
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -400,10 +512,9 @@ class _CompactNetworkRow extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Text(
-                      durationMs != null
-                          ? '${durationMs}ms  ·  ${_timeFormat.format(event.startedAt)}'
-                          : 'pending…',
+                    FindText(
+                      _rowCaption(event),
+                      id: '$prefix/caption',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -420,6 +531,15 @@ class _CompactNetworkRow extends StatelessWidget {
       ),
     );
   }
+}
+
+final _rowTimeFormat = DateFormat('HH:mm:ss');
+
+String _rowCaption(NetworkEvent event) {
+  final durationMs = event.duration?.inMilliseconds;
+  return durationMs != null
+      ? '${durationMs}ms  ·  ${_rowTimeFormat.format(event.startedAt)}'
+      : 'pending…';
 }
 
 /// The path for HTTP, or the event name for a socket message — whose name (e.g. `chat:open`) would otherwise parse as a URL scheme.
@@ -940,8 +1060,25 @@ class _NetworkEventDetail extends StatefulWidget {
 /// How far past the top a tab has to scroll before an up/down swipe starts collapsing or restoring the summary — small enough to react promptly, large enough to ignore an idle bounce right at the top.
 const _summaryCollapseThreshold = 24.0;
 
-class _NetworkEventDetailState extends State<_NetworkEventDetail> {
+class _NetworkEventDetailState extends State<_NetworkEventDetail>
+    with SingleTickerProviderStateMixin, FindAware<_NetworkEventDetail> {
   bool _summaryCollapsed = false;
+  late final _tabs = TabController(length: 3, vsync: this);
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  void onFindReveal(FindHit hit) {
+    final meta = hit.target.meta;
+    if (meta is! _NetworkFindMeta || meta.eventId != widget.event.id) return;
+    final tab = meta.section.detailTab;
+    // Instant, so the match isn't scrolled into view on a page that's still sliding in.
+    if (tab != null && tab != _tabs.index) _tabs.index = tab;
+  }
 
   void _handleTabScroll(double offset, ScrollDirection direction) {
     final collapse =
@@ -981,30 +1118,29 @@ class _NetworkEventDetailState extends State<_NetworkEventDetail> {
                   ),
         ),
         Expanded(
-          child: DefaultTabController(
-            length: 3,
-            child: Column(
-              children: [
-                const Divider(height: 1),
-                TabBar(
-                  tabs: [
-                    Tab(text: event.isSocket ? 'General' : 'Headers'),
-                    const Tab(text: 'Payload'),
-                    const Tab(text: 'Response'),
+          child: Column(
+            children: [
+              const Divider(height: 1),
+              TabBar(
+                controller: _tabs,
+                tabs: [
+                  Tab(text: event.isSocket ? 'General' : 'Headers'),
+                  const Tab(text: 'Payload'),
+                  const Tab(text: 'Response'),
+                ],
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabs,
+                  children: [
+                    _HeadersTab(event: event, onScroll: _handleTabScroll),
+                    _PayloadTab(event: event, onScroll: _handleTabScroll),
+                    _ResponseTab(event: event, onScroll: _handleTabScroll),
                   ],
                 ),
-                const Divider(height: 1),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _HeadersTab(event: event, onScroll: _handleTabScroll),
-                      _PayloadTab(event: event, onScroll: _handleTabScroll),
-                      _ResponseTab(event: event, onScroll: _handleTabScroll),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ],
@@ -1037,8 +1173,10 @@ class _HeadersTab extends StatelessWidget {
               children: [
                 const _SubsectionLabel('URL'),
                 const SizedBox(height: 4),
-                SelectableText(
+                FindText(
                   event.url,
+                  id: '${_findPrefix(event, _Section.url)}/text',
+                  selectable: true,
                   style: const TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 12.5,
@@ -1048,7 +1186,10 @@ class _HeadersTab extends StatelessWidget {
                   const SizedBox(height: 20),
                   const _SubsectionLabel('ERROR'),
                   const SizedBox(height: 4),
-                  _ErrorBanner(message: event.errorMessage!),
+                  _ErrorBanner(
+                    message: event.errorMessage!,
+                    findId: '${_findPrefix(event, _Section.error)}/text',
+                  ),
                 ],
                 if (!event.isSocket) ...[
                   const SizedBox(height: 20),
@@ -1057,6 +1198,7 @@ class _HeadersTab extends StatelessWidget {
                   _KeyValueList(
                     data: event.requestHeaders,
                     hiddenKeys: event.hiddenHeaderKeys,
+                    findPrefix: _findPrefix(event, _Section.requestHeaders),
                   ),
                   const SizedBox(height: 20),
                   const _SubsectionLabel('RESPONSE HEADERS'),
@@ -1064,6 +1206,7 @@ class _HeadersTab extends StatelessWidget {
                   _KeyValueList(
                     data: event.responseHeaders,
                     hiddenKeys: event.hiddenHeaderKeys,
+                    findPrefix: _findPrefix(event, _Section.responseHeaders),
                   ),
                 ],
               ],
@@ -1098,6 +1241,7 @@ class _PayloadTab extends StatelessWidget {
                 _BodyView(
                   data: event.queryParameters,
                   title: 'Query Parameters',
+                  findPrefix: _findPrefix(event, _Section.query),
                   maxHeight: maxHeight,
                   onScroll: onScroll,
                 ),
@@ -1108,6 +1252,7 @@ class _PayloadTab extends StatelessWidget {
               _BodyView(
                 data: event.requestBody,
                 title: 'Request Body',
+                findPrefix: _findPrefix(event, _Section.requestBody),
                 maxHeight: maxHeight,
                 onScroll: onScroll,
               ),
@@ -1137,6 +1282,7 @@ class _ResponseTab extends StatelessWidget {
             child: _BodyView(
               data: event.responseBody,
               title: 'Response',
+              findPrefix: _findPrefix(event, _Section.responseBody),
               maxHeight: _maxBodyHeight(constraints),
               onScroll: onScroll,
             ),
@@ -1173,6 +1319,7 @@ class _DetailSummary extends StatelessWidget {
     final statusColor = _statusColorFor(event);
     final durationMs = event.duration?.inMilliseconds;
     final path = _displayPath(event);
+    final statusId = '${_findPrefix(event, _Section.status)}/label';
 
     if (compact) {
       return Row(
@@ -1183,7 +1330,7 @@ class _DetailSummary extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
+            child: FindText(
               path,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1195,8 +1342,9 @@ class _DetailSummary extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
+          FindText(
             _statusLabelFor(event),
+            id: statusId,
             style: TextStyle(
               color: statusColor,
               fontWeight: FontWeight.bold,
@@ -1218,7 +1366,7 @@ class _DetailSummary extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
+              child: FindText(
                 path,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1234,8 +1382,9 @@ class _DetailSummary extends StatelessWidget {
         const SizedBox(height: 6),
         Row(
           children: [
-            Text(
+            FindText(
               _statusLabelFor(event),
+              id: statusId,
               style: TextStyle(
                 color: statusColor,
                 fontWeight: FontWeight.bold,
@@ -1243,14 +1392,14 @@ class _DetailSummary extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
+            FindText(
               durationMs != null ? '${durationMs}ms' : 'pending…',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(width: 8),
-            Text(
+            FindText(
               _timeFormat.format(event.startedAt),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -1265,10 +1414,11 @@ class _DetailSummary extends StatelessWidget {
 
 /// A small colored pill, used for the HTTP method badge.
 class _Pill extends StatelessWidget {
-  const _Pill({required this.text, required this.color});
+  const _Pill({required this.text, required this.color, this.findId});
 
   final String text;
   final Color color;
+  final String? findId;
 
   @override
   Widget build(BuildContext context) {
@@ -1279,8 +1429,9 @@ class _Pill extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
-      child: Text(
+      child: FindText(
         text,
+        id: findId,
         style: TextStyle(
           color: color,
           fontWeight: FontWeight.bold,
@@ -1301,7 +1452,7 @@ class _SubsectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Text(
+    return FindText(
       text,
       style: TextStyle(
         fontSize: 11,
@@ -1340,19 +1491,36 @@ String _maskedPreview(String value) {
   return '***${value.substring(value.length - visibleTail)}';
 }
 
+bool _isHiddenHeader(String key, Set<String> hiddenKeys) =>
+    hiddenKeys.contains(key.toLowerCase());
+
+/// What a header row shows — find searches this, never the real value of a masked header.
+String _headerDisplayValue(
+  MapEntry<String, String> entry,
+  Set<String> hiddenKeys,
+) =>
+    _isHiddenHeader(entry.key, hiddenKeys)
+        ? _maskedPreview(entry.value)
+        : entry.value;
+
 /// A clean key/value list, used for headers — instead of a raw
 /// `Map.toString()` dump.
 class _KeyValueList extends StatelessWidget {
-  const _KeyValueList({required this.data, this.hiddenKeys = const {}});
+  const _KeyValueList({
+    required this.data,
+    required this.findPrefix,
+    this.hiddenKeys = const {},
+  });
 
   final Map<String, String> data;
   final Set<String> hiddenKeys;
+  final String findPrefix;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (data.isEmpty) {
-      return Text(
+      return FindText(
         'No headers',
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
@@ -1364,10 +1532,9 @@ class _KeyValueList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children:
           data.entries.map((entry) {
-            final hidden = hiddenKeys.contains(entry.key.toLowerCase());
+            final hidden = _isHiddenHeader(entry.key, hiddenKeys);
             final sensitive = _isSensitiveHeader(entry.key) || hidden;
-            final displayValue =
-                hidden ? _maskedPreview(entry.value) : entry.value;
+            final displayValue = _headerDisplayValue(entry, hiddenKeys);
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(
@@ -1380,8 +1547,9 @@ class _KeyValueList extends StatelessWidget {
                       spacing: 4,
                       runSpacing: 2,
                       children: [
-                        Text(
+                        FindText(
                           entry.key,
+                          id: '$findPrefix/k/${entry.key}',
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -1391,8 +1559,10 @@ class _KeyValueList extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: SelectableText(
+                    child: FindText(
                       displayValue,
+                      id: '$findPrefix/v/${entry.key}',
+                      selectable: true,
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
                         fontStyle: hidden ? FontStyle.italic : FontStyle.normal,
@@ -1463,12 +1633,16 @@ class _BodyView extends StatelessWidget {
   const _BodyView({
     required this.data,
     required this.title,
+    required this.findPrefix,
     this.maxHeight = double.infinity,
     this.onScroll,
   });
 
   final Object? data;
   final String title;
+
+  /// Each line's find id is this plus its index — the same lines [_bodyFindLines] lists.
+  final String findPrefix;
 
   /// A body taller than this scrolls inside its own block rather than growing past it.
   final double maxHeight;
@@ -1485,11 +1659,13 @@ class _BodyView extends StatelessWidget {
                 value: decoded.value,
                 rawText: decoded.rawText,
                 title: title,
+                findPrefix: findPrefix,
                 onScroll: onScroll,
               )
               : _CodeBlock(
                 content: prettyFormatBody(data),
                 title: title,
+                findPrefix: findPrefix,
                 onScroll: onScroll,
               ),
     );
@@ -1522,12 +1698,14 @@ class _CodeBlock extends StatelessWidget {
   const _CodeBlock({
     required this.content,
     required this.title,
+    required this.findPrefix,
     this.standalone = true,
     this.onScroll,
   });
 
   final String content;
   final String title;
+  final String findPrefix;
 
   /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
   final bool standalone;
@@ -1541,11 +1719,17 @@ class _CodeBlock extends StatelessWidget {
       onScroll: onScroll,
       fullscreenBuilder:
           standalone
-              ? (context) =>
-                  _CodeBlock(content: content, title: title, standalone: false)
+              ? (context) => _CodeBlock(
+                content: content,
+                title: title,
+                findPrefix: findPrefix,
+                standalone: false,
+              )
               : null,
-      child: SelectableText(
+      child: FindText(
         content,
+        id: '$findPrefix/0',
+        selectable: true,
         style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
       ),
     );
@@ -2031,12 +2215,150 @@ class _EdgeScrollbarState extends State<_EdgeScrollbar> {
   }
 }
 
+/// One line of a fully-expanded JSON tree — the tree view and find both read these, so they always agree on the text.
+class _JsonLine {
+  const _JsonLine({
+    required this.path,
+    required this.depth,
+    required this.keyPrefix,
+    required this.text,
+    this.trailing = '',
+    this.value,
+    this.muted = false,
+    this.closeIndex,
+    this.closeBrace = '',
+    this.comma = '',
+    this.countLabel = '',
+  });
+
+  final String path;
+  final int depth;
+  final String keyPrefix;
+
+  /// The literal, or a brace.
+  final String text;
+  final String trailing;
+
+  /// The primitive this line shows, for coloring.
+  final Object? value;
+
+  /// A brace or an empty `{}`/`[]` rather than a value.
+  final bool muted;
+
+  /// Set on a foldable container's opening line: the index of its closing line.
+  final int? closeIndex;
+  final String closeBrace;
+  final String comma;
+  final String countLabel;
+
+  bool get isOpen => closeIndex != null;
+
+  String get plainText => '$keyPrefix$text$trailing';
+}
+
+List<_JsonLine> _flattenJson(Object value) {
+  final lines = <_JsonLine?>[];
+
+  void visit(
+    Object? node,
+    String path,
+    String keyPrefix,
+    String comma,
+    int depth,
+  ) {
+    final children =
+        node is Map
+            ? [
+              for (final entry in node.entries)
+                (
+                  keyPrefix: '"${entry.key}": ',
+                  value: entry.value,
+                  path: '$path.${entry.key}',
+                ),
+            ]
+            : node is List
+            ? [
+              for (var i = 0; i < node.length; i++)
+                (keyPrefix: '', value: node[i], path: '$path[$i]'),
+            ]
+            : null;
+    if (children == null) {
+      lines.add(
+        _JsonLine(
+          path: path,
+          depth: depth,
+          keyPrefix: keyPrefix,
+          text: jsonEncode(node),
+          trailing: comma,
+          value: node,
+        ),
+      );
+      return;
+    }
+
+    final (openBrace, closeBrace) = node is Map ? ('{', '}') : ('[', ']');
+    if (children.isEmpty) {
+      lines.add(
+        _JsonLine(
+          path: path,
+          depth: depth,
+          keyPrefix: keyPrefix,
+          text: '$openBrace$closeBrace',
+          trailing: comma,
+          muted: true,
+        ),
+      );
+      return;
+    }
+
+    // Reserved now, filled once the closing line's index is known.
+    final openIndex = lines.length;
+    lines.add(null);
+    for (var i = 0; i < children.length; i++) {
+      final child = children[i];
+      visit(
+        child.value,
+        child.path,
+        child.keyPrefix,
+        i == children.length - 1 ? '' : ',',
+        depth + 1,
+      );
+    }
+    lines.add(
+      _JsonLine(
+        path: '$path/close',
+        depth: depth,
+        keyPrefix: '',
+        text: closeBrace,
+        trailing: comma,
+        muted: true,
+      ),
+    );
+    final noun = node is Map ? 'key' : 'item';
+    lines[openIndex] = _JsonLine(
+      path: path,
+      depth: depth,
+      keyPrefix: keyPrefix,
+      text: openBrace,
+      closeIndex: lines.length - 1,
+      closeBrace: closeBrace,
+      comma: comma,
+      countLabel:
+          children.length == 1 ? '1 $noun' : '${children.length} ${noun}s',
+    );
+  }
+
+  visit(value, 'root', '', '', 0);
+  return [for (final line in lines) line!];
+}
+
 /// A collapsible, syntax-highlighted JSON tree, codebeautify-viewer style — tap a `{`/`[` line to fold it, or use the header actions to fold/unfold everything; starts fully expanded.
 class _JsonCodeBlock extends StatefulWidget {
   const _JsonCodeBlock({
     required this.value,
     required this.rawText,
     required this.title,
+    required this.findPrefix,
     this.standalone = true,
     this.onScroll,
   });
@@ -2044,6 +2366,7 @@ class _JsonCodeBlock extends StatefulWidget {
   final Object value;
   final String rawText;
   final String title;
+  final String findPrefix;
 
   /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
   final bool standalone;
@@ -2053,8 +2376,35 @@ class _JsonCodeBlock extends StatefulWidget {
   State<_JsonCodeBlock> createState() => _JsonCodeBlockState();
 }
 
-class _JsonCodeBlockState extends State<_JsonCodeBlock> {
+class _JsonCodeBlockState extends State<_JsonCodeBlock>
+    with FindAware<_JsonCodeBlock> {
   final Set<String> _collapsedPaths = {};
+  late List<_JsonLine> _lines = _flattenJson(widget.value);
+
+  @override
+  void didUpdateWidget(_JsonCodeBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.value, widget.value)) {
+      _lines = _flattenJson(widget.value);
+    }
+  }
+
+  /// Unfolds whatever the current match is folded away inside.
+  @override
+  void onFindReveal(FindHit hit) {
+    final prefix = '${widget.findPrefix}/';
+    if (!hit.target.id.startsWith(prefix)) return;
+    final index = int.tryParse(hit.target.id.substring(prefix.length));
+    if (index == null) return;
+    final hiding = [
+      for (var i = 0; i < index && i < _lines.length; i++)
+        if (_lines[i].isOpen &&
+            index <= _lines[i].closeIndex! &&
+            _collapsedPaths.contains(_lines[i].path))
+          _lines[i].path,
+    ];
+    if (hiding.isNotEmpty) setState(() => _collapsedPaths.removeAll(hiding));
+  }
 
   void _toggle(String path) {
     setState(() {
@@ -2068,37 +2418,37 @@ class _JsonCodeBlockState extends State<_JsonCodeBlock> {
     setState(() {
       _collapsedPaths
         ..clear()
-        ..addAll(_containerPaths(widget.value, 'root'));
+        ..addAll([
+          for (final line in _lines)
+            if (line.isOpen) line.path,
+        ]);
     });
-  }
-
-  Iterable<String> _containerPaths(Object? value, String path) sync* {
-    if (value is Map) {
-      yield path;
-      for (final entry in value.entries) {
-        yield* _containerPaths(entry.value, '$path.${entry.key}');
-      }
-    } else if (value is List) {
-      yield path;
-      for (var i = 0; i < value.length; i++) {
-        yield* _containerPaths(value[i], '$path[$i]');
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final rows = <Widget>[];
-    _buildNode(
-      theme: theme,
-      value: widget.value,
-      path: 'root',
-      keyPrefix: '',
-      isLast: true,
-      depth: 0,
-      out: rows,
-    );
+    for (var i = 0; i < _lines.length; i++) {
+      final line = _lines[i];
+      final findId = '${widget.findPrefix}/$i';
+      if (line.isOpen) {
+        final collapsed = _collapsedPaths.contains(line.path);
+        rows.add(
+          _JsonToggleLine(
+            line: line,
+            collapsed: collapsed,
+            findId: findId,
+            theme: theme,
+            onTap: () => _toggle(line.path),
+          ),
+        );
+        // Folded: skip its children and its closing line, which the toggle line shows inline.
+        if (collapsed) i = line.closeIndex!;
+      } else {
+        rows.add(_JsonLeafLine(line: line, findId: findId, theme: theme));
+      }
+    }
     return _CodeBlockChrome(
       copyText: widget.rawText,
       title: widget.title,
@@ -2109,6 +2459,7 @@ class _JsonCodeBlockState extends State<_JsonCodeBlock> {
                 value: widget.value,
                 rawText: widget.rawText,
                 title: widget.title,
+                findPrefix: widget.findPrefix,
                 standalone: false,
               )
               : null,
@@ -2134,140 +2485,6 @@ class _JsonCodeBlockState extends State<_JsonCodeBlock> {
       ),
     );
   }
-
-  void _buildNode({
-    required ThemeData theme,
-    required Object? value,
-    required String path,
-    required String keyPrefix,
-    required bool isLast,
-    required int depth,
-    required List<Widget> out,
-  }) {
-    final comma = isLast ? '' : ',';
-    if (value is Map) {
-      _buildContainer(
-        theme: theme,
-        openBrace: '{',
-        closeBrace: '}',
-        entryCount: value.length,
-        countLabel: value.length == 1 ? '1 key' : '${value.length} keys',
-        path: path,
-        keyPrefix: keyPrefix,
-        comma: comma,
-        depth: depth,
-        out: out,
-        buildChildren: (childOut) {
-          final entries = value.entries.toList();
-          for (var i = 0; i < entries.length; i++) {
-            _buildNode(
-              theme: theme,
-              value: entries[i].value,
-              path: '$path.${entries[i].key}',
-              keyPrefix: '"${entries[i].key}": ',
-              isLast: i == entries.length - 1,
-              depth: depth + 1,
-              out: childOut,
-            );
-          }
-        },
-      );
-    } else if (value is List) {
-      _buildContainer(
-        theme: theme,
-        openBrace: '[',
-        closeBrace: ']',
-        entryCount: value.length,
-        countLabel: value.length == 1 ? '1 item' : '${value.length} items',
-        path: path,
-        keyPrefix: keyPrefix,
-        comma: comma,
-        depth: depth,
-        out: out,
-        buildChildren: (childOut) {
-          for (var i = 0; i < value.length; i++) {
-            _buildNode(
-              theme: theme,
-              value: value[i],
-              path: '$path[$i]',
-              keyPrefix: '',
-              isLast: i == value.length - 1,
-              depth: depth + 1,
-              out: childOut,
-            );
-          }
-        },
-      );
-    } else {
-      out.add(
-        _JsonLeafLine(
-          depth: depth,
-          keyPrefix: keyPrefix,
-          literalText: jsonEncode(value),
-          valueColor: _literalColor(value, theme),
-          italicValue: value == null,
-          trailingText: comma,
-          theme: theme,
-        ),
-      );
-    }
-  }
-
-  void _buildContainer({
-    required ThemeData theme,
-    required String openBrace,
-    required String closeBrace,
-    required int entryCount,
-    required String countLabel,
-    required String path,
-    required String keyPrefix,
-    required String comma,
-    required int depth,
-    required List<Widget> out,
-    required void Function(List<Widget> childOut) buildChildren,
-  }) {
-    if (entryCount == 0) {
-      out.add(
-        _JsonLeafLine(
-          depth: depth,
-          keyPrefix: keyPrefix,
-          literalText: '$openBrace$closeBrace',
-          valueColor: theme.colorScheme.onSurfaceVariant,
-          trailingText: comma,
-          theme: theme,
-        ),
-      );
-      return;
-    }
-
-    final collapsed = _collapsedPaths.contains(path);
-    out.add(
-      _JsonToggleLine(
-        depth: depth,
-        collapsed: collapsed,
-        keyPrefix: keyPrefix,
-        openBrace: openBrace,
-        closeBrace: closeBrace,
-        comma: comma,
-        countLabel: countLabel,
-        theme: theme,
-        onTap: () => _toggle(path),
-      ),
-    );
-    if (!collapsed) {
-      buildChildren(out);
-      out.add(
-        _JsonLeafLine(
-          depth: depth,
-          keyPrefix: '',
-          literalText: closeBrace,
-          valueColor: theme.colorScheme.onSurfaceVariant,
-          trailingText: comma,
-          theme: theme,
-        ),
-      );
-    }
-  }
 }
 
 /// Value colors from the DevTools theme's seeded [ColorScheme] — light mode uses the `on*Container` roles (M3's own choice for legible text) since the bare accent roles used in dark mode read pale on a light surface.
@@ -2289,52 +2506,51 @@ Color _literalColor(Object? value, ThemeData theme) {
 /// One non-collapsible JSON line — a primitive value, an empty `{}`/`[]`, or a container's closing brace.
 class _JsonLeafLine extends StatelessWidget {
   const _JsonLeafLine({
-    required this.depth,
-    required this.keyPrefix,
-    required this.literalText,
-    required this.valueColor,
-    required this.trailingText,
+    required this.line,
+    required this.findId,
     required this.theme,
-    this.italicValue = false,
   });
 
-  final int depth;
-  final String keyPrefix;
-  final String literalText;
-  final Color valueColor;
-  final String trailingText;
+  final _JsonLine line;
+  final String findId;
   final ThemeData theme;
-  final bool italicValue;
 
   @override
   Widget build(BuildContext context) {
+    final valueColor =
+        line.muted
+            ? theme.colorScheme.onSurfaceVariant
+            : _literalColor(line.value, theme);
+    final italicValue = !line.muted && line.value == null;
     return Padding(
-      padding: EdgeInsets.only(left: depth * 16.0, top: 5, bottom: 5),
-      child: SelectableText.rich(
+      padding: EdgeInsets.only(left: line.depth * 16.0, top: 5, bottom: 5),
+      child: FindText.rich(
         TextSpan(
           style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
           children: [
-            if (keyPrefix.isNotEmpty)
+            if (line.keyPrefix.isNotEmpty)
               TextSpan(
-                text: keyPrefix,
+                text: line.keyPrefix,
                 style: TextStyle(
                   color: theme.colorScheme.onSurface,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             TextSpan(
-              text: literalText,
+              text: line.text,
               style: TextStyle(
                 color: valueColor,
                 fontStyle: italicValue ? FontStyle.italic : FontStyle.normal,
               ),
             ),
             TextSpan(
-              text: trailingText,
+              text: line.trailing,
               style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],
         ),
+        id: findId,
+        selectable: true,
       ),
     );
   }
@@ -2343,24 +2559,16 @@ class _JsonLeafLine extends StatelessWidget {
 /// A collapsible object/array's opening line — its chevron/`{`/`[` toggles [onTap]; collapsed, it also shows the closing brace and an item count inline.
 class _JsonToggleLine extends StatelessWidget {
   const _JsonToggleLine({
-    required this.depth,
+    required this.line,
     required this.collapsed,
-    required this.keyPrefix,
-    required this.openBrace,
-    required this.closeBrace,
-    required this.comma,
-    required this.countLabel,
+    required this.findId,
     required this.theme,
     required this.onTap,
   });
 
-  final int depth;
+  final _JsonLine line;
   final bool collapsed;
-  final String keyPrefix;
-  final String openBrace;
-  final String closeBrace;
-  final String comma;
-  final String countLabel;
+  final String findId;
   final ThemeData theme;
   final VoidCallback onTap;
 
@@ -2372,7 +2580,12 @@ class _JsonToggleLine extends StatelessWidget {
       color: theme.colorScheme.onSurfaceVariant,
     );
     return Padding(
-      padding: EdgeInsets.only(left: depth * 16.0, top: 2, bottom: 2, right: 8),
+      padding: EdgeInsets.only(
+        left: line.depth * 16.0,
+        top: 2,
+        bottom: 2,
+        right: 8,
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -2397,23 +2610,24 @@ class _JsonToggleLine extends StatelessWidget {
               ),
             ),
           ),
-          SelectableText.rich(
+          FindText.rich(
             TextSpan(
               style: punctStyle,
               children: [
-                if (keyPrefix.isNotEmpty)
+                if (line.keyPrefix.isNotEmpty)
                   TextSpan(
-                    text: keyPrefix,
+                    text: line.keyPrefix,
                     style: TextStyle(
                       color: theme.colorScheme.onSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                TextSpan(text: openBrace),
-                if (collapsed) TextSpan(text: ' … $closeBrace$comma'),
+                TextSpan(text: line.text),
+                if (collapsed)
+                  TextSpan(text: ' … ${line.closeBrace}${line.comma}'),
                 if (collapsed)
                   TextSpan(
-                    text: '  $countLabel',
+                    text: '  ${line.countLabel}',
                     style: TextStyle(
                       fontSize: 10.5,
                       fontStyle: FontStyle.italic,
@@ -2424,6 +2638,8 @@ class _JsonToggleLine extends StatelessWidget {
                   ),
               ],
             ),
+            id: findId,
+            selectable: true,
           ),
         ],
       ),
@@ -2493,9 +2709,10 @@ class _ShareIconButton extends StatelessWidget {
 
 /// A small callout banner for connection/network errors.
 class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
+  const _ErrorBanner({required this.message, required this.findId});
 
   final String message;
+  final String findId;
 
   @override
   Widget build(BuildContext context) {
@@ -2513,8 +2730,9 @@ class _ErrorBanner extends StatelessWidget {
           const Icon(LucideIcons.circleAlert, size: 16, color: Colors.red),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
+            child: FindText(
               message,
+              id: findId,
               style: const TextStyle(color: Colors.red, fontSize: 12.5),
             ),
           ),
