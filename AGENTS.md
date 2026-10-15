@@ -10,14 +10,34 @@ User docs live in [README.md](README.md) and [CHANGELOG.md](CHANGELOG.md). This 
 
 Apps import one library, [lib/corextra.dart](lib/corextra.dart), which exports everything public. A file it doesn't export is internal.
 
-## Golden rules
+## The two rules above all
+
+Every change must keep both of these true. If a task can't be done without breaking one, stop and ask.
+
+### 1. Run on every platform Flutter supports
+
+Android, iOS, web (including WASM), macOS, Windows and Linux. A change that works on one platform but breaks or degrades another is a bug, even if nobody reports it.
+
+- No `dart:io` or browser-only APIs in shared code, and that includes packages that import them internally. Put such code behind a conditional import, the way [platform_services.dart](lib/devtools/util/platform_services.dart) does.
+- No native code, and no plugin or package that doesn't support every platform above.
+- Where a platform can't support a feature, fall back quietly. Never throw or crash.
+
+### 2. Stay lightweight
+
+Everything in corextra ends up inside other developers' apps: their app size, build time, startup time and dependency tree. Keep that cost as small as possible.
+
+- Ask before adding a dependency. Prefer a few lines of Dart over a new package.
+- Keep version ranges wide, and ask before narrowing one. Wide ranges let apps resolve corextra alongside their own dependencies.
+- Don't add assets, fonts or code generation without asking.
+- Do no work until the app asks for it: no top-level setup, timers or listeners that start on their own.
+- Keep code that runs often (per request, per log, per frame) cheap.
+
+## Working rules
 
 1. **Treat exported API as public.** Apps you'll never see use everything `lib/corextra.dart` exports. Removing, renaming or changing the behavior of anything exported is a breaking change: say so clearly and note it in the CHANGELOG.
-2. **Work on every platform.** No `dart:io` or browser-only APIs in shared code, and that includes packages that import them internally. Put such code behind a conditional import, the way [platform_services.dart](lib/devtools/util/platform_services.dart) does.
-3. **Keep dependencies few and ranges wide.** Every dependency is forced on the apps that use corextra, and the existing version ranges are wide on purpose so those apps can resolve them. Ask before adding a dependency or narrowing a range.
-4. **Follow the existing pattern.** Copy how a similar extension, validator or widget is built.
-5. **Change only what the task needs.** No drive-by refactors, renames or reformatting of unrelated code.
-6. **Don't guess.** If a requirement or expected behavior is unclear, ask.
+2. **Follow the existing pattern.** Copy how a similar extension, validator or widget is built.
+3. **Change only what the task needs.** No drive-by refactors, renames or reformatting of unrelated code.
+4. **Don't guess.** If a requirement or expected behavior is unclear, ask.
 
 ## Folder rules
 
@@ -81,6 +101,7 @@ For UI changes, also run the example app on a device and on web: `cd example && 
 
 Then check:
 
+- Both rules above still hold: nothing platform-specific in shared code, and no new dependency, asset or startup work you didn't ask about.
 - Any change to exported API is called out, and breaking changes are in the CHANGELOG.
 - The README and CHANGELOG cover every user-visible change.
 - You followed the folder `AGENTS.md` for every folder you changed.
