@@ -10,3 +10,4 @@ This is a runnable demo of every corextra feature, including the DevTools panel.
 - Demo actions catch the errors they expect, such as `DioException`, so an error scenario doesn't crash the demo.
 - Use `https://httpbin.org` for real requests. For a response it can't produce, add a scenario to [fake_scenario_interceptor.dart](lib/infrastructure/network/fake_scenario_interceptor.dart) and call `/simulate/<key>`. That interceptor stays last in the chain so the logging interceptors still see the response.
 - `pubspec.lock` is committed here (unlike the package) so the demo builds the same way every time.
+- iOS and macOS use Swift Package Manager only, never CocoaPods. The switch is in this folder's `pubspec.yaml`, and Flutter only reads it for commands run inside `example/` — `flutter pub get` from the package root regenerates a Podfile here. If one appears, delete it and restore `ios/` and `macos/` from git.
