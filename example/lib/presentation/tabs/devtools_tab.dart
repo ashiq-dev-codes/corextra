@@ -91,6 +91,7 @@ class DevToolsTab extends StatelessWidget {
               'Large Resp': controller.sendLargeResponse,
               'Redirect': controller.sendRedirect,
               'Parallel x3': controller.sendParallelRequests,
+              'Stress x200': controller.sendStressTest,
               'Empty 204': controller.sendEmptyResponse,
             },
             onRun: _run,

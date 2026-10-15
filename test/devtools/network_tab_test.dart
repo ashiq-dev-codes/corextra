@@ -131,11 +131,11 @@ void main() {
     await tester.tap(find.text('/todos/1'));
     await tester.pumpAndSettle();
 
-    // The list (and its search/filter chrome) is gone — only the
+    // The list (and its filter chrome) is gone — only the
     // selected request's own detail screen is shown. Its fixed
     // summary shows the same path the list row did (that's expected
     // — it's now findsOneWidget instead of the list's own copy).
-    expect(find.byType(TextField), findsNothing);
+    expect(find.text('Method'), findsNothing);
     expect(find.text('/todos/1'), findsOneWidget);
     expect(find.textContaining('https://example.test/todos/1'), findsOneWidget);
     expect(find.text('Headers'), findsOneWidget);
@@ -150,111 +150,10 @@ void main() {
     await tester.tap(find.byTooltip('Back to requests'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('Method'), findsOneWidget);
     expect(find.text('/todos/1'), findsOneWidget);
     expect(find.text('/todos'), findsOneWidget);
   });
-
-  testWidgets(
-    'on a wide width, splits into a list and a detail pane; tapping a '
-    'row shows its detail on the right',
-    (tester) async {
-      _seedTwoEvents();
-
-      await tester.pumpWidget(_wrap(900));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Requests'), findsOneWidget);
-      expect(find.text('(2)'), findsOneWidget);
-      expect(find.text('Select a request to see its details'), findsOneWidget);
-
-      await tester.tap(find.text('/todos/1'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Select a request to see its details'), findsNothing);
-      expect(
-        find.textContaining('https://example.test/todos/1'),
-        findsOneWidget,
-      );
-      expect(find.text('Headers'), findsOneWidget);
-      expect(find.text('Payload'), findsOneWidget);
-      expect(find.text('Response'), findsOneWidget);
-
-      // The response body lives behind the "Response" tab.
-      await tester.tap(find.text('Response'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('"id": 1'), findsOneWidget);
-
-      // Switching selection updates the detail pane.
-      await tester.tap(find.text('/todos'));
-      await tester.pumpAndSettle();
-
-      // Still on the "Response" tab from the previous selection — its
-      // error, like the URL, lives on the "Headers" tab instead.
-      await tester.tap(find.text('Headers'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('https://example.test/todos/1'), findsNothing);
-      expect(find.text('Internal Server Error'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'the search box filters requests by URL, hiding non-matching rows',
-    (tester) async {
-      _seedTwoEvents();
-
-      await tester.pumpWidget(_wrap(400));
-      await tester.pumpAndSettle();
-      expect(find.text('/todos/1'), findsOneWidget);
-      expect(find.text('/todos'), findsOneWidget);
-
-      await tester.enterText(find.byType(TextField), 'todos/1');
-      await tester.pumpAndSettle();
-
-      expect(find.text('/todos/1'), findsOneWidget);
-      expect(find.text('/todos'), findsNothing);
-    },
-  );
-
-  testWidgets('the search box also matches on status code, and clearing it '
-      'restores the full list', (tester) async {
-    _seedTwoEvents();
-
-    await tester.pumpWidget(_wrap(400));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField), '500');
-    await tester.pumpAndSettle();
-
-    // The single remaining row should be the 500 one, not the 200.
-    expect(find.text('/todos'), findsOneWidget);
-    expect(find.text('/todos/1'), findsNothing);
-
-    await tester.tap(find.byTooltip('Clear'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('/todos/1'), findsOneWidget);
-    expect(find.text('/todos'), findsOneWidget);
-  });
-
-  testWidgets(
-    'a search with no matches shows an empty state instead of an empty '
-    'list',
-    (tester) async {
-      _seedTwoEvents();
-
-      await tester.pumpWidget(_wrap(400));
-      await tester.pumpAndSettle();
-
-      await tester.enterText(find.byType(TextField), 'nothing-matches-this');
-      await tester.pumpAndSettle();
-
-      expect(find.text('/todos/1'), findsNothing);
-      expect(find.text('/todos'), findsNothing);
-      expect(find.textContaining('No requests match'), findsOneWidget);
-    },
-  );
 
   testWidgets(
     'deselecting a method in the Method filter dropdown hides requests '
@@ -298,11 +197,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Reset'), findsNothing);
 
-    // Search text alone is enough to make "Reset" appear — no need
-    // to open a filter dropdown (and thus no risk of the popup still
-    // being open, and absorbing the tap meant for "Reset" below) to
-    // exercise the same onReset wiring the dropdowns also use.
-    await tester.enterText(find.byType(TextField), 'todos/1');
+    await _openFilterMenu(tester, 'Method');
+    await _tapFilterOption(tester, 'Method', 'POST');
+    // Close the popup so it can't absorb the tap meant for "Reset".
+    await tester.tapAt(Offset.zero);
     await tester.pumpAndSettle();
     expect(find.text('/todos/1'), findsOneWidget);
     expect(find.text('/todos'), findsNothing);
@@ -369,14 +267,23 @@ void main() {
 
       // The request list — the giant body's would-be scroll rival in
       // the old accordion design — isn't part of this screen at all;
-      // its search box is a reliable proxy for its absence, since the
+      // its filter bar is a reliable proxy for its absence, since the
       // detail view's own fixed summary repeats the tapped row's path.
-      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Method'), findsNothing);
 
       await tester.tap(find.text('Response'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('line 0'), findsOneWidget);
+      // Lines are built only while on screen, so the last one doesn't exist yet.
+      expect(find.textContaining('line 199'), findsNothing);
+
+      await tester.dragUntilVisible(
+        find.textContaining('line 199'),
+        _bodyScrollArea(),
+        const Offset(0, -300),
+      );
+      await tester.pumpAndSettle();
       expect(find.textContaining('line 199'), findsOneWidget);
     },
   );
@@ -712,7 +619,7 @@ void main() {
 
       // Roughly what's left for NetworkTab inside a floating window at
       // its minimum size (280x360), after the window's own header and
-      // the outer Network/Logs/Performance/Info tab bar.
+      // the outer Network/Logs/Info tab bar.
       await tester.pumpWidget(_wrap(280, height: 220));
       await tester.pumpAndSettle();
 
@@ -1043,6 +950,29 @@ void main() {
     },
   );
 
+  testWidgets('a long request list gets an edge scrollbar, and tapping a '
+      'row still opens it', (tester) async {
+    final store = CorextraDevTools.instance.network;
+    for (var i = 0; i < 60; i++) {
+      final event = store.begin(method: 'GET', url: 'https://example.test/r$i');
+      event.statusCode = 200;
+      event.completedAt = DateTime.now();
+      store.complete(event);
+    }
+
+    await tester.pumpWidget(_wrap(400));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('list-scrollbar-thumb-vertical')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('/r59'));
+    await tester.pumpAndSettle();
+    expect(find.text('Headers'), findsOneWidget);
+  });
+
   testWidgets(
     'the Method filter has a Socket option that hides socket rows only',
     (tester) async {
@@ -1064,21 +994,4 @@ void main() {
       expect(find.text('/todos'), findsOneWidget);
     },
   );
-
-  testWidgets('the search box also matches socket event names', (tester) async {
-    _seedTwoEvents();
-    const CorextraSocketLogger(
-      url: 'https://socket.example.test',
-      consoleEnabled: false,
-    ).emit('chat:latest_messages', null);
-
-    await tester.pumpWidget(_wrap(400));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField), 'latest');
-    await tester.pumpAndSettle();
-
-    expect(find.text('chat:latest_messages'), findsOneWidget);
-    expect(find.text('/todos/1'), findsNothing);
-  });
 }

@@ -1,10 +1,9 @@
-import 'dart:developer' as dev;
-
 import 'package:flutter/foundation.dart';
 
 import '../devtools/devtools_controller.dart';
 import '../devtools/models/network_event.dart';
 import '../devtools/util/pretty_json.dart';
+import '../logs/deferred_log.dart';
 import '../logs/enum/log_color.dart';
 
 /// Logs socket traffic the way `AppLoggerInterceptor` + `CorextraDevToolsInterceptor` log Dio: console blocks plus DevTools Network rows (filter "Socket").
@@ -116,14 +115,24 @@ class CorextraSocketLogger {
 
   void _log(LogColor color, String title, String headline, Object? data) {
     if (!consoleEnabled || !kDebugMode) return;
+    final at = DateTime.now();
+    deferredLog(() => _block(color, title, headline, data, at), name: 'SOCKET');
+  }
 
+  String _block(
+    LogColor color,
+    String title,
+    String headline,
+    Object? data,
+    DateTime at,
+  ) {
     final c = color.getValue;
     final r = LogColor.reset.getValue;
 
     final b = StringBuffer();
     b.writeln('$c$_top Socket $title ───────────────');
     b.writeln('│  $headline');
-    b.writeln('│  ⏱  ${DateTime.now().toIso8601String()}');
+    b.writeln('│  ⏱  ${at.toIso8601String()}');
 
     if (data != null) {
       b.writeln(_divider);
@@ -134,7 +143,7 @@ class CorextraSocketLogger {
     }
 
     b.write('$_bottom$r');
-    dev.log(b.toString(), name: 'SOCKET');
+    return b.toString();
   }
 
   /// Socket.IO passes the server's ack callback alongside an event's data; it isn't data, so it's dropped before logging.

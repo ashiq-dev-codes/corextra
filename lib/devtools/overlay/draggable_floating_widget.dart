@@ -40,7 +40,7 @@ enum _PeekSide { none, left, right }
 /// only the [Positioned] offset itself updates per frame, via a
 /// [ValueListenableBuilder] rather than `setState` on this whole widget.
 /// For a small bubble that distinction barely matters, but the floating
-/// window's content is a full tab set (Network/Logs/Performance/Info);
+/// window's content is a full tab set (Network/Logs/Info);
 /// rebuilding all of that on every pixel of drag movement is exactly
 /// the kind of per-frame cost that reads as janky, laggy dragging.
 class DraggableFloatingWidget extends StatefulWidget {

@@ -167,6 +167,25 @@ class FakeScenarioInterceptor extends Interceptor {
       statusMessage: 'No Content',
       body: null,
     ),
+    // A typical paginated feed, big enough that logging it carelessly would show up as jank.
+    'feed': _FakeScenario(
+      statusCode: 200,
+      statusMessage: 'OK',
+      body: {
+        'page': 1,
+        'items': [
+          for (var i = 0; i < 300; i++)
+            {
+              'id': i,
+              'title': 'Post #$i',
+              'author': {'id': i % 17, 'name': 'User ${i % 17}'},
+              'tags': ['flutter', 'dart', 'tag$i'],
+              'body':
+                  'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+            },
+        ],
+      },
+    ),
   };
 }
 

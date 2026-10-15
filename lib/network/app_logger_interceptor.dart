@@ -1,10 +1,9 @@
-import 'dart:developer' as dev;
-
 import 'package:corextra/logs/enum/log_color.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../devtools/util/pretty_json.dart';
+import '../logs/deferred_log.dart';
 
 /// A Dio interceptor that logs requests, responses, and errors in a
 /// pretty, bordered format — one consolidated block per event.
@@ -28,29 +27,37 @@ class AppLoggerInterceptor extends Interceptor {
   static const _bottom =
       '└─────────────────────────────────────────────────────────────';
 
+  // Only the timestamp is taken here; formatting happens later so the request is never held up.
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    if (enabled) _logRequest(options);
+    if (enabled && kDebugMode) {
+      final at = DateTime.now();
+      deferredLog(() => _requestBlock(options, at), name: 'HTTP');
+    }
     handler.next(options);
   }
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
-    if (enabled) _logResponse(response);
+    if (enabled && kDebugMode) {
+      final at = DateTime.now();
+      deferredLog(() => _responseBlock(response, at), name: 'HTTP');
+    }
     handler.next(response);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    if (enabled) _logError(err);
+    if (enabled && kDebugMode) {
+      final at = DateTime.now();
+      deferredLog(() => _errorBlock(err, at), name: 'HTTP');
+    }
     handler.next(err);
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
-  void _logRequest(RequestOptions options) {
-    if (!kDebugMode) return;
-
+  String _requestBlock(RequestOptions options, DateTime at) {
     final c = LogColor.blue.getValue;
     final r = LogColor.reset.getValue;
     final method = options.method.toUpperCase();
@@ -59,7 +66,7 @@ class AppLoggerInterceptor extends Interceptor {
     final b = StringBuffer();
     b.writeln('$c$_top Request ───────────────');
     b.writeln('│  ➡  $method  $url');
-    b.writeln('│  ⏱  ${DateTime.now().toIso8601String()}');
+    b.writeln('│  ⏱  ${at.toIso8601String()}');
 
     final query = options.queryParameters;
     if (query.isNotEmpty) {
@@ -80,12 +87,10 @@ class AppLoggerInterceptor extends Interceptor {
     }
 
     b.write('$_bottom$r');
-    dev.log(b.toString(), name: 'HTTP');
+    return b.toString();
   }
 
-  void _logResponse(Response response) {
-    if (!kDebugMode) return;
-
+  String _responseBlock(Response response, DateTime at) {
     final c = LogColor.green.getValue;
     final r = LogColor.reset.getValue;
     final req = response.requestOptions;
@@ -97,19 +102,17 @@ class AppLoggerInterceptor extends Interceptor {
     final b = StringBuffer();
     b.writeln('$c$_top Response ──────────────');
     b.writeln('│  ✔  $status $statusMsg  $method  $url');
-    b.writeln('│  ⏱  ${DateTime.now().toIso8601String()}');
+    b.writeln('│  ⏱  ${at.toIso8601String()}');
     b.writeln(_divider);
     b.writeln('│  Body');
     for (final line in _formatBody(response.data).split('\n')) {
       b.writeln('│    $line');
     }
     b.write('$_bottom$r');
-    dev.log(b.toString(), name: 'HTTP');
+    return b.toString();
   }
 
-  void _logError(DioException err) {
-    if (!kDebugMode) return;
-
+  String _errorBlock(DioException err, DateTime at) {
     final c = LogColor.red.getValue;
     final r = LogColor.reset.getValue;
     final req = err.requestOptions;
@@ -120,7 +123,7 @@ class AppLoggerInterceptor extends Interceptor {
     final b = StringBuffer();
     b.writeln('$c$_top Error ─────────────────');
     b.writeln('│  ✘  ${status ?? err.type.name}  $method  $url');
-    b.writeln('│  ⏱  ${DateTime.now().toIso8601String()}');
+    b.writeln('│  ⏱  ${at.toIso8601String()}');
     b.writeln('│  Message: ${err.message ?? 'none'}');
 
     final resData = err.response?.data;
@@ -133,7 +136,7 @@ class AppLoggerInterceptor extends Interceptor {
     }
 
     b.write('$_bottom$r');
-    dev.log(b.toString(), name: 'HTTP');
+    return b.toString();
   }
 
   String _formatBody(dynamic data) {

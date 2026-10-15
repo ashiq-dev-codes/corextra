@@ -4,32 +4,60 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../devtools_controller.dart';
+import '../../find/devtools_find.dart';
+import '../../find/find_text.dart';
 import '../../models/log_entry.dart';
 import '../empty_state.dart';
+import '../live_builder.dart';
 import '../scroll_to_top_fab.dart';
-import '../search_field.dart';
+
+const _emptyMessage = 'No logs captured yet';
+const _emptyHint = 'Call debugLog() or AppLogger to see entries here.';
+final _timeFormat = DateFormat('HH:mm:ss.SSS');
 
 /// Reverse-chronological, color-coded list of captured log entries from
-/// `CorextraDevTools.instance.logs` — filterable by message text and by
-/// level.
+/// `CorextraDevTools.instance.logs` — filterable by level.
 class LogsTab extends StatefulWidget {
   const LogsTab({super.key});
+
+  static final FindSource findSource = FindSource(
+    changes: CorextraDevTools.instance.logs,
+    targets: _findTargets,
+  );
+
+  static Iterable<FindTarget> _findTargets() sync* {
+    final entries = CorextraDevTools.instance.logs.entries;
+    if (entries.isEmpty) {
+      yield const FindTarget('logs/empty/message', _emptyMessage);
+      yield const FindTarget('logs/empty/hint', _emptyHint);
+      return;
+    }
+    for (final entry in entries.reversed) {
+      final id = _findId(entry);
+      yield FindTarget('$id/message', entry.message, entry);
+      yield FindTarget('$id/time', _timeFormat.format(entry.timestamp), entry);
+    }
+  }
 
   @override
   State<LogsTab> createState() => _LogsTabState();
 }
 
-class _LogsTabState extends State<LogsTab> {
-  final _searchController = TextEditingController();
-  String _query = '';
+final _entryIds = Expando<int>();
+var _nextEntryId = 0;
+
+String _findId(LogEntry entry) => 'log/${_entryIds[entry] ??= _nextEntryId++}';
+
+class _LogsTabState extends State<LogsTab> with FindAware<LogsTab> {
   final Set<LogLevel> _activeLevels = Set.of(LogLevel.values);
 
-  static final _timeFormat = DateFormat('HH:mm:ss.SSS');
-
+  /// Like a browser expanding a collapsed section: a match is never left hidden behind a level filter.
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  void onFindReveal(FindHit hit) {
+    final entry = hit.target.meta;
+    if (entry is LogEntry && !_activeLevels.contains(entry.level)) {
+      setState(() => _activeLevels.add(entry.level));
+    }
   }
 
   Color _colorFor(LogLevel level) {
@@ -65,12 +93,6 @@ class _LogsTabState extends State<LogsTab> {
     }
   }
 
-  bool _matches(LogEntry entry, String query) {
-    if (!_activeLevels.contains(entry.level)) return false;
-    if (query.isEmpty) return true;
-    return entry.message.toLowerCase().contains(query);
-  }
-
   void _toggleLevel(LogLevel level, bool active) {
     setState(() {
       if (active) {
@@ -85,30 +107,26 @@ class _LogsTabState extends State<LogsTab> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final store = CorextraDevTools.instance.logs;
-    return ListenableBuilder(
+    return DevToolsLiveBuilder(
       listenable: store,
-      builder: (context, _) {
+      builder: (context) {
         final entries = store.entries.reversed.toList();
         if (entries.isEmpty) {
           return const DevToolsEmptyState(
             icon: LucideIcons.fileText,
-            message: 'No logs captured yet',
-            hint: 'Call debugLog() or AppLogger to see entries here.',
+            message: _emptyMessage,
+            hint: _emptyHint,
+            findId: 'logs/empty',
           );
         }
 
-        final query = _query.trim().toLowerCase();
-        final filtered = entries.where((e) => _matches(e, query)).toList();
+        final filtered =
+            entries.where((e) => _activeLevels.contains(e.level)).toList();
 
         return Column(
           children: [
-            DevToolsSearchField(
-              controller: _searchController,
-              hintText: 'Search log messages',
-              onChanged: (value) => setState(() => _query = value),
-            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: Wrap(
                 spacing: 6,
                 children:
@@ -116,7 +134,7 @@ class _LogsTabState extends State<LogsTab> {
                       final color = _colorFor(level);
                       final active = _activeLevels.contains(level);
                       return FilterChip(
-                        label: Text(_labelFor(level)),
+                        label: FindText(_labelFor(level)),
                         labelStyle: TextStyle(
                           fontSize: 12,
                           color:
@@ -143,23 +161,29 @@ class _LogsTabState extends State<LogsTab> {
             Expanded(
               child:
                   filtered.isEmpty
-                      ? DevToolsEmptyState(
+                      ? const DevToolsEmptyState(
                         icon: LucideIcons.searchX,
-                        message:
-                            query.isEmpty
-                                ? 'No logs match the selected levels'
-                                : 'No logs match "${_query.trim()}"',
+                        message: 'No logs match the selected levels',
                       )
                       : DevToolsScrollToTop(
+                        scrollbar: true,
                         builder:
-                            (context, controller) => ListView.separated(
+                            (context, controller) => FindListView(
                               controller: controller,
                               itemCount: filtered.length,
+                              itemKey: (index) => filtered[index],
+                              indexOfHit: (hit) {
+                                final entry = hit.target.meta;
+                                return entry is LogEntry
+                                    ? filtered.indexOf(entry)
+                                    : null;
+                              },
                               separatorBuilder:
                                   (context, index) => const Divider(height: 1),
                               itemBuilder: (context, index) {
                                 final entry = filtered[index];
                                 final color = _colorFor(entry.level);
+                                final id = _findId(entry);
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
@@ -180,8 +204,9 @@ class _LogsTabState extends State<LogsTab> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Text(
+                                            FindText(
                                               entry.message,
+                                              id: '$id/message',
                                               style: TextStyle(
                                                 fontFamily: 'monospace',
                                                 fontSize: 12.5,
@@ -189,10 +214,11 @@ class _LogsTabState extends State<LogsTab> {
                                               ),
                                             ),
                                             const SizedBox(height: 2),
-                                            Text(
+                                            FindText(
                                               _timeFormat.format(
                                                 entry.timestamp,
                                               ),
+                                              id: '$id/time',
                                               style: theme.textTheme.bodySmall
                                                   ?.copyWith(
                                                     color:

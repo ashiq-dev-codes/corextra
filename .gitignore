@@ -15,6 +15,15 @@ pubspec.lock
 # file for reproducible builds.
 !/example/pubspec.lock
 
+# Pure Dart package: platform folders here are only ever build leftovers.
+/android/
+/ios/
+
+# IDE and OS files — never part of the package.
+*.iml
+.idea/
+.DS_Store
+
 # Claude Code local settings
 .claude/hooks
 .claude/settings.json

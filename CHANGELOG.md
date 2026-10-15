@@ -1,3 +1,13 @@
+## 1.2.11
+
+- DevTools has a new **Find** box that searches every tab at once: URLs, headers, request and response bodies, logs, and app info. Every match is highlighted like a browser's find — press **Enter** or the arrows to jump between them, and DevTools opens the right tab, request, and section for you. It replaces the separate Network and Logs search boxes.
+- DevTools and logging no longer slow your app down, even with constant API traffic: console logs are formatted between frames instead of inside your requests, the panel refreshes a few times a second at most, and huge responses open instantly.
+- The Network and Logs lists now have the same easy-to-grab scrollbar as response bodies.
+- `AppLogger` now limits how much request and response data it logs, so a huge body can't stall your app.
+- Very long log messages are shortened in the **Logs** tab; the console still shows them in full.
+- Plain-text bodies are now selectable one line at a time. **Copy** still copies the whole body.
+- **Breaking:** removed the DevTools **Performance** tab, along with `PerformanceTab`, `FrameSample`, `FrameSampleStore`, and `CorextraDevTools.instance.performance`. DevTools no longer tracks frame timings or memory in the background.
+
 ## 1.2.10
 
 - Now WebAssembly (WASM) compatible — supports all 6 platforms: Android, iOS, Web, macOS, Windows, and Linux.

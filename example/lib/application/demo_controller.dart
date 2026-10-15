@@ -392,6 +392,24 @@ class DemoController extends ChangeNotifier {
     }
   }
 
+  /// What a busy real app does: 200 requests with large bodies in quick waves, plus a log line per wave — the app should stay smooth throughout.
+  Future<void> sendStressTest() async {
+    for (var wave = 1; wave <= 10; wave++) {
+      try {
+        await Future.wait([
+          for (var i = 0; i < 20; i++)
+            networkService.dio.get(
+              '/simulate/feed',
+              queryParameters: {'page': i},
+            ),
+        ]);
+      } on DioException {
+        /* ignore */
+      }
+      debugLog('Stress test: wave $wave of 10 done');
+    }
+  }
+
   Future<void> sendNetworkError() async {
     final failingDio = Dio(
       BaseOptions(baseUrl: 'https://this-domain-does-not-exist.invalid'),

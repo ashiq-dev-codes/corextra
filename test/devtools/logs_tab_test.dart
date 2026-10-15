@@ -50,26 +50,68 @@ void main() {
     expect(find.text('failed to load avatar'), findsOneWidget);
   });
 
-  testWidgets('the search box filters entries by message, and clearing it '
-      'restores the full list', (tester) async {
+  testWidgets('a burst of new entries all show up, refreshed in batches '
+      'rather than once per entry', (tester) async {
     _seedThreeEntries();
-
     await tester.pumpWidget(_wrap());
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'avatar');
+    final store = CorextraDevTools.instance.logs;
+    for (var i = 0; i < 100; i++) {
+      store.add(
+        LogEntry(
+          message: 'burst #$i',
+          level: LogLevel.info,
+          timestamp: DateTime.now(),
+        ),
+      );
+    }
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
 
-    expect(find.text('user signed in'), findsNothing);
-    expect(find.text('cache miss for profile'), findsNothing);
-    expect(find.text('failed to load avatar'), findsOneWidget);
+    // Newest first: the last entry of the burst is at the top.
+    expect(find.text('burst #99'), findsOneWidget);
+  });
 
-    await tester.tap(find.byTooltip('Clear'));
+  testWidgets('a long list gets an edge scrollbar that scrolls it when '
+      'dragged; a short one shows none', (tester) async {
+    _seedThreeEntries();
+    await tester.pumpWidget(_wrap());
+    await tester.pumpAndSettle();
+    final thumb = find.byKey(const ValueKey('list-scrollbar-thumb-vertical'));
+    expect(thumb, findsNothing);
+
+    final store = CorextraDevTools.instance.logs;
+    for (var i = 0; i < 200; i++) {
+      store.add(
+        LogEntry(
+          message: 'entry #$i',
+          level: LogLevel.info,
+          timestamp: DateTime.now(),
+        ),
+      );
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(thumb, findsOneWidget);
+
+    final list = tester.getRect(find.byType(ListView));
+    await tester.dragFrom(
+      list.topRight + const Offset(-8, 40),
+      const Offset(0, 200),
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('user signed in'), findsOneWidget);
-    expect(find.text('cache miss for profile'), findsOneWidget);
-    expect(find.text('failed to load avatar'), findsOneWidget);
+    final position =
+        tester
+            .state<ScrollableState>(
+              find.descendant(
+                of: find.byType(ListView),
+                matching: find.byType(Scrollable),
+              ),
+            )
+            .position;
+    expect(position.pixels, greaterThan(0));
   });
 
   testWidgets('deselecting a level chip hides entries at that level', (
@@ -88,18 +130,20 @@ void main() {
     expect(find.text('cache miss for profile'), findsOneWidget);
   });
 
-  testWidgets('a search or filter combination with no matches shows an empty '
-      'state instead of an empty list', (tester) async {
+  testWidgets('deselecting every level shows an empty state instead of an '
+      'empty list', (tester) async {
     _seedThreeEntries();
 
     await tester.pumpWidget(_wrap());
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'nothing-matches-this');
-    await tester.pumpAndSettle();
+    for (final level in ['Info', 'Warning', 'Error']) {
+      await tester.tap(find.widgetWithText(FilterChip, level));
+      await tester.pumpAndSettle();
+    }
 
     expect(find.text('user signed in'), findsNothing);
-    expect(find.textContaining('No logs match'), findsOneWidget);
+    expect(find.text('No logs match the selected levels'), findsOneWidget);
   });
 
   testWidgets('with a long list, scrolling down reveals a scroll-to-top button '

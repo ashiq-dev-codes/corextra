@@ -14,7 +14,7 @@ Add the dependency:
 
 ```yaml
 dependencies:
-  corextra: ^1.2.10
+  corextra: ^1.2.11
 ```
 
 Import it:
@@ -81,23 +81,31 @@ Tap the floating bubble to open the panel.
 
 | Tab | What it shows |
 |---|---|
-| **Network** | Every HTTP request and socket message. Search and filter by method or status. |
-| **Logs** | Every `debugLog` / `AppLogger` call. Search and filter by level. |
+| **Network** | Every HTTP request and socket message. Filter by method or status. |
+| **Logs** | Every `debugLog` / `AppLogger` call. Filter by level. |
 | **Info** | App version and device details (the browser, on web). |
-| **Performance** (under **More**) | Live FPS chart with jank highlighting. |
+
+**Find anything** — the search box at the top works like a browser's find:
+- Searches every tab at once: URLs, headers, request and response bodies, logs, and app info
+- Every match is highlighted; the current one in orange
+- Press **Enter** (or the arrows) to jump to the next match — DevTools opens the right tab, request, and section for you
+- Each tab shows how many matches it holds
+- **Shift+Enter** goes back, **Esc** clears, **Cmd/Ctrl+F** focuses the box
 
 **In the Network tab:**
 - Headers, query params, and body each get their own tab
 - JSON shows as a collapsible, color-coded tree
-- Large bodies scroll inside their own box — drag along the edge to scroll, or tap the edge to jump
+- Large bodies scroll inside their own box
 - Copy, Share, and Fullscreen buttons stay in view while you scroll
 - Auth headers (`Authorization`, `Cookie`, …) get a **TOKEN** badge. Hide their values on screen with `hiddenHeaders` — Copy still gives the real value
 
 **Good to know:**
 - Tap **Minimize** to shrink the panel into a small floating window
+- Long lists and large bodies have easy-to-grab scrollbars — drag along the right edge, or tap it to jump
 - Android's back button closes the panel step by step, without affecting your app
 - On web, **Share** opens the browser's share sheet, or copies to the clipboard if the browser doesn't have one
 - On in debug builds, off in release. Change it anytime with `CorextraDevTools.instance.enabled = true`
+- Built to stay out of your way, even with constant API traffic: console logs are formatted between frames instead of inside your requests, the panel refreshes a few times a second at most, and huge responses open instantly
 
 Coming later: widget inspector, memory snapshots, storage viewer, and route inspector.
 

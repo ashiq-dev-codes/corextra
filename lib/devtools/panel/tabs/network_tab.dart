@@ -1,21 +1,24 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart' show Drag, DragStartBehavior;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../devtools_controller.dart';
+import '../../find/devtools_find.dart';
+import '../../find/find_text.dart';
 import '../../models/network_event.dart';
 import '../../util/pretty_json.dart';
 import '../../util/platform_services.dart';
 import '../back_handler_scope.dart';
+import '../edge_scrollbar.dart';
 import '../empty_state.dart';
+import '../live_builder.dart';
 import '../scroll_to_top_fab.dart';
-import '../search_field.dart';
 
 /// Lists captured HTTP exchanges from `CorextraDevTools.instance.network`.
 ///
@@ -33,40 +36,137 @@ import '../search_field.dart';
 class NetworkTab extends StatefulWidget {
   const NetworkTab({super.key});
 
+  static final FindSource findSource = FindSource(
+    changes: CorextraDevTools.instance.network,
+    targets: _networkFindTargets,
+  );
+
   @override
   State<NetworkTab> createState() => _NetworkTabState();
 }
 
-class _NetworkTabState extends State<NetworkTab> {
+const _emptyMessage = 'No requests captured yet';
+const _emptyHint = 'Add CorextraDevToolsInterceptor or CorextraSocketLogger.';
+
+/// Where a piece of a request's text lives — tells the tab what to open to show it.
+enum _Section {
+  row,
+  status,
+  url,
+  error,
+  requestHeaders,
+  responseHeaders,
+  query,
+  requestBody,
+  responseBody;
+
+  /// The detail tab (Headers / Payload / Response) showing this section, if any.
+  int? get detailTab => switch (this) {
+    row || status => null,
+    url || error || requestHeaders || responseHeaders => 0,
+    query || requestBody => 1,
+    responseBody => 2,
+  };
+}
+
+class _NetworkFindMeta {
+  const _NetworkFindMeta(this.eventId, this.section);
+
+  final String eventId;
+  final _Section section;
+}
+
+String _findPrefix(NetworkEvent event, _Section section) =>
+    '${event.id}/${section.name}';
+
+/// Mirrors exactly what the list row and detail view render, in the same order, with headers as masked on screen.
+Iterable<FindTarget> _networkFindTargets() sync* {
+  final events = CorextraDevTools.instance.network.events;
+  if (events.isEmpty) {
+    yield const FindTarget('network/empty/message', _emptyMessage);
+    yield const FindTarget('network/empty/hint', _emptyHint);
+    return;
+  }
+  for (final event in events.reversed) {
+    FindTarget target(_Section section, String key, String text) => FindTarget(
+      '${_findPrefix(event, section)}/$key',
+      text,
+      _NetworkFindMeta(event.id, section),
+    );
+
+    yield target(_Section.row, 'method', event.method.toUpperCase());
+    yield target(_Section.row, 'path', _displayPath(event));
+    yield target(_Section.row, 'caption', _rowCaption(event));
+    yield target(_Section.status, 'label', _statusLabelFor(event));
+    yield target(_Section.url, 'text', event.url);
+    if (event.errorMessage != null) {
+      yield target(_Section.error, 'text', event.errorMessage!);
+    }
+    if (!event.isSocket) {
+      for (final (section, headers) in [
+        (_Section.requestHeaders, event.requestHeaders),
+        (_Section.responseHeaders, event.responseHeaders),
+      ]) {
+        for (final entry in headers.entries) {
+          yield target(section, 'k/${entry.key}', entry.key);
+          yield target(
+            section,
+            'v/${entry.key}',
+            _headerDisplayValue(entry, event.hiddenHeaderKeys),
+          );
+        }
+      }
+    }
+    for (final section in [
+      if (event.queryParameters.isNotEmpty) _Section.query,
+      _Section.requestBody,
+      _Section.responseBody,
+    ]) {
+      final lines = _bodyOf(event, section).plainLines;
+      for (var i = 0; i < lines.length; i++) {
+        yield target(section, '$i', lines[i]);
+      }
+    }
+  }
+}
+
+int? _rowIndexOf(List<NetworkEvent> events, FindHit hit) {
+  final meta = hit.target.meta;
+  if (meta is! _NetworkFindMeta || meta.section != _Section.row) return null;
+  return events.indexWhere((event) => event.id == meta.eventId);
+}
+
+class _NetworkTabState extends State<NetworkTab> with FindAware<NetworkTab> {
   static const double _splitBreakpoint = 700;
 
-  final _searchController = TextEditingController();
-  String _query = '';
   NetworkEvent? _selected;
+  bool _isWide = false;
   final Set<_MethodFilter> _activeMethods = Set.of(_MethodFilter.values);
   final Set<_StatusFilter> _activeStatuses = Set.of(_StatusFilter.values);
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  bool _passesFilters(NetworkEvent event) =>
+      _activeMethods.contains(_methodFilterFor(event)) &&
+      _activeStatuses.contains(_statusFilterFor(event));
 
-  /// Matches against the active method/status filter chips, then — if
-  /// there's search text — against method, URL, status code, and error
-  /// message, the fields already visible in each row, so a match is
-  /// never a surprise.
-  bool _matches(NetworkEvent event, String query) {
-    if (!_activeMethods.contains(_methodFilterFor(event))) {
-      return false;
-    }
-    if (!_activeStatuses.contains(_statusFilterFor(event))) return false;
-    if (query.isEmpty) return true;
-    return event.method.toLowerCase().contains(query) ||
-        event.url.toLowerCase().contains(query) ||
-        (event.socketEvent?.toLowerCase().contains(query) ?? false) ||
-        event.statusCode?.toString() == query ||
-        (event.errorMessage?.toLowerCase().contains(query) ?? false);
+  /// Opens the request a match lives in — and, like a browser expanding a collapsed section, never leaves it hidden behind a filter.
+  @override
+  void onFindReveal(FindHit hit) {
+    final meta = hit.target.meta;
+    if (meta is! _NetworkFindMeta) return;
+    final event =
+        CorextraDevTools.instance.network.events
+            .where((event) => event.id == meta.eventId)
+            .firstOrNull;
+    if (event == null) return;
+    setState(() {
+      if (!_passesFilters(event)) _resetFilterSets();
+      if (meta.section != _Section.row) {
+        _selected = event;
+      } else if (!_isWide) {
+        // A row match needs the list, which a phone-width detail screen replaces.
+        _selected = null;
+      }
+    });
   }
 
   void _toggleMethod(_MethodFilter filter, bool active) {
@@ -89,54 +189,52 @@ class _NetworkTabState extends State<NetworkTab> {
     });
   }
 
-  void _resetFilters() {
-    setState(() {
-      _query = '';
-      _searchController.clear();
-      _activeMethods
-        ..clear()
-        ..addAll(_MethodFilter.values);
-      _activeStatuses
-        ..clear()
-        ..addAll(_StatusFilter.values);
-    });
+  void _resetFilterSets() {
+    _activeMethods
+      ..clear()
+      ..addAll(_MethodFilter.values);
+    _activeStatuses
+      ..clear()
+      ..addAll(_StatusFilter.values);
   }
+
+  void _resetFilters() => setState(_resetFilterSets);
 
   @override
   Widget build(BuildContext context) {
     final store = CorextraDevTools.instance.network;
-    return ListenableBuilder(
+    return DevToolsLiveBuilder(
       listenable: store,
-      builder: (context, _) {
+      builder: (context) {
         final events = store.events.reversed.toList();
         if (events.isEmpty) {
           return const DevToolsEmptyState(
             icon: LucideIcons.network,
-            message: 'No requests captured yet',
-            hint: 'Add CorextraDevToolsInterceptor or CorextraSocketLogger.',
+            message: _emptyMessage,
+            hint: _emptyHint,
+            findId: 'network/empty',
           );
         }
 
-        final query = _query.trim().toLowerCase();
-        final filtered = events.where((e) => _matches(e, query)).toList();
+        final filtered = events.where(_passesFilters).toList();
 
         // The selected event may have scrolled out of the ring buffer,
-        // or been filtered out by the search box or filters; treat
-        // either as "nothing selected" rather than pointing the detail
-        // pane at something no longer in view.
+        // or been filtered out; treat either as "nothing selected"
+        // rather than pointing the detail pane at something no longer
+        // in view.
         final selected =
             (_selected != null && filtered.contains(_selected))
                 ? _selected
                 : null;
 
         final filtersActive =
-            query.isNotEmpty ||
             _activeMethods.length != _MethodFilter.values.length ||
             _activeStatuses.length != _StatusFilter.values.length;
 
         return LayoutBuilder(
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= _splitBreakpoint;
+            _isWide = isWide;
 
             if (!isWide && selected != null) {
               return _NarrowDetailScreen(
@@ -147,11 +245,7 @@ class _NetworkTabState extends State<NetworkTab> {
 
             return Column(
               children: [
-                DevToolsSearchField(
-                  controller: _searchController,
-                  hintText: 'Search by method, URL, event, or status',
-                  onChanged: (value) => setState(() => _query = value),
-                ),
+                const SizedBox(height: 8),
                 _NetworkFilterBar(
                   activeMethods: _activeMethods,
                   activeStatuses: _activeStatuses,
@@ -162,12 +256,9 @@ class _NetworkTabState extends State<NetworkTab> {
                 Expanded(
                   child:
                       filtered.isEmpty
-                          ? DevToolsEmptyState(
+                          ? const DevToolsEmptyState(
                             icon: LucideIcons.searchX,
-                            message:
-                                query.isEmpty
-                                    ? 'No requests match the selected filters'
-                                    : 'No requests match "${_query.trim()}"',
+                            message: 'No requests match the selected filters',
                           )
                           : isWide
                           ? _MasterDetailView(
@@ -177,13 +268,17 @@ class _NetworkTabState extends State<NetworkTab> {
                                 (event) => setState(() => _selected = event),
                           )
                           : DevToolsScrollToTop(
+                            scrollbar: true,
                             builder:
-                                (context, controller) => ListView.separated(
+                                (context, controller) => FindListView(
                                   controller: controller,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 4,
                                   ),
                                   itemCount: filtered.length,
+                                  itemKey: (index) => filtered[index].id,
+                                  indexOfHit:
+                                      (hit) => _rowIndexOf(filtered, hit),
                                   separatorBuilder:
                                       (context, index) => const Divider(
                                         height: 1,
@@ -236,7 +331,7 @@ class _NarrowDetailScreen extends StatelessWidget {
                   icon: const Icon(LucideIcons.arrowLeft),
                   onPressed: onBack,
                 ),
-                Text(
+                FindText(
                   'Request detail',
                   style: Theme.of(
                     context,
@@ -281,14 +376,14 @@ class _MasterDetailView extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
                 child: Row(
                   children: [
-                    Text(
+                    FindText(
                       'Requests',
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(
+                    FindText(
                       '(${events.length})',
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -300,10 +395,13 @@ class _MasterDetailView extends StatelessWidget {
               const Divider(height: 1),
               Expanded(
                 child: DevToolsScrollToTop(
+                  scrollbar: true,
                   builder:
-                      (context, controller) => ListView.separated(
+                      (context, controller) => FindListView(
                         controller: controller,
                         itemCount: events.length,
+                        itemKey: (index) => events[index].id,
+                        indexOfHit: (hit) => _rowIndexOf(events, hit),
                         separatorBuilder:
                             (context, index) => const Divider(
                               height: 1,
@@ -353,13 +451,10 @@ class _CompactNetworkRow extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static final _timeFormat = DateFormat('HH:mm:ss');
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final path = _displayPath(event);
-    final durationMs = event.duration?.inMilliseconds;
+    final prefix = _findPrefix(event, _Section.row);
 
     return Material(
       color:
@@ -384,14 +479,16 @@ class _CompactNetworkRow extends StatelessWidget {
               _Pill(
                 text: event.method.toUpperCase(),
                 color: _methodColor(event.method),
+                findId: '$prefix/method',
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      path,
+                    FindText(
+                      _displayPath(event),
+                      id: '$prefix/path',
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -400,10 +497,9 @@ class _CompactNetworkRow extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Text(
-                      durationMs != null
-                          ? '${durationMs}ms  ·  ${_timeFormat.format(event.startedAt)}'
-                          : 'pending…',
+                    FindText(
+                      _rowCaption(event),
+                      id: '$prefix/caption',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -420,6 +516,15 @@ class _CompactNetworkRow extends StatelessWidget {
       ),
     );
   }
+}
+
+final _rowTimeFormat = DateFormat('HH:mm:ss');
+
+String _rowCaption(NetworkEvent event) {
+  final durationMs = event.duration?.inMilliseconds;
+  return durationMs != null
+      ? '${durationMs}ms  ·  ${_rowTimeFormat.format(event.startedAt)}'
+      : 'pending…';
 }
 
 /// The path for HTTP, or the event name for a socket message — whose name (e.g. `chat:open`) would otherwise parse as a URL scheme.
@@ -940,8 +1045,25 @@ class _NetworkEventDetail extends StatefulWidget {
 /// How far past the top a tab has to scroll before an up/down swipe starts collapsing or restoring the summary — small enough to react promptly, large enough to ignore an idle bounce right at the top.
 const _summaryCollapseThreshold = 24.0;
 
-class _NetworkEventDetailState extends State<_NetworkEventDetail> {
+class _NetworkEventDetailState extends State<_NetworkEventDetail>
+    with SingleTickerProviderStateMixin, FindAware<_NetworkEventDetail> {
   bool _summaryCollapsed = false;
+  late final _tabs = TabController(length: 3, vsync: this);
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  void onFindReveal(FindHit hit) {
+    final meta = hit.target.meta;
+    if (meta is! _NetworkFindMeta || meta.eventId != widget.event.id) return;
+    final tab = meta.section.detailTab;
+    // Instant, so the match isn't scrolled into view on a page that's still sliding in.
+    if (tab != null && tab != _tabs.index) _tabs.index = tab;
+  }
 
   void _handleTabScroll(double offset, ScrollDirection direction) {
     final collapse =
@@ -981,30 +1103,29 @@ class _NetworkEventDetailState extends State<_NetworkEventDetail> {
                   ),
         ),
         Expanded(
-          child: DefaultTabController(
-            length: 3,
-            child: Column(
-              children: [
-                const Divider(height: 1),
-                TabBar(
-                  tabs: [
-                    Tab(text: event.isSocket ? 'General' : 'Headers'),
-                    const Tab(text: 'Payload'),
-                    const Tab(text: 'Response'),
+          child: Column(
+            children: [
+              const Divider(height: 1),
+              TabBar(
+                controller: _tabs,
+                tabs: [
+                  Tab(text: event.isSocket ? 'General' : 'Headers'),
+                  const Tab(text: 'Payload'),
+                  const Tab(text: 'Response'),
+                ],
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabs,
+                  children: [
+                    _HeadersTab(event: event, onScroll: _handleTabScroll),
+                    _PayloadTab(event: event, onScroll: _handleTabScroll),
+                    _ResponseTab(event: event, onScroll: _handleTabScroll),
                   ],
                 ),
-                const Divider(height: 1),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _HeadersTab(event: event, onScroll: _handleTabScroll),
-                      _PayloadTab(event: event, onScroll: _handleTabScroll),
-                      _ResponseTab(event: event, onScroll: _handleTabScroll),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ],
@@ -1037,8 +1158,10 @@ class _HeadersTab extends StatelessWidget {
               children: [
                 const _SubsectionLabel('URL'),
                 const SizedBox(height: 4),
-                SelectableText(
+                FindText(
                   event.url,
+                  id: '${_findPrefix(event, _Section.url)}/text',
+                  selectable: true,
                   style: const TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 12.5,
@@ -1048,7 +1171,10 @@ class _HeadersTab extends StatelessWidget {
                   const SizedBox(height: 20),
                   const _SubsectionLabel('ERROR'),
                   const SizedBox(height: 4),
-                  _ErrorBanner(message: event.errorMessage!),
+                  _ErrorBanner(
+                    message: event.errorMessage!,
+                    findId: '${_findPrefix(event, _Section.error)}/text',
+                  ),
                 ],
                 if (!event.isSocket) ...[
                   const SizedBox(height: 20),
@@ -1057,6 +1183,7 @@ class _HeadersTab extends StatelessWidget {
                   _KeyValueList(
                     data: event.requestHeaders,
                     hiddenKeys: event.hiddenHeaderKeys,
+                    findPrefix: _findPrefix(event, _Section.requestHeaders),
                   ),
                   const SizedBox(height: 20),
                   const _SubsectionLabel('RESPONSE HEADERS'),
@@ -1064,6 +1191,7 @@ class _HeadersTab extends StatelessWidget {
                   _KeyValueList(
                     data: event.responseHeaders,
                     hiddenKeys: event.hiddenHeaderKeys,
+                    findPrefix: _findPrefix(event, _Section.responseHeaders),
                   ),
                 ],
               ],
@@ -1096,7 +1224,8 @@ class _PayloadTab extends StatelessWidget {
                 const _SubsectionLabel('QUERY PARAMETERS'),
                 const SizedBox(height: 4),
                 _BodyView(
-                  data: event.queryParameters,
+                  event: event,
+                  section: _Section.query,
                   title: 'Query Parameters',
                   maxHeight: maxHeight,
                   onScroll: onScroll,
@@ -1106,7 +1235,8 @@ class _PayloadTab extends StatelessWidget {
               const _SubsectionLabel('REQUEST BODY'),
               const SizedBox(height: 4),
               _BodyView(
-                data: event.requestBody,
+                event: event,
+                section: _Section.requestBody,
                 title: 'Request Body',
                 maxHeight: maxHeight,
                 onScroll: onScroll,
@@ -1135,7 +1265,8 @@ class _ResponseTab extends StatelessWidget {
             primary: false,
             padding: const EdgeInsets.all(16),
             child: _BodyView(
-              data: event.responseBody,
+              event: event,
+              section: _Section.responseBody,
               title: 'Response',
               maxHeight: _maxBodyHeight(constraints),
               onScroll: onScroll,
@@ -1173,6 +1304,7 @@ class _DetailSummary extends StatelessWidget {
     final statusColor = _statusColorFor(event);
     final durationMs = event.duration?.inMilliseconds;
     final path = _displayPath(event);
+    final statusId = '${_findPrefix(event, _Section.status)}/label';
 
     if (compact) {
       return Row(
@@ -1183,7 +1315,7 @@ class _DetailSummary extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
+            child: FindText(
               path,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1195,8 +1327,9 @@ class _DetailSummary extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
+          FindText(
             _statusLabelFor(event),
+            id: statusId,
             style: TextStyle(
               color: statusColor,
               fontWeight: FontWeight.bold,
@@ -1218,7 +1351,7 @@ class _DetailSummary extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
+              child: FindText(
                 path,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1234,8 +1367,9 @@ class _DetailSummary extends StatelessWidget {
         const SizedBox(height: 6),
         Row(
           children: [
-            Text(
+            FindText(
               _statusLabelFor(event),
+              id: statusId,
               style: TextStyle(
                 color: statusColor,
                 fontWeight: FontWeight.bold,
@@ -1243,14 +1377,14 @@ class _DetailSummary extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
+            FindText(
               durationMs != null ? '${durationMs}ms' : 'pending…',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(width: 8),
-            Text(
+            FindText(
               _timeFormat.format(event.startedAt),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -1265,10 +1399,11 @@ class _DetailSummary extends StatelessWidget {
 
 /// A small colored pill, used for the HTTP method badge.
 class _Pill extends StatelessWidget {
-  const _Pill({required this.text, required this.color});
+  const _Pill({required this.text, required this.color, this.findId});
 
   final String text;
   final Color color;
+  final String? findId;
 
   @override
   Widget build(BuildContext context) {
@@ -1279,8 +1414,9 @@ class _Pill extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
-      child: Text(
+      child: FindText(
         text,
+        id: findId,
         style: TextStyle(
           color: color,
           fontWeight: FontWeight.bold,
@@ -1301,7 +1437,7 @@ class _SubsectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Text(
+    return FindText(
       text,
       style: TextStyle(
         fontSize: 11,
@@ -1340,19 +1476,36 @@ String _maskedPreview(String value) {
   return '***${value.substring(value.length - visibleTail)}';
 }
 
+bool _isHiddenHeader(String key, Set<String> hiddenKeys) =>
+    hiddenKeys.contains(key.toLowerCase());
+
+/// What a header row shows — find searches this, never the real value of a masked header.
+String _headerDisplayValue(
+  MapEntry<String, String> entry,
+  Set<String> hiddenKeys,
+) =>
+    _isHiddenHeader(entry.key, hiddenKeys)
+        ? _maskedPreview(entry.value)
+        : entry.value;
+
 /// A clean key/value list, used for headers — instead of a raw
 /// `Map.toString()` dump.
 class _KeyValueList extends StatelessWidget {
-  const _KeyValueList({required this.data, this.hiddenKeys = const {}});
+  const _KeyValueList({
+    required this.data,
+    required this.findPrefix,
+    this.hiddenKeys = const {},
+  });
 
   final Map<String, String> data;
   final Set<String> hiddenKeys;
+  final String findPrefix;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (data.isEmpty) {
-      return Text(
+      return FindText(
         'No headers',
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
@@ -1364,10 +1517,9 @@ class _KeyValueList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children:
           data.entries.map((entry) {
-            final hidden = hiddenKeys.contains(entry.key.toLowerCase());
+            final hidden = _isHiddenHeader(entry.key, hiddenKeys);
             final sensitive = _isSensitiveHeader(entry.key) || hidden;
-            final displayValue =
-                hidden ? _maskedPreview(entry.value) : entry.value;
+            final displayValue = _headerDisplayValue(entry, hiddenKeys);
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(
@@ -1380,8 +1532,9 @@ class _KeyValueList extends StatelessWidget {
                       spacing: 4,
                       runSpacing: 2,
                       children: [
-                        Text(
+                        FindText(
                           entry.key,
+                          id: '$findPrefix/k/${entry.key}',
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -1391,8 +1544,10 @@ class _KeyValueList extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: SelectableText(
+                    child: FindText(
                       displayValue,
+                      id: '$findPrefix/v/${entry.key}',
+                      selectable: true,
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
                         fontStyle: hidden ? FontStyle.italic : FontStyle.normal,
@@ -1406,8 +1561,8 @@ class _KeyValueList extends StatelessWidget {
                     ),
                   ),
                   if (sensitive) ...[
-                    _CopyIconButton(text: entry.value),
-                    _ShareIconButton(text: entry.value),
+                    _CopyIconButton(text: () => entry.value),
+                    _ShareIconButton(text: () => entry.value),
                   ],
                 ],
               ),
@@ -1458,16 +1613,102 @@ class _TokenBadge extends StatelessWidget {
   }
 }
 
-/// Shows [data] as a collapsible JSON tree when it decodes to an object or array, falling back to a plain scrollable code block otherwise.
+/// A request body as the panel shows it — decoded and split into lines once per request, then shared by the view, find and Copy, so a busy app never pays to redo it.
+class _Body {
+  _Body._(this.data, this.lines, this._json);
+
+  factory _Body.of(Object? data) {
+    final json = _decodeJson(data);
+    if (json != null) {
+      try {
+        return _Body._(data, _flattenJson(json), json);
+      } catch (_) {
+        // A value JSON can't encode — show it as plain text below.
+      }
+    }
+    final text = prettyFormatBody(data);
+    return _Body._(data, [
+      for (final line in text.split('\n')) _CodeLine.text(line),
+    ], null);
+  }
+
+  final Object? data;
+  final List<_CodeLine> lines;
+  final Object? _json;
+
+  bool get isJson => _json != null;
+
+  late final List<String> plainLines = [
+    for (final line in lines) line.plainText,
+  ];
+
+  /// Encoded only when Copy or Share is tapped, never just to show the body.
+  String copyText() {
+    if (_json != null) {
+      try {
+        return const JsonEncoder.withIndent('  ').convert(_json);
+      } catch (_) {
+        // Falls through to the lines as shown.
+      }
+    }
+    return plainLines.join('\n');
+  }
+
+  final Map<double, double> _widths = {};
+
+  /// Monospace, so a line's width is its character count — wide characters (CJK, emoji) count double.
+  double contentWidth(double charWidth) =>
+      _widths[charWidth] ??= () {
+        var widest = 0.0;
+        for (final line in lines) {
+          var units = line.plainText.length + line.collapsedExtraChars;
+          for (final unit in line.plainText.codeUnits) {
+            if (unit >= 0x1100) units++;
+          }
+          widest = math.max(widest, line.indent + units * charWidth);
+        }
+        return widest;
+      }();
+}
+
+Object? _decodeJson(Object? data) {
+  if (data is Map || data is List) return data;
+  if (data is! String) return null;
+  try {
+    final value = jsonDecode(data);
+    return value is Map || value is List ? value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+final _bodyCache = Expando<Map<_Section, _Body>>();
+
+/// Cached on the request itself, so it's freed along with it once the request leaves the capture buffer.
+_Body _bodyOf(NetworkEvent event, _Section section) {
+  final data = switch (section) {
+    _Section.query => event.queryParameters,
+    _Section.requestBody => event.requestBody,
+    _ => event.responseBody,
+  };
+  final cache = _bodyCache[event] ??= {};
+  final cached = cache[section];
+  if (cached != null && identical(cached.data, data)) return cached;
+  return cache[section] = _Body.of(data);
+}
+
+/// Shows a request body as a collapsible JSON tree when it decodes to an object or array, falling back to plain lines otherwise.
 class _BodyView extends StatelessWidget {
   const _BodyView({
-    required this.data,
+    required this.event,
+    required this.section,
     required this.title,
     this.maxHeight = double.infinity,
     this.onScroll,
   });
 
-  final Object? data;
+  final NetworkEvent event;
+  final _Section section;
   final String title;
 
   /// A body taller than this scrolls inside its own block rather than growing past it.
@@ -1476,83 +1717,220 @@ class _BodyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final decoded = _decodeJsonContainer(data);
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxHeight),
-      child:
-          decoded != null
-              ? _JsonCodeBlock(
-                value: decoded.value,
-                rawText: decoded.rawText,
-                title: title,
-                onScroll: onScroll,
-              )
-              : _CodeBlock(
-                content: prettyFormatBody(data),
-                title: title,
-                onScroll: onScroll,
-              ),
+      child: _CodeView(
+        body: _bodyOf(event, section),
+        title: title,
+        findPrefix: _findPrefix(event, section),
+        onScroll: onScroll,
+      ),
     );
   }
 }
 
-/// Decodes [data] to a JSON Map/List plus its pretty-printed text, rejecting anything (a truncated body, a non-JSON-safe value) that can't round-trip through [jsonEncode].
-({Object value, String rawText})? _decodeJsonContainer(Object? data) {
-  Object? candidate;
-  if (data is Map || data is List) {
-    candidate = data;
-  } else if (data is String) {
-    try {
-      candidate = jsonDecode(data);
-    } catch (_) {
-      return null;
-    }
-  }
-  if (candidate is! Map && candidate is! List) return null;
-  try {
-    final rawText = const JsonEncoder.withIndent('  ').convert(candidate);
-    return (value: candidate!, rawText: rawText);
-  } catch (_) {
-    return null;
-  }
+const _codeStyle = TextStyle(fontFamily: 'monospace', fontSize: 12.5);
+
+/// One code line's height and one character's width at the current text scale — measured, so lines can be given exact heights up front.
+({double charWidth, double lineHeight}) _codeMetrics(TextScaler scaler) {
+  final painter = TextPainter(
+    text: const TextSpan(text: '0000000000', style: _codeStyle),
+    textDirection: TextDirection.ltr,
+    textScaler: scaler,
+  )..layout();
+  final metrics = (charWidth: painter.width / 10, lineHeight: painter.height);
+  painter.dispose();
+  return metrics;
 }
 
-/// A monospace "code block" for request/response bodies — long lines scroll horizontally instead of wrapping, so dense/minified data stays readable.
-class _CodeBlock extends StatelessWidget {
-  const _CodeBlock({
-    required this.content,
+/// A monospace code block that builds only the lines on screen, so even a huge body opens instantly and costs nothing while the app keeps capturing.
+class _CodeView extends StatefulWidget {
+  const _CodeView({
+    required this.body,
     required this.title,
+    required this.findPrefix,
     this.standalone = true,
     this.onScroll,
   });
 
-  final String content;
+  final _Body body;
   final String title;
+
+  /// Each line's find id is this plus its index — the same lines the find source lists.
+  final String findPrefix;
 
   /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
   final bool standalone;
   final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
+  State<_CodeView> createState() => _CodeViewState();
+}
+
+class _CodeViewState extends State<_CodeView> with FindAware<_CodeView> {
+  final Set<String> _collapsedPaths = {};
+  List<int>? _visible;
+  ScrollController? _vertical;
+  var _metrics = (charWidth: 7.5, lineHeight: 15.0);
+
+  List<_CodeLine> get _lines => widget.body.lines;
+
+  @override
+  void didUpdateWidget(_CodeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.body, widget.body)) _visible = null;
+  }
+
+  /// Indices of the lines not folded away, in order.
+  List<int> get _visibleLines =>
+      _visible ??= () {
+        final out = <int>[];
+        for (var i = 0; i < _lines.length; i++) {
+          out.add(i);
+          final line = _lines[i];
+          // Folded: its children and closing line are skipped; the toggle line shows them inline.
+          if (line.isOpen && _collapsedPaths.contains(line.path)) {
+            i = line.closeIndex!;
+          }
+        }
+        return out;
+      }();
+
+  double _extentOf(_CodeLine line) {
+    final text = _metrics.lineHeight;
+    if (line.isOpen) return math.max(34, text + 4);
+    return line.plain ? text + 4 : text + 10;
+  }
+
+  void _setCollapsed(void Function(Set<String> paths) change) {
+    setState(() {
+      change(_collapsedPaths);
+      _visible = null;
+    });
+  }
+
+  void _toggle(String path) => _setCollapsed((paths) {
+    if (!paths.add(path)) paths.remove(path);
+  });
+
+  void _expandAll() => _setCollapsed((paths) => paths.clear());
+
+  void _collapseAll() => _setCollapsed(
+    (paths) =>
+        paths
+          ..clear()
+          ..addAll([
+            for (final line in _lines)
+              if (line.isOpen) line.path,
+          ]),
+  );
+
+  /// Unfolds whatever hides the current match, then scrolls its line into the built range so its [FindText] can show the exact words.
+  @override
+  void onFindReveal(FindHit hit) {
+    final prefix = '${widget.findPrefix}/';
+    if (!hit.target.id.startsWith(prefix)) return;
+    final index = int.tryParse(hit.target.id.substring(prefix.length));
+    if (index == null || index >= _lines.length) return;
+    final hiding = [
+      for (var i = 0; i < index; i++)
+        if (_lines[i].isOpen &&
+            index <= _lines[i].closeIndex! &&
+            _collapsedPaths.contains(_lines[i].path))
+          _lines[i].path,
+    ];
+    if (hiding.isNotEmpty) _setCollapsed((paths) => paths.removeAll(hiding));
+    SchedulerBinding.instance.addPostFrameCallback((_) => _scrollTo(index));
+  }
+
+  void _scrollTo(int lineIndex) {
+    final vertical = _vertical;
+    if (!mounted || vertical == null || !vertical.hasClients) return;
+    final rows = _visibleLines;
+    final row = rows.indexOf(lineIndex);
+    if (row < 0) return;
+    var offset = _codeTopPadding;
+    for (var i = 0; i < row; i++) {
+      offset += _extentOf(_lines[rows[i]]);
+    }
+    final position = vertical.position;
+    position.jumpTo(
+      (offset - position.viewportDimension / 3).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    _metrics = _codeMetrics(MediaQuery.textScalerOf(context));
+    final rows = _visibleLines;
+    var height = _codeTopPadding + _codeBottomPadding;
+    for (final row in rows) {
+      height += _extentOf(_lines[row]);
+    }
     return _CodeBlockChrome(
-      copyText: content,
-      title: title,
-      onScroll: onScroll,
+      copyText: widget.body.copyText,
+      title: widget.title,
       fullscreenBuilder:
-          standalone
-              ? (context) =>
-                  _CodeBlock(content: content, title: title, standalone: false)
+          widget.standalone
+              ? (context) => _CodeView(
+                body: widget.body,
+                title: widget.title,
+                findPrefix: widget.findPrefix,
+                standalone: false,
+              )
               : null,
-      child: SelectableText(
-        content,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+      actions: [
+        if (widget.body.isJson) ...[
+          IconButton(
+            tooltip: 'Expand all',
+            iconSize: 16,
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(LucideIcons.chevronsUpDown),
+            onPressed: _expandAll,
+          ),
+          IconButton(
+            tooltip: 'Collapse all',
+            iconSize: 16,
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(LucideIcons.chevronsDownUp),
+            onPressed: _collapseAll,
+          ),
+        ],
+      ],
+      child: _ScrollableCode(
+        onScroll: widget.onScroll,
+        onVerticalController: (controller) => _vertical = controller,
+        height: height,
+        contentWidth: widget.body.contentWidth(_metrics.charWidth),
+        itemCount: rows.length,
+        itemExtent: (row) => _extentOf(_lines[rows[row]]),
+        itemBuilder: (context, row) {
+          final index = rows[row];
+          final line = _lines[index];
+          final findId = '${widget.findPrefix}/$index';
+          return line.isOpen
+              ? _CodeToggleLine(
+                line: line,
+                collapsed: _collapsedPaths.contains(line.path),
+                findId: findId,
+                theme: theme,
+                onTap: () => _toggle(line.path),
+              )
+              : _CodeLeafLine(line: line, findId: findId, theme: theme);
+        },
       ),
     );
   }
 }
 
-/// The shared box, scrolling, and action buttons behind both [_CodeBlock] and [_JsonCodeBlock] — actions float over the top-right corner instead of narrowing every line's scroll width for a button only the top needs, and stay pinned there while the content scrolls underneath.
+const _codeTopPadding = 8.0;
+const _codeBottomPadding = 16.0;
+
+/// The shared box and action buttons around a [_CodeView] — actions float over the top-right corner instead of narrowing every line's scroll width for a button only the top needs, and stay pinned there while the content scrolls underneath.
 class _CodeBlockChrome extends StatelessWidget {
   const _CodeBlockChrome({
     required this.child,
@@ -1560,17 +1938,15 @@ class _CodeBlockChrome extends StatelessWidget {
     required this.title,
     this.actions = const [],
     this.fullscreenBuilder,
-    this.onScroll,
   });
 
   final Widget child;
-  final String copyText;
+  final ValueGetter<String> copyText;
   final String title;
   final List<Widget> actions;
 
   /// Builds a fresh, independent copy of this block for the fullscreen view — not [child] itself, so interacting with it there (e.g. folding a JSON node) doesn't desync from the inline view's own state.
   final WidgetBuilder? fullscreenBuilder;
-  final void Function(double offset, ScrollDirection direction)? onScroll;
 
   @override
   Widget build(BuildContext context) {
@@ -1584,7 +1960,7 @@ class _CodeBlockChrome extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          _ScrollableCode(onScroll: onScroll, child: child),
+          child,
           Positioned(
             top: 4,
             right: 4,
@@ -1744,9 +2120,23 @@ class _FullscreenContentView extends StatelessWidget {
 
 /// The content inside a [_CodeBlockChrome], scrolling both ways within the block's own box — both scrollbars always show and can be dragged, pinned to the box's right and bottom edges, so neither ends up far below the fold on a large body the way a scrollbar under the last line would.
 class _ScrollableCode extends StatefulWidget {
-  const _ScrollableCode({required this.child, this.onScroll});
+  const _ScrollableCode({
+    required this.height,
+    required this.contentWidth,
+    required this.itemCount,
+    required this.itemExtent,
+    required this.itemBuilder,
+    required this.onVerticalController,
+    this.onScroll,
+  });
 
-  final Widget child;
+  /// The natural height of every line; the block shrinks to it when that's less than its limit.
+  final double height;
+  final double contentWidth;
+  final int itemCount;
+  final double Function(int index) itemExtent;
+  final IndexedWidgetBuilder itemBuilder;
+  final ValueChanged<ScrollController> onVerticalController;
 
   /// Reports vertical scrolling, e.g. so the detail view can collapse its summary.
   final void Function(double offset, ScrollDirection direction)? onScroll;
@@ -1769,505 +2159,238 @@ class _ScrollableCodeState extends State<_ScrollableCode> {
     // Its own scroll-to-top button, sitting inside the box clear of both scrollbars.
     return DevToolsScrollToTop(
       onScroll: widget.onScroll,
-      builder:
-          (
-            context,
-            vertical,
-          ) => NotificationListener<ScrollMetricsNotification>(
-            // Content or box size changed (e.g. a JSON node folded) — resize the thumbs to match.
-            onNotification: (_) {
-              setState(() {});
-              return false;
-            },
+      builder: (context, vertical) {
+        widget.onVerticalController(vertical);
+        return NotificationListener<ScrollMetricsNotification>(
+          // Content or box size changed (e.g. a JSON node folded) — resize the thumbs to match.
+          onNotification: (_) {
+            setState(() {});
+            return false;
+          },
+          child: SizedBox(
+            height: widget.height,
             child: Stack(
               key: const ValueKey('code-block-scroll-area'),
               children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: SingleChildScrollView(
-                    controller: vertical,
-                    padding: const EdgeInsets.only(top: 8, bottom: 16),
-                    child: SingleChildScrollView(
-                      controller: _horizontal,
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.only(left: 10, right: 16),
-                      // One cached layer, so scrolling a huge body doesn't repaint every line each frame.
-                      child: RepaintBoundary(child: widget.child),
-                    ),
-                  ),
+                LayoutBuilder(
+                  builder:
+                      (context, box) => SingleChildScrollView(
+                        controller: _horizontal,
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.only(left: 10, right: 16),
+                        child: SizedBox(
+                          width: math.max(
+                            widget.contentWidth,
+                            box.maxWidth - 26,
+                          ),
+                          // Lines are built only while on screen, each at a known height, so a huge body costs no more than a small one.
+                          child: ListView.builder(
+                            controller: vertical,
+                            padding: const EdgeInsets.only(
+                              top: _codeTopPadding,
+                              bottom: _codeBottomPadding,
+                            ),
+                            itemCount: widget.itemCount,
+                            itemExtentBuilder:
+                                (index, _) =>
+                                    index < widget.itemCount
+                                        ? widget.itemExtent(index)
+                                        : null,
+                            itemBuilder:
+                                (context, index) => OverflowBox(
+                                  alignment: Alignment.centerLeft,
+                                  maxWidth: double.infinity,
+                                  // Never wraps: a line wider than the estimate just runs on, like an editor.
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: widget.itemBuilder(context, index),
+                                  ),
+                                ),
+                          ),
+                        ),
+                      ),
                 ),
                 // Starts below the floating action bar, so the bar never covers the thumb.
-                _EdgeScrollbar(
+                DevToolsEdgeScrollbar(
                   controller: vertical,
                   axis: Axis.vertical,
                   startInset: 48,
                   endInset: 16,
+                  thumbKeyPrefix: 'code-scrollbar-thumb',
                 ),
-                _EdgeScrollbar(
+                DevToolsEdgeScrollbar(
                   controller: _horizontal,
                   axis: Axis.horizontal,
                   endInset: 16,
+                  thumbKeyPrefix: 'code-scrollbar-thumb',
                 ),
               ],
             ),
           ),
+        );
+      },
     );
   }
 }
 
-/// A slim scrollbar along one edge of a code block that's easy to grab without looking any bigger: its touch area is a wide invisible strip down the whole edge, so a finger never has to land on the thin thumb itself. Drag anywhere in the strip to scroll — starting away from the thumb first jumps it under the finger — or tap to jump there. While held, the thumb thickens and takes the accent color, so it's clear it's been grabbed.
-class _EdgeScrollbar extends StatefulWidget {
-  const _EdgeScrollbar({
-    required this.controller,
-    required this.axis,
-    this.startInset = 0,
-    this.endInset = 0,
-  });
+/// One line of a body — a JSON tree line or a plain text line; the view and find both read these, so they always agree on the text.
+class _CodeLine {
+  const _CodeLine({
+    required this.path,
+    required this.depth,
+    required this.keyPrefix,
+    required this.text,
+    this.trailing = '',
+    this.value,
+    this.muted = false,
+    this.closeIndex,
+    this.closeBrace = '',
+    this.comma = '',
+    this.countLabel = '',
+  }) : plain = false;
 
-  final ScrollController controller;
-  final Axis axis;
+  const _CodeLine.text(this.text)
+    : path = '',
+      depth = 0,
+      keyPrefix = '',
+      trailing = '',
+      value = null,
+      muted = false,
+      plain = true,
+      closeIndex = null,
+      closeBrace = '',
+      comma = '',
+      countLabel = '';
 
-  /// How far the track stays clear of the edge's start/end, e.g. of the floating action bar.
-  final double startInset;
-  final double endInset;
+  final String path;
+  final int depth;
+  final String keyPrefix;
 
-  @override
-  State<_EdgeScrollbar> createState() => _EdgeScrollbarState();
+  /// The literal, a brace, or for a plain line the whole line.
+  final String text;
+  final String trailing;
+
+  /// The primitive this line shows, for coloring.
+  final Object? value;
+
+  /// A brace or an empty `{}`/`[]` rather than a value.
+  final bool muted;
+
+  /// A plain text line, not part of a JSON tree.
+  final bool plain;
+
+  /// Set on a foldable container's opening line: the index of its closing line.
+  final int? closeIndex;
+  final String closeBrace;
+  final String comma;
+  final String countLabel;
+
+  bool get isOpen => closeIndex != null;
+
+  String get plainText => '$keyPrefix$text$trailing';
+
+  /// Pixels before the text starts: the tree indent, plus the fold chevron on a toggle line.
+  double get indent => depth * 16.0 + (isOpen ? 30 : 0);
+
+  /// What a folded toggle line appends (` … }, 3 keys`), so the block is wide enough either way.
+  int get collapsedExtraChars =>
+      isOpen ? 6 + closeBrace.length + comma.length + countLabel.length : 0;
 }
 
-class _EdgeScrollbarState extends State<_EdgeScrollbar> {
-  static const _touchWidth = 32.0;
-  static const _thickness = 5.0;
-  static const _activeThickness = 9.0;
-  static const _minThumbLength = 36.0;
+List<_CodeLine> _flattenJson(Object value) {
+  final lines = <_CodeLine?>[];
 
-  /// A drag starting this close to the thumb grabs it where it is rather than jumping.
-  static const _grabTolerance = 12.0;
-
-  bool _active = false;
-  Drag? _drag;
-  double _trackLength = 0;
-
-  bool get _vertical => widget.axis == Axis.vertical;
-
-  /// The position to drive, or null while there's nothing to scroll along this axis.
-  ScrollPosition? get _position {
-    if (!widget.controller.hasClients) return null;
-    final position = widget.controller.position;
-    if (!position.hasContentDimensions ||
-        !position.hasViewportDimension ||
-        position.maxScrollExtent <= 0) {
-      return null;
-    }
-    return position;
-  }
-
-  double _thumbLength(ScrollPosition position) {
-    final visibleFraction =
-        position.viewportDimension /
-        (position.viewportDimension + position.maxScrollExtent);
-    return (_trackLength * visibleFraction).clamp(
-      math.min(_minThumbLength, _trackLength),
-      _trackLength,
-    );
-  }
-
-  double _thumbStart(ScrollPosition position, double thumbLength) {
-    final scrolledFraction = (position.pixels / position.maxScrollExtent).clamp(
-      0.0,
-      1.0,
-    );
-    return (_trackLength - thumbLength) * scrolledFraction;
-  }
-
-  /// The scroll offset that centers the thumb on [trackOffset].
-  double _pixelsCenteredOn(ScrollPosition position, double trackOffset) {
-    final thumbLength = _thumbLength(position);
-    final travel = _trackLength - thumbLength;
-    if (travel <= 0) return position.pixels;
-    final fraction = ((trackOffset - thumbLength / 2) / travel).clamp(0.0, 1.0);
-    return fraction * position.maxScrollExtent;
-  }
-
-  double _alongTrack(Offset localPosition) =>
-      _vertical ? localPosition.dy : localPosition.dx;
-
-  void _setActive(bool active) {
-    if (_active != active) setState(() => _active = active);
-  }
-
-  void _handleDragStart(DragStartDetails details) {
-    final position = _position;
-    if (position == null) return;
-    final along = _alongTrack(details.localPosition);
-    final thumbLength = _thumbLength(position);
-    final thumbStart = _thumbStart(position, thumbLength);
-    if (along < thumbStart - _grabTolerance ||
-        along > thumbStart + thumbLength + _grabTolerance) {
-      position.jumpTo(_pixelsCenteredOn(position, along));
-    }
-    _drag = position.drag(details, () => _drag = null);
-  }
-
-  void _handleDragUpdate(DragUpdateDetails details) {
-    final position = _position;
-    if (position == null || _drag == null) return;
-    final travel = _trackLength - _thumbLength(position);
-    if (travel <= 0) return;
-    // Thumb pixels → content pixels, negated: a thumb moves the opposite way to content dragged by hand.
-    final delta = -details.primaryDelta! * position.maxScrollExtent / travel;
-    _drag!.update(
-      DragUpdateDetails(
-        globalPosition: details.globalPosition,
-        localPosition: details.localPosition,
-        delta: _vertical ? Offset(0, delta) : Offset(delta, 0),
-        primaryDelta: delta,
-      ),
-    );
-  }
-
-  void _handleDragEnd(DragEndDetails details) {
-    // No fling: the content stops where the thumb was let go.
-    _drag?.end(DragEndDetails(primaryVelocity: 0));
-    _drag = null;
-    _setActive(false);
-  }
-
-  void _handleDragCancel() {
-    _drag?.cancel();
-    _drag = null;
-    _setActive(false);
-  }
-
-  void _handleTapUp(TapUpDetails details) {
-    final position = _position;
-    if (position == null) return;
-    position.animateTo(
-      _pixelsCenteredOn(position, _alongTrack(details.localPosition)),
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
-  @override
-  void dispose() {
-    _drag?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Positioned(
-      top: _vertical ? widget.startInset : null,
-      bottom: _vertical ? widget.endInset : 0,
-      left: _vertical ? null : widget.startInset,
-      right: _vertical ? 0 : widget.endInset,
-      width: _vertical ? _touchWidth : null,
-      height: _vertical ? null : _touchWidth,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          _trackLength =
-              _vertical ? constraints.maxHeight : constraints.maxWidth;
-          return ListenableBuilder(
-            listenable: widget.controller,
-            builder: (context, _) {
-              final position = _position;
-              // Nothing to scroll: no thumb, and touches fall through to the content.
-              if (position == null) return const SizedBox.shrink();
-
-              final thumbLength = _thumbLength(position);
-              final thumbStart = _thumbStart(position, thumbLength);
-              final thickness = _active ? _activeThickness : _thickness;
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                dragStartBehavior: DragStartBehavior.down,
-                onTapUp: _handleTapUp,
-                onVerticalDragDown: _vertical ? (_) => _setActive(true) : null,
-                onVerticalDragStart: _vertical ? _handleDragStart : null,
-                onVerticalDragUpdate: _vertical ? _handleDragUpdate : null,
-                onVerticalDragEnd: _vertical ? _handleDragEnd : null,
-                onVerticalDragCancel: _vertical ? _handleDragCancel : null,
-                onHorizontalDragDown:
-                    _vertical ? null : (_) => _setActive(true),
-                onHorizontalDragStart: _vertical ? null : _handleDragStart,
-                onHorizontalDragUpdate: _vertical ? null : _handleDragUpdate,
-                onHorizontalDragEnd: _vertical ? null : _handleDragEnd,
-                onHorizontalDragCancel: _vertical ? null : _handleDragCancel,
-                child: Stack(
-                  children: [
-                    // Hugs the box's edge, however wide the touch strip around it is.
-                    Positioned(
-                      top: _vertical ? thumbStart : null,
-                      left: _vertical ? null : thumbStart,
-                      right: _vertical ? 2 : null,
-                      bottom: _vertical ? null : 2,
-                      child: AnimatedContainer(
-                        key: ValueKey(
-                          'code-scrollbar-thumb-${widget.axis.name}',
-                        ),
-                        duration: const Duration(milliseconds: 120),
-                        width: _vertical ? thickness : thumbLength,
-                        height: _vertical ? thumbLength : thickness,
-                        decoration: BoxDecoration(
-                          color:
-                              _active
-                                  ? colors.primary
-                                  : colors.onSurfaceVariant.withValues(
-                                    alpha: 0.45,
-                                  ),
-                          borderRadius: BorderRadius.circular(thickness / 2),
-                        ),
-                      ),
-                    ),
-                  ],
+  void visit(
+    Object? node,
+    String path,
+    String keyPrefix,
+    String comma,
+    int depth,
+  ) {
+    final children =
+        node is Map
+            ? [
+              for (final entry in node.entries)
+                (
+                  keyPrefix: '"${entry.key}": ',
+                  value: entry.value,
+                  path: '$path.${entry.key}',
                 ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// A collapsible, syntax-highlighted JSON tree, codebeautify-viewer style — tap a `{`/`[` line to fold it, or use the header actions to fold/unfold everything; starts fully expanded.
-class _JsonCodeBlock extends StatefulWidget {
-  const _JsonCodeBlock({
-    required this.value,
-    required this.rawText,
-    required this.title,
-    this.standalone = true,
-    this.onScroll,
-  });
-
-  final Object value;
-  final String rawText;
-  final String title;
-
-  /// False for the fresh copy built for the fullscreen view itself, so it doesn't offer to open yet another fullscreen view on top of the one it's already in.
-  final bool standalone;
-  final void Function(double offset, ScrollDirection direction)? onScroll;
-
-  @override
-  State<_JsonCodeBlock> createState() => _JsonCodeBlockState();
-}
-
-class _JsonCodeBlockState extends State<_JsonCodeBlock> {
-  final Set<String> _collapsedPaths = {};
-
-  void _toggle(String path) {
-    setState(() {
-      if (!_collapsedPaths.add(path)) _collapsedPaths.remove(path);
-    });
-  }
-
-  void _expandAll() => setState(_collapsedPaths.clear);
-
-  void _collapseAll() {
-    setState(() {
-      _collapsedPaths
-        ..clear()
-        ..addAll(_containerPaths(widget.value, 'root'));
-    });
-  }
-
-  Iterable<String> _containerPaths(Object? value, String path) sync* {
-    if (value is Map) {
-      yield path;
-      for (final entry in value.entries) {
-        yield* _containerPaths(entry.value, '$path.${entry.key}');
-      }
-    } else if (value is List) {
-      yield path;
-      for (var i = 0; i < value.length; i++) {
-        yield* _containerPaths(value[i], '$path[$i]');
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final rows = <Widget>[];
-    _buildNode(
-      theme: theme,
-      value: widget.value,
-      path: 'root',
-      keyPrefix: '',
-      isLast: true,
-      depth: 0,
-      out: rows,
-    );
-    return _CodeBlockChrome(
-      copyText: widget.rawText,
-      title: widget.title,
-      onScroll: widget.onScroll,
-      fullscreenBuilder:
-          widget.standalone
-              ? (context) => _JsonCodeBlock(
-                value: widget.value,
-                rawText: widget.rawText,
-                title: widget.title,
-                standalone: false,
-              )
-              : null,
-      actions: [
-        IconButton(
-          tooltip: 'Expand all',
-          iconSize: 16,
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(LucideIcons.chevronsUpDown),
-          onPressed: _expandAll,
-        ),
-        IconButton(
-          tooltip: 'Collapse all',
-          iconSize: 16,
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(LucideIcons.chevronsDownUp),
-          onPressed: _collapseAll,
-        ),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: rows,
-      ),
-    );
-  }
-
-  void _buildNode({
-    required ThemeData theme,
-    required Object? value,
-    required String path,
-    required String keyPrefix,
-    required bool isLast,
-    required int depth,
-    required List<Widget> out,
-  }) {
-    final comma = isLast ? '' : ',';
-    if (value is Map) {
-      _buildContainer(
-        theme: theme,
-        openBrace: '{',
-        closeBrace: '}',
-        entryCount: value.length,
-        countLabel: value.length == 1 ? '1 key' : '${value.length} keys',
-        path: path,
-        keyPrefix: keyPrefix,
-        comma: comma,
-        depth: depth,
-        out: out,
-        buildChildren: (childOut) {
-          final entries = value.entries.toList();
-          for (var i = 0; i < entries.length; i++) {
-            _buildNode(
-              theme: theme,
-              value: entries[i].value,
-              path: '$path.${entries[i].key}',
-              keyPrefix: '"${entries[i].key}": ',
-              isLast: i == entries.length - 1,
-              depth: depth + 1,
-              out: childOut,
-            );
-          }
-        },
-      );
-    } else if (value is List) {
-      _buildContainer(
-        theme: theme,
-        openBrace: '[',
-        closeBrace: ']',
-        entryCount: value.length,
-        countLabel: value.length == 1 ? '1 item' : '${value.length} items',
-        path: path,
-        keyPrefix: keyPrefix,
-        comma: comma,
-        depth: depth,
-        out: out,
-        buildChildren: (childOut) {
-          for (var i = 0; i < value.length; i++) {
-            _buildNode(
-              theme: theme,
-              value: value[i],
-              path: '$path[$i]',
-              keyPrefix: '',
-              isLast: i == value.length - 1,
-              depth: depth + 1,
-              out: childOut,
-            );
-          }
-        },
-      );
-    } else {
-      out.add(
-        _JsonLeafLine(
+            ]
+            : node is List
+            ? [
+              for (var i = 0; i < node.length; i++)
+                (keyPrefix: '', value: node[i], path: '$path[$i]'),
+            ]
+            : null;
+    if (children == null) {
+      lines.add(
+        _CodeLine(
+          path: path,
           depth: depth,
           keyPrefix: keyPrefix,
-          literalText: jsonEncode(value),
-          valueColor: _literalColor(value, theme),
-          italicValue: value == null,
-          trailingText: comma,
-          theme: theme,
-        ),
-      );
-    }
-  }
-
-  void _buildContainer({
-    required ThemeData theme,
-    required String openBrace,
-    required String closeBrace,
-    required int entryCount,
-    required String countLabel,
-    required String path,
-    required String keyPrefix,
-    required String comma,
-    required int depth,
-    required List<Widget> out,
-    required void Function(List<Widget> childOut) buildChildren,
-  }) {
-    if (entryCount == 0) {
-      out.add(
-        _JsonLeafLine(
-          depth: depth,
-          keyPrefix: keyPrefix,
-          literalText: '$openBrace$closeBrace',
-          valueColor: theme.colorScheme.onSurfaceVariant,
-          trailingText: comma,
-          theme: theme,
+          text: jsonEncode(node),
+          trailing: comma,
+          value: node,
         ),
       );
       return;
     }
 
-    final collapsed = _collapsedPaths.contains(path);
-    out.add(
-      _JsonToggleLine(
-        depth: depth,
-        collapsed: collapsed,
-        keyPrefix: keyPrefix,
-        openBrace: openBrace,
-        closeBrace: closeBrace,
-        comma: comma,
-        countLabel: countLabel,
-        theme: theme,
-        onTap: () => _toggle(path),
-      ),
-    );
-    if (!collapsed) {
-      buildChildren(out);
-      out.add(
-        _JsonLeafLine(
+    final (openBrace, closeBrace) = node is Map ? ('{', '}') : ('[', ']');
+    if (children.isEmpty) {
+      lines.add(
+        _CodeLine(
+          path: path,
           depth: depth,
-          keyPrefix: '',
-          literalText: closeBrace,
-          valueColor: theme.colorScheme.onSurfaceVariant,
-          trailingText: comma,
-          theme: theme,
+          keyPrefix: keyPrefix,
+          text: '$openBrace$closeBrace',
+          trailing: comma,
+          muted: true,
         ),
       );
+      return;
     }
+
+    // Reserved now, filled once the closing line's index is known.
+    final openIndex = lines.length;
+    lines.add(null);
+    for (var i = 0; i < children.length; i++) {
+      final child = children[i];
+      visit(
+        child.value,
+        child.path,
+        child.keyPrefix,
+        i == children.length - 1 ? '' : ',',
+        depth + 1,
+      );
+    }
+    lines.add(
+      _CodeLine(
+        path: '$path/close',
+        depth: depth,
+        keyPrefix: '',
+        text: closeBrace,
+        trailing: comma,
+        muted: true,
+      ),
+    );
+    final noun = node is Map ? 'key' : 'item';
+    lines[openIndex] = _CodeLine(
+      path: path,
+      depth: depth,
+      keyPrefix: keyPrefix,
+      text: openBrace,
+      closeIndex: lines.length - 1,
+      closeBrace: closeBrace,
+      comma: comma,
+      countLabel:
+          children.length == 1 ? '1 $noun' : '${children.length} ${noun}s',
+    );
   }
+
+  visit(value, 'root', '', '', 0);
+  return [for (final line in lines) line!];
 }
 
 /// Value colors from the DevTools theme's seeded [ColorScheme] — light mode uses the `on*Container` roles (M3's own choice for legible text) since the bare accent roles used in dark mode read pale on a light surface.
@@ -2286,93 +2409,90 @@ Color _literalColor(Object? value, ThemeData theme) {
   return colors.onSurfaceVariant;
 }
 
-/// One non-collapsible JSON line — a primitive value, an empty `{}`/`[]`, or a container's closing brace.
-class _JsonLeafLine extends StatelessWidget {
-  const _JsonLeafLine({
-    required this.depth,
-    required this.keyPrefix,
-    required this.literalText,
-    required this.valueColor,
-    required this.trailingText,
+/// One non-collapsible line — a plain text line, a JSON primitive, an empty `{}`/`[]`, or a container's closing brace.
+class _CodeLeafLine extends StatelessWidget {
+  const _CodeLeafLine({
+    required this.line,
+    required this.findId,
     required this.theme,
-    this.italicValue = false,
   });
 
-  final int depth;
-  final String keyPrefix;
-  final String literalText;
-  final Color valueColor;
-  final String trailingText;
+  final _CodeLine line;
+  final String findId;
   final ThemeData theme;
-  final bool italicValue;
 
   @override
   Widget build(BuildContext context) {
+    if (line.plain) {
+      return FindText(
+        line.text,
+        id: findId,
+        selectable: true,
+        style: _codeStyle,
+      );
+    }
+    final valueColor =
+        line.muted
+            ? theme.colorScheme.onSurfaceVariant
+            : _literalColor(line.value, theme);
+    final italicValue = !line.muted && line.value == null;
     return Padding(
-      padding: EdgeInsets.only(left: depth * 16.0, top: 5, bottom: 5),
-      child: SelectableText.rich(
+      padding: EdgeInsets.only(left: line.depth * 16.0),
+      child: FindText.rich(
         TextSpan(
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+          style: _codeStyle,
           children: [
-            if (keyPrefix.isNotEmpty)
+            if (line.keyPrefix.isNotEmpty)
               TextSpan(
-                text: keyPrefix,
+                text: line.keyPrefix,
                 style: TextStyle(
                   color: theme.colorScheme.onSurface,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             TextSpan(
-              text: literalText,
+              text: line.text,
               style: TextStyle(
                 color: valueColor,
                 fontStyle: italicValue ? FontStyle.italic : FontStyle.normal,
               ),
             ),
             TextSpan(
-              text: trailingText,
+              text: line.trailing,
               style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],
         ),
+        id: findId,
+        selectable: true,
       ),
     );
   }
 }
 
 /// A collapsible object/array's opening line — its chevron/`{`/`[` toggles [onTap]; collapsed, it also shows the closing brace and an item count inline.
-class _JsonToggleLine extends StatelessWidget {
-  const _JsonToggleLine({
-    required this.depth,
+class _CodeToggleLine extends StatelessWidget {
+  const _CodeToggleLine({
+    required this.line,
     required this.collapsed,
-    required this.keyPrefix,
-    required this.openBrace,
-    required this.closeBrace,
-    required this.comma,
-    required this.countLabel,
+    required this.findId,
     required this.theme,
     required this.onTap,
   });
 
-  final int depth;
+  final _CodeLine line;
   final bool collapsed;
-  final String keyPrefix;
-  final String openBrace;
-  final String closeBrace;
-  final String comma;
-  final String countLabel;
+  final String findId;
   final ThemeData theme;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final punctStyle = TextStyle(
-      fontFamily: 'monospace',
-      fontSize: 12.5,
+    final punctStyle = _codeStyle.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
     return Padding(
-      padding: EdgeInsets.only(left: depth * 16.0, top: 2, bottom: 2, right: 8),
+      padding: EdgeInsets.only(left: line.depth * 16.0, right: 8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -2397,23 +2517,24 @@ class _JsonToggleLine extends StatelessWidget {
               ),
             ),
           ),
-          SelectableText.rich(
+          FindText.rich(
             TextSpan(
               style: punctStyle,
               children: [
-                if (keyPrefix.isNotEmpty)
+                if (line.keyPrefix.isNotEmpty)
                   TextSpan(
-                    text: keyPrefix,
+                    text: line.keyPrefix,
                     style: TextStyle(
                       color: theme.colorScheme.onSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                TextSpan(text: openBrace),
-                if (collapsed) TextSpan(text: ' … $closeBrace$comma'),
+                TextSpan(text: line.text),
+                if (collapsed)
+                  TextSpan(text: ' … ${line.closeBrace}${line.comma}'),
                 if (collapsed)
                   TextSpan(
-                    text: '  $countLabel',
+                    text: '  ${line.countLabel}',
                     style: TextStyle(
                       fontSize: 10.5,
                       fontStyle: FontStyle.italic,
@@ -2424,6 +2545,8 @@ class _JsonToggleLine extends StatelessWidget {
                   ),
               ],
             ),
+            id: findId,
+            selectable: true,
           ),
         ],
       ),
@@ -2434,7 +2557,7 @@ class _JsonToggleLine extends StatelessWidget {
 class _CopyIconButton extends StatefulWidget {
   const _CopyIconButton({required this.text});
 
-  final String text;
+  final ValueGetter<String> text;
 
   @override
   State<_CopyIconButton> createState() => _CopyIconButtonState();
@@ -2444,7 +2567,7 @@ class _CopyIconButtonState extends State<_CopyIconButton> {
   bool _copied = false;
 
   Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: widget.text));
+    await Clipboard.setData(ClipboardData(text: widget.text()));
     if (!mounted) return;
     setState(() => _copied = true);
     Future.delayed(const Duration(seconds: 1), () {
@@ -2468,14 +2591,14 @@ class _CopyIconButtonState extends State<_CopyIconButton> {
 class _ShareIconButton extends StatelessWidget {
   const _ShareIconButton({required this.text});
 
-  final String text;
+  final ValueGetter<String> text;
 
   Future<void> _share(BuildContext context) async {
     final box = context.findRenderObject() as RenderBox?;
     final origin =
         box == null ? null : box.localToGlobal(Offset.zero) & box.size;
     try {
-      await shareText(text, origin: origin);
+      await shareText(text(), origin: origin);
     } catch (_) {}
   }
 
@@ -2493,9 +2616,10 @@ class _ShareIconButton extends StatelessWidget {
 
 /// A small callout banner for connection/network errors.
 class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
+  const _ErrorBanner({required this.message, required this.findId});
 
   final String message;
+  final String findId;
 
   @override
   Widget build(BuildContext context) {
@@ -2513,8 +2637,9 @@ class _ErrorBanner extends StatelessWidget {
           const Icon(LucideIcons.circleAlert, size: 16, color: Colors.red),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
+            child: FindText(
               message,
+              id: findId,
               style: const TextStyle(color: Colors.red, fontSize: 12.5),
             ),
           ),
