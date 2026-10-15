@@ -70,11 +70,32 @@ Keeping these files useful:
 - Document user-facing additions in the README, and add a demo to the example app.
 - Log with `log` from `dart:developer`, like the rest of the package. Never use `print` or `debugPrint`.
 
+## UI
+
+Developers judge the package by how its UI looks and feels, so make every widget and screen user-friendly and attractive.
+
+- Make it clear at a glance: plain labels, an obvious main action and helpful feedback when something happens.
+- Handle every state: empty, loading and error each show a clear message. Never leave a blank area or show a raw exception.
+- Fit every screen size, from a small phone to a desktop window, with no overflow. Long text wraps or truncates cleanly.
+- Make controls easy to tap and keep animations short and smooth.
+- Match the existing look: spacing, corner radius, icons from `lucide_icons_flutter`. Don't invent a new style.
+
 ## Code style
 
 - Match the file you're in: naming, structure and `dart format` formatting.
 - Comments are one line, stating only the non-obvious *why*. That includes `///` doc comments.
 - Don't leave commented-out code or unused code behind.
+
+### No `!` null checks
+
+Never use the `!` null-check operator. It throws at runtime when the value is null, and that crashes the app using corextra. Instead:
+
+- Use `?.` and `??` to fall back to a sensible default.
+- Or check for null first. Copy a field into a local variable so Dart promotes it to non-null.
+- If null really means the caller made a mistake, throw an `ArgumentError` or `StateError` whose message says what was missing.
+- In UI and in code that records data, show a fallback instead of throwing.
+
+Older code still has some `!`. Replace it in the lines you change; don't sweep files you aren't otherwise touching.
 
 ## Releasing
 
@@ -102,6 +123,7 @@ For UI changes, also run the example app on a device and on web: `cd example && 
 Then check:
 
 - Both rules above still hold: nothing platform-specific in shared code, and no new dependency, asset or startup work you didn't ask about.
+- No new `!` null checks, and any UI you changed handles its empty, loading and error states.
 - Any change to exported API is called out, and breaking changes are in the CHANGELOG.
 - The README and CHANGELOG cover every user-visible change.
 - You followed the folder `AGENTS.md` for every folder you changed.

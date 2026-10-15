@@ -15,6 +15,8 @@ The panel runs inside other people's apps, on top of their UI, often in QA build
 
 - Never use `Navigator`, routes, `showDialog`, `showMenu` or `PopupMenuButton`. The panel can be mounted with only a local `Overlay` above it. Use `MenuAnchor` or the ambient `Overlay` instead.
 - A nested view (a detail screen or fullscreen viewer) wraps itself in `BackHandlerScope` ([back_handler_scope.dart](panel/back_handler_scope.dart)) so Android's back button closes just that view.
+- The panel opens both as a small floating window and full screen, in light and dark themes. Check a UI change in all four.
+- Empty tabs use `DevToolsEmptyState` ([empty_state.dart](panel/empty_state.dart)), so they all look the same.
 
 ## Tabs and find
 
