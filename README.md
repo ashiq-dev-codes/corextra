@@ -81,10 +81,17 @@ Tap the floating bubble to open the panel.
 
 | Tab | What it shows |
 |---|---|
-| **Network** | Every HTTP request and socket message. Search and filter by method or status. |
-| **Logs** | Every `debugLog` / `AppLogger` call. Search and filter by level. |
+| **Network** | Every HTTP request and socket message. Filter by method or status. |
+| **Logs** | Every `debugLog` / `AppLogger` call. Filter by level. |
 | **Info** | App version and device details (the browser, on web). |
 | **Performance** (under **More**) | Live FPS chart with jank highlighting. |
+
+**Find anything** — the search box at the top works like a browser's find:
+- Searches every tab at once: URLs, headers, request and response bodies, logs, and app info
+- Every match is highlighted; the current one in orange
+- Press **Enter** (or the arrows) to jump to the next match — DevTools opens the right tab, request, and section for you
+- Each tab shows how many matches it holds
+- **Shift+Enter** goes back, **Esc** clears, **Cmd/Ctrl+F** focuses the box
 
 **In the Network tab:**
 - Headers, query params, and body each get their own tab
