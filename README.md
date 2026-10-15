@@ -14,7 +14,7 @@ Add the dependency:
 
 ```yaml
 dependencies:
-  corextra: ^1.2.10
+  corextra: ^1.2.11
 ```
 
 Import it:
@@ -95,12 +95,13 @@ Tap the floating bubble to open the panel.
 **In the Network tab:**
 - Headers, query params, and body each get their own tab
 - JSON shows as a collapsible, color-coded tree
-- Large bodies scroll inside their own box — drag along the edge to scroll, or tap the edge to jump
+- Large bodies scroll inside their own box
 - Copy, Share, and Fullscreen buttons stay in view while you scroll
 - Auth headers (`Authorization`, `Cookie`, …) get a **TOKEN** badge. Hide their values on screen with `hiddenHeaders` — Copy still gives the real value
 
 **Good to know:**
 - Tap **Minimize** to shrink the panel into a small floating window
+- Long lists and large bodies have easy-to-grab scrollbars — drag along the right edge, or tap it to jump
 - Android's back button closes the panel step by step, without affecting your app
 - On web, **Share** opens the browser's share sheet, or copies to the clipboard if the browser doesn't have one
 - On in debug builds, off in release. Change it anytime with `CorextraDevTools.instance.enabled = true`

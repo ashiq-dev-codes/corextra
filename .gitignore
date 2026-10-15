@@ -19,6 +19,11 @@ pubspec.lock
 /android/
 /ios/
 
+# IDE and OS files — never part of the package.
+*.iml
+.idea/
+.DS_Store
+
 # Claude Code local settings
 .claude/hooks
 .claude/settings.json
