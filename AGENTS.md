@@ -83,7 +83,7 @@ Developers judge the package by how its UI looks and feels, so make every widget
 ## Code style
 
 - Match the file you're in: naming, structure and `dart format` formatting.
-- Comments are one line, stating only the non-obvious *why*. That includes `///` doc comments.
+- Comments are one line, stating only the non-obvious *why*. That includes `///` doc comments, with one exception: on a public API developers use directly (a main class or mixin, or its most-used members), add a short `Example:` block in a dart code fence, like [non_nullable_string_extensions.dart](lib/extensions/string_extensions/non_nullable_string_extensions.dart). Don't add one to every member.
 - Don't leave commented-out code or unused code behind.
 
 ### No `!` null checks

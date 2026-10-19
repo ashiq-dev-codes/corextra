@@ -7,11 +7,43 @@ import '../../logs/deferred_log.dart';
 import '../util/deep_equality.dart';
 import '../util/json_value.dart';
 
-/// Turns a class into a JSON model with no code generation: write each field once as a typed getter, e.g. `int? get id => read('id');`.
+/// Turns a class into a JSON model with no code generation: write each field once as a typed getter.
+///
+/// You get safe parsing, [toJson], `==`, `hashCode` and `toString` for free.
+/// Bad or missing data reads as null and never throws.
+///
+/// Example:
+/// ```dart
+/// class UserModel with CorextraJsonModel {
+///   UserModel.fromJson(this.json);
+///
+///   @override
+///   final Map<String, dynamic> json;
+///
+///   int? get id => read('id');
+///   String get name => read('name') ?? '';
+///   CourtModel? get court => readModel('court', CourtModel.fromJson);
+///   List<String>? get tags => readList('tags');
+/// }
+///
+/// final user = UserModel.fromJson(response.data);
+/// print(user.id); // 7, even when the API sends "7"
+/// ```
 mixin CorextraJsonModel {
   // ---------------- Source ----------------
 
-  /// The raw JSON this model reads from, set by your constructor, e.g. `UserModel.fromJson(this.json);`.
+  /// The raw JSON this model reads from; the model never modifies it.
+  ///
+  /// Example:
+  /// ```dart
+  /// UserModel.fromJson(this.json);
+  ///
+  /// // Optional: a typed constructor for building a model by hand
+  /// UserModel({int? id, String? name}) : json = {'id': id, 'name': name};
+  ///
+  /// @override
+  /// final Map<String, dynamic> json;
+  /// ```
   Map<String, dynamic> get json;
 
   // ---------------- State ----------------
@@ -27,12 +59,32 @@ mixin CorextraJsonModel {
 
   // ---------------- Reading values ----------------
 
-  /// Reads [key] as the getter's type (`int`, `double`, `num`, `String`, `bool`, `DateTime` or `Map`), or null, e.g. `int? get id => read('id');`.
+  /// Reads [key] as the getter's type: `int`, `double`, `num`, `String`, `bool`, `DateTime` or `Map`.
+  ///
+  /// Accepts loose API values, like `"7"` for an int or `1` for true, and returns null when it can't.
+  /// Always write the getter's type, since that's what [read] converts to.
+  ///
+  /// Example:
+  /// ```dart
+  /// int? get id => read('id');                      // "7", 7 and 7.0 read as 7
+  /// String get name => read('name') ?? '';          // a default when missing
+  /// bool? get isActive => read('is_active');        // true, "true", 1 and "yes" read as true
+  /// DateTime? get startsAt => read('starts_at');    // ISO text or a Unix timestamp
+  /// String? get ownerName => read('owner.name');    // json['owner']['name']
+  /// String? get email => read('user_email', fallbackKeys: ['email']); // first key with a value
+  /// ```
   @protected
   T? read<T>(String key, {List<String> fallbackKeys = const []}) =>
       _read(key, fallbackKeys, convertJsonValue<T>);
 
-  /// Reads [key] as a date in a custom [format], e.g. `DateTime? get startTime => readDate('start_time', format: 'HH:mm:ss');`.
+  /// Reads [key] as a date in a custom [format]; for ISO dates and Unix timestamps, use [read].
+  ///
+  /// Example:
+  /// ```dart
+  /// DateTime? get startTime => readDate('start_time', format: 'HH:mm:ss');
+  /// DateTime? get birthday => readDate('dob', format: 'dd/MM/yyyy');
+  /// // "18:30:00" reads as 6:30 PM; "late" reads as null
+  /// ```
   @protected
   DateTime? readDate(
     String key, {
@@ -48,7 +100,13 @@ mixin CorextraJsonModel {
     },
   );
 
-  /// Reads [key] as one of [values] by name, in any letter case, e.g. `Role? get role => readEnum('role', Role.values);`.
+  /// Reads [key] as one of [values], matching the enum's name in any letter case.
+  ///
+  /// Example:
+  /// ```dart
+  /// Role? get role => readEnum('role', Role.values);
+  /// // "admin", "ADMIN" and " Admin " read as Role.admin; "owner" reads as null
+  /// ```
   @protected
   T? readEnum<T extends Enum>(
     String key,
@@ -66,12 +124,25 @@ mixin CorextraJsonModel {
 
   // ---------------- Reading lists and nested models ----------------
 
-  /// Reads [key] as a list, skipping items that can't be converted, e.g. `List<String>? get tags => readList('tags');`.
+  /// Reads [key] as a list of plain values, skipping items that can't be converted.
+  ///
+  /// Example:
+  /// ```dart
+  /// List<String>? get tags => readList('tags');
+  /// List<int>? get scores => readList('scores');
+  /// // ["1", 2, "x"] reads as [1, 2]; the text '["1", 2]' works too
+  /// ```
   @protected
   List<T>? readList<T>(String key, {List<String> fallbackKeys = const []}) =>
       _read(key, fallbackKeys, (raw) => _list(raw, convertJsonValue<T>));
 
-  /// Reads [key] as a nested model, or null when it's missing or invalid, e.g. `CourtModel? get court => readModel('court', CourtModel.fromJson);`.
+  /// Reads [key] as a nested model, or null when it's missing or invalid.
+  ///
+  /// Example:
+  /// ```dart
+  /// CourtModel? get court => readModel('court', CourtModel.fromJson);
+  /// // {"court": {"id": 3}} and {"court": "{\"id\": 3}"} both work; {"court": "abc"} reads as null
+  /// ```
   @protected
   T? readModel<T>(
     String key,
@@ -79,7 +150,13 @@ mixin CorextraJsonModel {
     List<String> fallbackKeys = const [],
   }) => _read(key, fallbackKeys, (raw) => _model(key, raw, fromJson));
 
-  /// Reads [key] as a list of nested models, skipping invalid items, e.g. `List<CourtModel>? get courts => readModelList('courts', CourtModel.fromJson);`.
+  /// Reads [key] as a list of nested models, skipping invalid items instead of failing the whole list.
+  ///
+  /// Example:
+  /// ```dart
+  /// List<CourtModel>? get courts => readModelList('courts', CourtModel.fromJson);
+  /// // [{"id": 1}, "junk", {"id": 2}] reads as two courts
+  /// ```
   @protected
   List<T>? readModelList<T>(
     String key,
@@ -93,7 +170,13 @@ mixin CorextraJsonModel {
 
   // ---------------- Custom values and changes ----------------
 
-  /// Builds a value once and reuses it until the next [write], e.g. `String get fullName => cached('fullName', () => '$name $lastName');`.
+  /// Builds a custom value once and reuses it until the next [write], with full access to [json].
+  ///
+  /// Example:
+  /// ```dart
+  /// String get fullName => cached('fullName', () => '$name $lastName');
+  /// ImageModel? get avatar => cached('avatar', () => ImageModel.fromProfile(json));
+  /// ```
   @protected
   T cached<T>(String name, T Function() build) {
     if (_computed.containsKey(name)) {
@@ -105,7 +188,16 @@ mixin CorextraJsonModel {
     return value;
   }
 
-  /// Changes the top-level [key] without touching [json], e.g. `set name(String? value) => write('name', value);`.
+  /// Changes the top-level [key] without touching [json]; later reads and [toJson] see the new value.
+  ///
+  /// Example:
+  /// ```dart
+  /// String? get name => read('name');
+  /// set name(String? value) => write('name', value);
+  ///
+  /// user.name = 'Ali';
+  /// print(user.toJson()['name']); // Ali
+  /// ```
   @protected
   void write(String key, Object? value) {
     _written[key] = value;
@@ -115,7 +207,15 @@ mixin CorextraJsonModel {
 
   // ---------------- Output, equality and printing ----------------
 
-  /// This model as JSON: unchanged values exactly as they came in, plus every [write], e.g. `api.post(url, data: user.toJson());`.
+  /// This model as JSON: unchanged values exactly as they came in, plus every [write].
+  ///
+  /// Example:
+  /// ```dart
+  /// await api.post(url, data: user.toJson());
+  ///
+  /// // copyWith: change any field, or set it to null
+  /// final renamed = UserModel.fromJson({...user.toJson(), 'name': 'Ali'});
+  /// ```
   Map<String, dynamic> toJson() {
     final data = <String, Object?>{...json};
     for (final entry in _parsed.entries) {
@@ -129,6 +229,18 @@ mixin CorextraJsonModel {
   }
 
   /// Equal when both are the same type with the same [toJson]; override it to compare by id instead.
+  ///
+  /// Example:
+  /// ```dart
+  /// UserModel.fromJson({'id': 1}) == UserModel.fromJson({'id': 1}); // true
+  ///
+  /// // Compare by id only
+  /// @override
+  /// bool operator ==(Object other) => other is UserModel && other.id == id;
+  ///
+  /// @override
+  /// int get hashCode => id.hashCode;
+  /// ```
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
