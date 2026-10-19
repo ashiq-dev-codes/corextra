@@ -1,4 +1,6 @@
-/// Whether [a] and [b] are equal, comparing lists, maps and sets by their contents.
+// ---------------- Equality ----------------
+
+/// Whether [a] and [b] are equal, comparing lists, maps and sets by their contents, e.g. `[1, 2]` equals `[1, 2]`.
 bool deepEquals(Object? a, Object? b) {
   if (identical(a, b)) return true;
   if (a is List && b is List) {
@@ -23,7 +25,9 @@ bool deepEquals(Object? a, Object? b) {
   return a == b;
 }
 
-/// A hash code that matches [deepEquals]: equal contents give equal hashes.
+// ---------------- Hashing ----------------
+
+/// A hash code that matches [deepEquals]: equal contents always give equal hashes.
 int deepHash(Object? value) {
   return switch (value) {
     List() => Object.hashAll(value.map(deepHash)),

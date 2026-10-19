@@ -1,8 +1,13 @@
-/// Makes a class sortable by [sortBy], so `list.sort()`, `<` and `>` just work.
+/// Makes a class sortable by the values you pick, so `list.sort()`, `<` and `>` just work.
 mixin CorextraSortable implements Comparable<CorextraSortable> {
-  /// Values to sort by, most important first; later values break ties and nulls sort last.
+  // ---------------- Sort order ----------------
+
+  /// Values to sort by, most important first; later values break ties and nulls sort last, e.g. `List<Object?> get sortBy => [rank, name];`.
   List<Object?> get sortBy;
 
+  // ---------------- Comparing ----------------
+
+  /// Compares [sortBy] value by value, so `players.sort()` orders by rank, then name.
   @override
   int compareTo(CorextraSortable other) {
     final mine = sortBy;
@@ -15,7 +20,7 @@ mixin CorextraSortable implements Comparable<CorextraSortable> {
     return mine.length.compareTo(theirs.length);
   }
 
-  /// Whether this sorts before [other].
+  /// Whether this sorts before [other], e.g. `if (first < second) ...`.
   bool operator <(CorextraSortable other) => compareTo(other) < 0;
 
   /// Whether this sorts before [other] or ties with it.
@@ -27,6 +32,8 @@ mixin CorextraSortable implements Comparable<CorextraSortable> {
   /// Whether this sorts after [other] or ties with it.
   bool operator >=(CorextraSortable other) => compareTo(other) >= 0;
 }
+
+// ---------------- Private helpers ----------------
 
 int _compareValues(Object? a, Object? b) {
   if (a == null || b == null) {

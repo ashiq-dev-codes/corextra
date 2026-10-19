@@ -2,17 +2,21 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../extensions/string_extensions/non_nullable_string_extensions.dart';
-import '../logs/deferred_log.dart';
-import 'util/deep_equality.dart';
-import 'util/json_value.dart';
+import '../../extensions/string_extensions/non_nullable_string_extensions.dart';
+import '../../logs/deferred_log.dart';
+import '../util/deep_equality.dart';
+import '../util/json_value.dart';
 
-/// Turns a class into a JSON model without code generation: each field is a typed getter that reads from [json].
+/// Turns a class into a JSON model with no code generation: write each field once as a typed getter, e.g. `int? get id => read('id');`.
 mixin CorextraJsonModel {
-  /// The raw JSON this model reads from; the model never modifies it.
+  // ---------------- Source ----------------
+
+  /// The raw JSON this model reads from, set by your constructor, e.g. `UserModel.fromJson(this.json);`.
   Map<String, dynamic> get json;
 
-  // Parsed values by key, so each field is parsed once.
+  // ---------------- State ----------------
+
+  // Parsed values by key, so each field is parsed only once.
   final Map<String, Object?> _parsed = {};
 
   // Values set with write(), kept apart so json is never modified.
@@ -21,12 +25,14 @@ mixin CorextraJsonModel {
   // Results of cached(), cleared on every write() since they may depend on any field.
   final Map<String, Object?> _computed = {};
 
-  /// Reads [key] as the getter's type: `int`, `double`, `num`, `String`, `bool`, `DateTime` or `Map`; null when missing or not convertible.
+  // ---------------- Reading values ----------------
+
+  /// Reads [key] as the getter's type (`int`, `double`, `num`, `String`, `bool`, `DateTime` or `Map`), or null, e.g. `int? get id => read('id');`.
   @protected
   T? read<T>(String key, {List<String> fallbackKeys = const []}) =>
       _read(key, fallbackKeys, convertJsonValue<T>);
 
-  /// Reads [key] as a date in [format], like `'HH:mm:ss'` or `'dd/MM/yyyy'`.
+  /// Reads [key] as a date in a custom [format], e.g. `DateTime? get startTime => readDate('start_time', format: 'HH:mm:ss');`.
   @protected
   DateTime? readDate(
     String key, {
@@ -42,7 +48,7 @@ mixin CorextraJsonModel {
     },
   );
 
-  /// Reads [key] as one of [values], matching the enum's name in any letter case.
+  /// Reads [key] as one of [values] by name, in any letter case, e.g. `Role? get role => readEnum('role', Role.values);`.
   @protected
   T? readEnum<T extends Enum>(
     String key,
@@ -58,12 +64,14 @@ mixin CorextraJsonModel {
     return null;
   });
 
-  /// Reads [key] as a list of [T], skipping items that can't be converted.
+  // ---------------- Reading lists and nested models ----------------
+
+  /// Reads [key] as a list, skipping items that can't be converted, e.g. `List<String>? get tags => readList('tags');`.
   @protected
   List<T>? readList<T>(String key, {List<String> fallbackKeys = const []}) =>
       _read(key, fallbackKeys, (raw) => _list(raw, convertJsonValue<T>));
 
-  /// Reads [key] as a nested model built by [fromJson]; null when missing or when [fromJson] throws.
+  /// Reads [key] as a nested model, or null when it's missing or invalid, e.g. `CourtModel? get court => readModel('court', CourtModel.fromJson);`.
   @protected
   T? readModel<T>(
     String key,
@@ -71,7 +79,7 @@ mixin CorextraJsonModel {
     List<String> fallbackKeys = const [],
   }) => _read(key, fallbackKeys, (raw) => _model(key, raw, fromJson));
 
-  /// Reads [key] as a list of nested models, skipping items that aren't valid.
+  /// Reads [key] as a list of nested models, skipping invalid items, e.g. `List<CourtModel>? get courts => readModelList('courts', CourtModel.fromJson);`.
   @protected
   List<T>? readModelList<T>(
     String key,
@@ -83,7 +91,9 @@ mixin CorextraJsonModel {
     (raw) => _list(raw, (item) => _model(key, item, fromJson)),
   );
 
-  /// Builds a custom value once with [build] and reuses it until the next [write].
+  // ---------------- Custom values and changes ----------------
+
+  /// Builds a value once and reuses it until the next [write], e.g. `String get fullName => cached('fullName', () => '$name $lastName');`.
   @protected
   T cached<T>(String name, T Function() build) {
     if (_computed.containsKey(name)) {
@@ -95,7 +105,7 @@ mixin CorextraJsonModel {
     return value;
   }
 
-  /// Sets the top-level [key] to [value] without touching [json]; later reads and [toJson] see the new value.
+  /// Changes the top-level [key] without touching [json], e.g. `set name(String? value) => write('name', value);`.
   @protected
   void write(String key, Object? value) {
     _written[key] = value;
@@ -103,7 +113,9 @@ mixin CorextraJsonModel {
     _computed.clear();
   }
 
-  /// This model as plain JSON: [json] plus every [write], with anything you didn't change kept exactly as it came in.
+  // ---------------- Output, equality and printing ----------------
+
+  /// This model as JSON: unchanged values exactly as they came in, plus every [write], e.g. `api.post(url, data: user.toJson());`.
   Map<String, dynamic> toJson() {
     final data = <String, Object?>{...json};
     for (final entry in _parsed.entries) {
@@ -129,6 +141,8 @@ mixin CorextraJsonModel {
 
   @override
   String toString() => '$runtimeType${toJson()}';
+
+  // ---------------- Private helpers ----------------
 
   T? _read<T>(
     String key,

@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import '../../extensions/string_extensions/non_nullable_string_extensions.dart';
-import '../corextra_json_model.dart';
+import '../json_model/corextra_json_model.dart';
 
-/// Converts a raw JSON value to [T], or returns null when that would lose or invent data.
+// ---------------- Reading ----------------
+
+/// Converts a raw JSON value to [T], or returns null when that would lose or invent data, e.g. `"7"` to `7`.
 T? convertJsonValue<T>(Object? raw) {
   if (_isType<T, Map<String, dynamic>>()) {
     final map = decodeJsonText(raw);
@@ -33,7 +35,7 @@ T? convertJsonValue<T>(Object? raw) {
   return _as<T>(value);
 }
 
-/// Decodes [raw] when it's JSON sent as text, like `'{"a": 1}'`; otherwise returns it unchanged.
+/// Decodes [raw] when it's JSON sent as text, e.g. `'{"a": 1}'` to a map; anything else comes back unchanged.
 Object? decodeJsonText(Object? raw) {
   if (raw is! String) return raw;
   final text = raw.trim();
@@ -45,7 +47,9 @@ Object? decodeJsonText(Object? raw) {
   }
 }
 
-/// Converts [value] to plain JSON: nested models, dates and enums become maps, strings and names.
+// ---------------- Writing ----------------
+
+/// Converts [value] to plain JSON: nested models become maps, dates ISO text and enums their name.
 Object? toJsonValue(Object? value) {
   return switch (value) {
     null || bool() || num() || String() => value,
@@ -58,12 +62,16 @@ Object? toJsonValue(Object? value) {
   };
 }
 
+// ---------------- Types ----------------
+
 T? _as<T>(Object? value) => value is T ? value : null;
 
 Type _typeOf<X>() => X;
 
 // True when T is S or S?, so `read<int?>` converts the same way as `read<int>`.
 bool _isType<T, S>() => T == S || T == _typeOf<S?>();
+
+// ---------------- Numbers, text and bools ----------------
 
 num? _toNum(Object raw) {
   final number = switch (raw) {
@@ -93,6 +101,8 @@ bool? _toBool(Object raw) => switch (raw) {
   String() => raw.toTryBool(),
   _ => null,
 };
+
+// ---------------- Dates ----------------
 
 // Whole numbers, even as text, are Unix timestamps; everything else is read as an ISO date.
 DateTime? _toDateTime(Object raw) {
