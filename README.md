@@ -14,7 +14,7 @@ Add the dependency:
 
 ```yaml
 dependencies:
-  corextra: ^1.3.0
+  corextra: ^1.3.1
 ```
 
 Import it:
@@ -163,12 +163,14 @@ class CourtModel extends BaseEntity with CorextraJsonModel {
 ```dart
 ChatModel copyWith({int? unreadCount, String? avatarUrl}) => ChatModel.fromJson({
   ...toJson(),
-  if (unreadCount != null) 'unread_count': unreadCount,
-  if (avatarUrl != null) 'avatar_url': avatarUrl,
+  'unread_count': ?unreadCount, // `?` skips the key when the value is null
+  'avatar_url': ?avatarUrl,
 });
 
 chat.copyWith(unreadCount: 0);
 ```
+
+The `?` form needs Dart 3.8 or newer. On older Dart, write `if (unreadCount != null) 'unread_count': unreadCount,` instead.
 
 For a one-off copy you can skip `copyWith`: `ChatModel.fromJson({...chat.toJson(), 'unread_count': 0})`.
 

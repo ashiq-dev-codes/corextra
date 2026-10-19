@@ -44,7 +44,7 @@ class FeaturesTab extends StatelessWidget {
   Widget _buildModelsSection(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final results = controller.modelResults;
+    final sections = controller.modelSections;
     return SectionCard(
       title: 'Models',
       icon: Icons.data_object_rounded,
@@ -60,36 +60,52 @@ class FeaturesTab extends StatelessWidget {
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: results.isEmpty
+            child: sections.isEmpty
                 ? Text(
-                    'Tap Parse Sample JSON to read three users from a sample response.',
+                    'Tap Parse Sample JSON to turn a messy sample API response into typed models.',
                     style: textTheme.bodyMedium,
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (final (label, value) in results)
+                      for (final (index, (title, rows))
+                          in sections.indexed) ...[
                         Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                label,
-                                style: textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              SelectableText(
-                                value,
-                                style: textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                          padding: EdgeInsets.only(
+                            top: index == 0 ? 0 : 14,
+                            bottom: 2,
+                          ),
+                          child: Text(
+                            title,
+                            style: textTheme.titleSmall?.copyWith(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
+                        for (final (label, value) in rows)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  label,
+                                  style: textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                SelectableText(
+                                  value,
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ],
                   ),
           ),
