@@ -13,7 +13,7 @@ extension NonNullableStringExtensions on String {
   /// 'abc'.toTryInt(); // returns null
   /// value?.toString().toTryInt(); // returns null or int value
   /// ```
-  int? toTryInt() => int.tryParse(this);
+  int? toTryInt() => int.tryParse(trim());
 
   /// Tries to parse the string to a double.
   /// Returns null if parsing fails.
@@ -24,20 +24,24 @@ extension NonNullableStringExtensions on String {
   /// 'pi'.toTryDouble();   // returns null
   /// value?.toString().toTryDouble(); // returns null or double value
   /// ```
-  double? toTryDouble() => double.tryParse(this);
+  double? toTryDouble() => double.tryParse(trim());
 
-  /// Tries to parse the string to a boolean.
-  /// Returns true if string is 'true' (case-insensitive) or '1',
-  /// false otherwise.
+  /// Tries to parse the string to a boolean, in any letter case.
+  /// Returns true for 'true', '1' or 'yes', false for 'false', '0' or 'no',
+  /// and null for anything else.
   ///
   /// Example:
   /// ```dart
-  /// 'true'.toTryBool();  // returns true
-  /// '1'.toTryBool();     // returns true
-  /// 'false'.toTryBool(); // returns false
+  /// 'TRUE'.toTryBool();  // returns true
+  /// '0'.toTryBool();     // returns false
+  /// 'maybe'.toTryBool(); // returns null
   /// value?.toString().toTryBool(); // returns null or bool value
   /// ```
-  bool? toTryBool() => bool.tryParse(toLowerCase()) ?? toTryInt() == 1;
+  bool? toTryBool() => switch (trim().toLowerCase()) {
+    'true' || '1' || 'yes' => true,
+    'false' || '0' || 'no' => false,
+    _ => null,
+  };
 
   /// Tries to parse the string into a DateTime object.
   ///
@@ -55,10 +59,11 @@ extension NonNullableStringExtensions on String {
   /// print(dt2); // Parsed DateTime or null
   /// ```
   DateTime? toTryDateTime({String? inputFormat}) {
+    final text = trim();
     try {
       return inputFormat == null
-          ? DateTime.tryParse(this)
-          : DateFormat(inputFormat).parseLoose(this);
+          ? DateTime.tryParse(text)
+          : DateFormat(inputFormat).parseLoose(text);
     } catch (_) {
       return null;
     }

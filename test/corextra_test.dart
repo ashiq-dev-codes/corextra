@@ -76,9 +76,27 @@ void main() {
       expect('1'.toTryBool(), isTrue);
     });
 
-    test('toTryBool parses "false" and others as false', () {
+    test('toTryBool parses "false", "0" and "no" as false', () {
       expect('false'.toTryBool(), isFalse);
-      expect('nope'.toTryBool(), isFalse);
+      expect('0'.toTryBool(), isFalse);
+      expect('No'.toTryBool(), isFalse);
+    });
+
+    test('toTryBool returns null for anything else', () {
+      expect('nope'.toTryBool(), isNull);
+      expect('2'.toTryBool(), isNull);
+      expect(''.toTryBool(), isNull);
+    });
+
+    test('toTryBool accepts any letter case and surrounding spaces', () {
+      expect(' TRUE '.toTryBool(), isTrue);
+      expect('Yes'.toTryBool(), isTrue);
+    });
+
+    test('number and date parsing ignore surrounding spaces', () {
+      expect(' 7 '.toTryInt(), equals(7));
+      expect(' 7.5 '.toTryDouble(), equals(7.5));
+      expect(' 2026-01-15 '.toTryDateTime(), equals(DateTime(2026, 1, 15)));
     });
 
     test('capitalize works correctly', () {
