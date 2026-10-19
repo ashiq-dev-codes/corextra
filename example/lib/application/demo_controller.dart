@@ -13,7 +13,7 @@ class DemoController extends ChangeNotifier {
 
   String stateMessage = 'Initial state';
   bool showAnimatedText = false;
-  List<(String, String)> modelResults = const [];
+  List<(String, List<(String, String)>)> modelSections = const [];
 
   DemoController({required this.networkService});
 
@@ -32,26 +32,82 @@ class DemoController extends ChangeNotifier {
     final users = [for (final json in sampleUsersJson) UserModel.fromJson(json)]
       ..sort();
     final ashiq = users.firstWhere((user) => user.name == 'Ashiq');
-    final renamed = UserModel.fromJson({...ashiq.toJson(), 'name': 'Ashiq K'});
     final invalid = users.where((user) => !user.validation.isValid);
-    modelResults = [
-      ('Sorted by name', users.map((user) => user.name).join(', ')),
-      ('id "7" read as', '${ashiq.id} (${ashiq.id.runtimeType})'),
-      ('Email from the fallback key', ashiq.email ?? '-'),
-      ('Role "ADMIN" read as', ashiq.role.name),
-      ('Nested address', ashiq.address?.city ?? '-'),
-      ('Location (data class)', '${ashiq.address?.location}'),
-      ('Same JSON is equal', '${ashiq == UserModel.fromJson(ashiq.toJson())}'),
-      ('Copy with a new name', renamed.name),
+    final builtInCode = UserModel(
+      id: 5,
+      name: 'Lina',
+      email: 'lina@example.com',
+    );
+    final copied = ashiq.copyWith(name: 'Ashiq K', role: Role.member);
+    final edited = UserModel.fromJson(ashiq.toJson())..name = 'Ali';
+    modelSections = [
       (
-        'Validation',
-        invalid.isEmpty
-            ? 'All valid'
-            : invalid
-                  .map((u) => '${u.name}: ${u.validation.firstError}')
-                  .join('\n'),
+        'Reading values',
+        [
+          ('id "7" read as', '${ashiq.id} (${ashiq.id.runtimeType})'),
+          ('Role "ADMIN" read as', ashiq.role.name),
+          ('Email from the fallback key', ashiq.email ?? '-'),
+          ('Team from the path "team.name"', ashiq.teamName ?? '-'),
+          ('Theme from JSON sent as text', ashiq.theme ?? '-'),
+        ],
       ),
-      ('toJson()', '${ashiq.toJson()}'),
+      (
+        'Dates',
+        [
+          (
+            'Joined (ISO text)',
+            ashiq.joinedAt.formatDate(outputFormat: 'dd MMM yyyy') ?? '-',
+          ),
+          (
+            'Last seen (Unix timestamp)',
+            ashiq.lastSeen.formatDate(outputFormat: 'dd MMM yyyy') ?? '-',
+          ),
+          (
+            'Check-in ("HH:mm:ss" format)',
+            ashiq.checkIn.formatDate(outputFormat: 'HH:mm') ?? '-',
+          ),
+        ],
+      ),
+      (
+        'Lists and nested models',
+        [
+          ('Tags from JSON sent as text', ashiq.tags?.join(', ') ?? '-'),
+          ('Nested address', ashiq.address?.city ?? '-'),
+          (
+            'Past addresses (junk item skipped)',
+            ashiq.pastAddresses?.map((a) => a.city).join(', ') ?? '-',
+          ),
+          ('Location (data class)', '${ashiq.address?.location}'),
+        ],
+      ),
+      (
+        'Building and changing',
+        [
+          ('Built in code', '${builtInCode.name} (id ${builtInCode.id})'),
+          ('copyWith', '${copied.name}, ${copied.role.name}'),
+          ('Setter', edited.toJson()['name'].toString()),
+          ('Original is unchanged', '${ashiq.name}, ${ashiq.role.name}'),
+        ],
+      ),
+      (
+        'Sorting, equality and validation',
+        [
+          ('Sorted by name', users.map((user) => user.name).join(', ')),
+          (
+            'Same JSON is equal',
+            '${ashiq == UserModel.fromJson(ashiq.toJson())}',
+          ),
+          (
+            'Validation',
+            invalid.isEmpty
+                ? 'All valid'
+                : invalid
+                      .map((u) => '${u.name}: ${u.validation.firstError}')
+                      .join('\n'),
+          ),
+        ],
+      ),
+      ('Output', [('toJson()', '${ashiq.toJson()}')]),
     ];
     notifyListeners();
   }

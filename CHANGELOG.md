@@ -1,3 +1,8 @@
+## 1.3.1
+
+- The README now shows how to copy a model with a short `copyWith`, and how to change model values safely.
+- The example app's **Models** demo now shows every model feature: nested paths, JSON sent as text, Unix timestamps, custom date formats, lists, building a model in code, setters and `copyWith`.
+
 ## 1.3.0
 
 - New **Models** feature: write API models without `build_runner` or code generation. See [Models](README.md#models).
