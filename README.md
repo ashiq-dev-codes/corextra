@@ -62,7 +62,7 @@ import 'package:corextra/corextra.dart';
 - `FadeSlideTransition` — fade + slide in from `top`, `bottom`, `left`, `right`, or a `custom` offset
 
 ### Models
-- `CorextraJsonModel` — API models with no hand-written constructor, `fromJson`, `toJson` or `copyWith`. See [Models](#models)
+- `CorextraJsonModel` — API models with one line per field: no hand-written parsing, `toJson`, `==` or `toString`. See [Models](#models)
 - `CorextraDataClass` — `==`, `hashCode` and `toString` for classes with normal fields
 - `CorextraSortable` — `list.sort()`, `<` and `>` by the fields you pick
 - `CorextraValidatable` — `validation.isValid` and `validation.errors` using your `FormValidators`
@@ -116,10 +116,10 @@ The type comes from the getter, so always write it: `int? get id`, not `get id`.
 ```dart
 final user = UserModel.fromJson(response.data);
 
-user.toJson();                                            // nested models, dates and enums converted
-user == UserModel.fromJson(user.toJson());               // true: equal when the data matches
-print(user);                                             // UserModel{id: 7, name: Ashiq, ...}
-UserModel.fromJson({...user.toJson(), 'name': 'Ali'});   // copyWith, and it can set a field to null
+user.id;                                     // 7, converted on first read, then reused
+user.toJson();                               // what the API sent, plus anything you changed
+user == UserModel.fromJson(user.toJson());   // true: equal when the data matches
+print(user);                                 // UserModel{id: 7, name: Ashiq, ...}
 ```
 
 **Safe by default:** a missing key or a value of the wrong type reads as `null` and never throws. `7.5` never silently becomes the int `7`, a map never becomes the text `"{...}"`, and a nested `fromJson` that throws gives `null` (with a note in the debug console). The model never changes the `json` you passed in.
@@ -158,7 +158,25 @@ class CourtModel extends BaseEntity with CorextraJsonModel {
 }
 ```
 
-Good to know: `toJson()` keeps every key the API sent, including ones you didn't declare, and sends back anything you didn't change exactly as it came in — JSON that arrived as text goes back as text. Each field is parsed on first read and cached, so reading it again is cheap. A key that really contains a dot is always read as that key first.
+**Copying a model** (for example in a cubit, so the screen rebuilds): add a `copyWith` with only the fields you change. `toJson()` already carries the rest.
+
+```dart
+ChatModel copyWith({int? unreadCount, String? avatarUrl}) => ChatModel.fromJson({
+  ...toJson(),
+  if (unreadCount != null) 'unread_count': unreadCount,
+  if (avatarUrl != null) 'avatar_url': avatarUrl,
+});
+
+chat.copyWith(unreadCount: 0);
+```
+
+For a one-off copy you can skip `copyWith`: `ChatModel.fromJson({...chat.toJson(), 'unread_count': 0})`.
+
+**Good to know:**
+- `toJson()` keeps every key the API sent, including ones you didn't declare, and sends back anything you didn't change exactly as it came in. JSON that arrived as text goes back as text.
+- Each field is converted on first read and remembered inside that model, so reading it again is cheap.
+- Change values through a setter or `copyWith`. Don't edit the map you passed to `fromJson`, or a list you got from a getter, since the model has already read them.
+- A key that really contains a dot is always read as that key first.
 
 **The other three mixins** work on any class, including a `CorextraJsonModel`:
 

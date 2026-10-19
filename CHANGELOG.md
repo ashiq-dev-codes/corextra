@@ -10,6 +10,7 @@
 - `toTryBool()` now also accepts `yes` / `no` in any letter case.
 - **Breaking:** `toTryBool()` now returns `null` for text it doesn't recognize (like `'maybe'` or `'2'`) instead of `false`. Use `value.toTryBool() ?? false` to keep the old result.
 - DevTools and Models APIs now have usage examples in their docs, shown when you hover in your IDE and on pub.dev.
+- DevTools files moved into clearer folders. Every class keeps its name, so apps that import `package:corextra/corextra.dart` need no changes. If you import a DevTools file directly, update its path.
 
 ## 1.2.11
 
