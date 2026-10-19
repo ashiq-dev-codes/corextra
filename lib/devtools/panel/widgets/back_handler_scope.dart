@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../devtools_controller.dart';
+import '../../corextra_devtools.dart';
 
-/// Makes [onBack] the target of Android's hardware back button for as long as this widget stays mounted, so it undoes just this nested view instead of closing the whole panel or reaching the host app underneath.
+/// Makes Android's back button call [onBack] while mounted, so it closes just this nested view, not the whole panel or the host app.
 class BackHandlerScope extends StatefulWidget {
   const BackHandlerScope({
     super.key,
@@ -10,12 +10,17 @@ class BackHandlerScope extends StatefulWidget {
     required this.child,
   });
 
+  /// Closes this nested view.
   final VoidCallback onBack;
+
+  /// The nested view itself.
   final Widget child;
 
   @override
   State<BackHandlerScope> createState() => _BackHandlerScopeState();
 }
+
+// ---------------- State ----------------
 
 class _BackHandlerScopeState extends State<BackHandlerScope> {
   VoidCallback? _unregister;
@@ -29,6 +34,7 @@ class _BackHandlerScopeState extends State<BackHandlerScope> {
   @override
   void didUpdateWidget(BackHandlerScope oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Re-register so back never calls a stale closure from an old build.
     if (oldWidget.onBack != widget.onBack) {
       _unregister?.call();
       _register();

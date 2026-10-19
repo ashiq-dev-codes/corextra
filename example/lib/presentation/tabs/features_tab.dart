@@ -36,7 +36,71 @@ class FeaturesTab extends StatelessWidget {
         _buildResponsiveSection(context),
         _buildStateAndAnimationSection(context),
         _buildFormValidatorsSection(context),
+        _buildModelsSection(context),
       ],
+    );
+  }
+
+  Widget _buildModelsSection(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final results = controller.modelResults;
+    return SectionCard(
+      title: 'Models',
+      icon: Icons.data_object_rounded,
+      subtitle:
+          'Turn a messy API response into typed models, with no build_runner.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: results.isEmpty
+                ? Text(
+                    'Tap Parse Sample JSON to read three users from a sample response.',
+                    style: textTheme.bodyMedium,
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final (label, value) in results)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                label,
+                                style: textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              SelectableText(
+                                value,
+                                style: textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed: controller.parseSampleModels,
+            icon: const Icon(Icons.play_arrow_rounded, size: 18),
+            label: const Text('Parse Sample JSON'),
+          ),
+        ],
+      ),
     );
   }
 

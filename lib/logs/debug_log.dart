@@ -1,4 +1,4 @@
-import 'package:corextra/devtools/devtools_controller.dart';
+import 'package:corextra/devtools/corextra_devtools.dart';
 import 'package:corextra/devtools/models/log_entry.dart';
 import 'package:corextra/logs/enum/log_level.dart';
 import 'package:flutter/foundation.dart';

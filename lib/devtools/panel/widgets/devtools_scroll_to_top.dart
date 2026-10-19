@@ -1,10 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 
-import 'edge_scrollbar.dart';
+import 'devtools_edge_scrollbar.dart';
 
-/// A small floating "scroll to top" button overlaid on a scrollable built by [builder].
+/// Adds a small "scroll to top" button, shown once the user scrolls down, over the scrollable that [builder] returns.
+///
+/// Use it in a custom tab so long lists behave like the built-in ones.
+///
+/// Example:
+/// ```dart
+/// DevToolsScrollToTop(
+///   scrollbar: true,
+///   builder: (context, controller) => ListView.builder(
+///     controller: controller,
+///     itemCount: items.length,
+///     itemBuilder: (context, index) => Text(items[index]),
+///   ),
+/// )
+/// ```
 class DevToolsScrollToTop extends StatefulWidget {
+  /// Creates the button over the scrollable built by [builder].
   const DevToolsScrollToTop({
     super.key,
     required this.builder,
@@ -12,11 +27,20 @@ class DevToolsScrollToTop extends StatefulWidget {
     this.scrollbar = false,
   });
 
-  /// Must attach the given [ScrollController] to its scrollable.
+  // ---------------- Settings ----------------
+
+  /// Builds the scrollable; it must attach the given [ScrollController], or the button never shows.
   final Widget Function(BuildContext context, ScrollController controller)
   builder;
 
-  /// Called on every scroll update with the live offset and the user's scroll direction — e.g. so a parent can collapse a header while scrolling down and restore it near the top.
+  /// Called on every scroll with the offset and direction, e.g. to collapse a header while scrolling down.
+  ///
+  /// Example:
+  /// ```dart
+  /// onScroll: (offset, direction) => setState(
+  ///   () => _showHeader = offset < 40 || direction == ScrollDirection.forward,
+  /// ),
+  /// ```
   final void Function(double offset, ScrollDirection direction)? onScroll;
 
   /// Adds an easy-to-grab scrollbar along the right edge, for long lists where flicking alone is slow.
@@ -26,7 +50,10 @@ class DevToolsScrollToTop extends StatefulWidget {
   State<DevToolsScrollToTop> createState() => _DevToolsScrollToTopState();
 }
 
+// ---------------- State ----------------
+
 class _DevToolsScrollToTopState extends State<DevToolsScrollToTop> {
+  // Hidden near the top, where there's little to scroll back.
   static const double _showAfterOffset = 300;
 
   final ScrollController _controller = ScrollController();

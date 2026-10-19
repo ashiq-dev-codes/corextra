@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart' show Drag, DragStartBehavior;
 import 'package:flutter/material.dart';
 
-/// A slim scrollbar along one edge of a scrollable that's easy to grab without looking any bigger: its touch area is a wide invisible strip down the whole edge, so a finger never has to land on the thin thumb itself. Drag anywhere in the strip to scroll — starting away from the thumb first jumps it under the finger — or tap to jump there. While held, the thumb thickens and takes the accent color, so it's clear it's been grabbed.
+/// A slim edge scrollbar with a wide invisible grab strip, so a finger never has to hit the thin thumb; drag or tap anywhere in the strip to scroll.
 class DevToolsEdgeScrollbar extends StatefulWidget {
   const DevToolsEdgeScrollbar({
     super.key,
@@ -15,11 +15,18 @@ class DevToolsEdgeScrollbar extends StatefulWidget {
     this.thumbKeyPrefix = 'scrollbar-thumb',
   });
 
+  // ---------------- Settings ----------------
+
+  /// The controller of the scrollable this bar drives.
   final ScrollController controller;
+
+  /// Vertical for the right edge, horizontal for the bottom edge.
   final Axis axis;
 
-  /// How far the track stays clear of the edge's start/end, e.g. of the floating action bar.
+  /// How far the track stays clear of the edge's start, e.g. of a header.
   final double startInset;
+
+  /// How far the track stays clear of the edge's end, e.g. of the floating action bar.
   final double endInset;
 
   /// Width of the invisible grab strip — narrower over tappable rows, so it takes less of each row's tap area.
@@ -32,17 +39,23 @@ class DevToolsEdgeScrollbar extends StatefulWidget {
   State<DevToolsEdgeScrollbar> createState() => _DevToolsEdgeScrollbarState();
 }
 
+// ---------------- State ----------------
+
 class _DevToolsEdgeScrollbarState extends State<DevToolsEdgeScrollbar> {
   static const _thickness = 5.0;
+
+  // Thicker, and accent-colored, while held so it's clear the thumb was grabbed.
   static const _activeThickness = 9.0;
   static const _minThumbLength = 36.0;
 
-  /// A drag starting this close to the thumb grabs it where it is rather than jumping.
+  /// A drag starting this close to the thumb grabs it where it is; further away, the thumb first jumps under the finger.
   static const _grabTolerance = 12.0;
 
   bool _active = false;
   Drag? _drag;
   double _trackLength = 0;
+
+  // ---------------- Geometry ----------------
 
   bool get _vertical => widget.axis == Axis.vertical;
 
@@ -87,6 +100,8 @@ class _DevToolsEdgeScrollbarState extends State<DevToolsEdgeScrollbar> {
 
   double _alongTrack(Offset localPosition) =>
       _vertical ? localPosition.dy : localPosition.dx;
+
+  // ---------------- Gestures ----------------
 
   void _setActive(bool active) {
     if (_active != active) setState(() => _active = active);
@@ -144,6 +159,8 @@ class _DevToolsEdgeScrollbarState extends State<DevToolsEdgeScrollbar> {
       curve: Curves.easeOutCubic,
     );
   }
+
+  // ---------------- Build ----------------
 
   @override
   void dispose() {

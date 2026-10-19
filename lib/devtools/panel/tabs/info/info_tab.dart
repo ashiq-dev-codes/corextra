@@ -1,17 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../devtools_controller.dart';
-import '../../find/devtools_find.dart';
-import '../../find/find_text.dart';
-import '../../util/platform_services.dart';
-import '../live_builder.dart';
-import '../scroll_to_top_fab.dart';
+import '../../../corextra_devtools.dart';
+import '../../../find/find.dart';
+import '../../../util/platform_services.dart';
+import '../../widgets/devtools_live_builder.dart';
+import '../../widgets/devtools_scroll_to_top.dart';
 
-/// App + device details, plus current capture-buffer counts from `CorextraDevTools.instance`.
+/// The Info tab: app and device details (the browser, on web), plus how many requests and logs DevTools holds.
+///
+/// `DevToolsPanel` already shows it; use it on its own to show the same details in your own screen.
+///
+/// Example:
+/// ```dart
+/// // An "About this build" screen for testers
+/// Scaffold(
+///   appBar: AppBar(title: const Text('About this build')),
+///   body: const InfoTab(),
+/// )
+/// ```
 class InfoTab extends StatelessWidget {
+  /// Creates the Info tab; app details load the first time it's built.
   const InfoTab({super.key});
 
+  // ---------------- Find ----------------
+
+  /// Every text this tab shows, in on-screen order, for the panel's find bar.
   static final FindSource findSource = FindSource(
     changes: _changes,
     targets: () sync* {
@@ -23,6 +37,8 @@ class InfoTab extends StatelessWidget {
       }
     },
   );
+
+  // ---------------- Build ----------------
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +67,8 @@ class InfoTab extends StatelessWidget {
   }
 }
 
+// ---------------- Private helpers ----------------
+
 // Shared, so find can search app info before the Info tab is ever opened.
 final _appInfo = ValueNotifier<Map<String, String>?>(null);
 var _appInfoRequested = false;
@@ -66,6 +84,7 @@ Map<String, String>? _ensureAppInfo() {
   return _appInfo.value;
 }
 
+// The buffer counts change with every capture, not just when app info loads.
 final _changes = Listenable.merge([
   _appInfo,
   CorextraDevTools.instance.network,
@@ -96,6 +115,8 @@ Iterable<_InfoItem> _items(Map<String, String>? app) sync* {
   yield _InfoItem.row('Network events', '${devtools.network.events.length}');
   yield _InfoItem.row('Log entries', '${devtools.logs.entries.length}');
 }
+
+// ---------------- Private widgets ----------------
 
 class _InfoRowView extends StatelessWidget {
   const _InfoRowView(this.item);

@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../find/find_text.dart';
+import '../../find/find.dart';
 
-/// A centered icon + message shown when a DevTools tab has no data yet.
+/// A centered icon, message and optional hint shown when a DevTools tab has nothing to show yet.
+///
+/// Use it in a custom tab so its empty screen looks like the built-in ones.
+///
+/// Example:
+/// ```dart
+/// if (events.isEmpty) {
+///   return const DevToolsEmptyState(
+///     icon: LucideIcons.wifiOff,
+///     message: 'No socket messages yet',
+///     hint: 'Connect a socket to see messages here.',
+///   );
+/// }
+/// ```
 class DevToolsEmptyState extends StatelessWidget {
+  /// Creates an empty state with an [icon], a [message] and an optional [hint].
   const DevToolsEmptyState({
     super.key,
     required this.icon,
@@ -12,12 +26,21 @@ class DevToolsEmptyState extends StatelessWidget {
     this.findId,
   });
 
+  // ---------------- Content ----------------
+
+  /// The large muted icon above the message.
   final IconData icon;
+
+  /// The main line, saying what's missing.
   final String message;
+
+  /// A smaller line under [message], usually telling the user how to get data; hidden when null.
   final String? hint;
 
   /// Prefix of the ids the owning tab's find source lists this text under, if it does.
   final String? findId;
+
+  // ---------------- Build ----------------
 
   @override
   Widget build(BuildContext context) {

@@ -3,23 +3,41 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../devtools_controller.dart';
-import '../../find/devtools_find.dart';
-import '../../find/find_text.dart';
-import '../../models/log_entry.dart';
-import '../empty_state.dart';
-import '../live_builder.dart';
-import '../scroll_to_top_fab.dart';
+import '../../../corextra_devtools.dart';
+import '../../../find/find.dart';
+import '../../../models/log_entry.dart';
+import '../../widgets/devtools_empty_state.dart';
+import '../../widgets/devtools_live_builder.dart';
+import '../../widgets/devtools_scroll_to_top.dart';
 
+// ---------------- Constants ----------------
+
+// Shared by the screen and its find targets, so find always matches what's shown.
 const _emptyMessage = 'No logs captured yet';
 const _emptyHint = 'Call debugLog() or AppLogger to see entries here.';
 final _timeFormat = DateFormat('HH:mm:ss.SSS');
 
-/// Reverse-chronological, color-coded list of captured log entries from
-/// `CorextraDevTools.instance.logs` — filterable by level.
+// ---------------- Logs tab ----------------
+
+/// The Logs tab: every captured log line, newest first, color-coded and filterable by level.
+///
+/// `DevToolsPanel` already shows it; use it on its own to show your app's logs in your own screen.
+///
+/// Example:
+/// ```dart
+/// // A logs screen for testers, fed by debugLog() and AppLogger
+/// Scaffold(
+///   appBar: AppBar(title: const Text('Logs')),
+///   body: const LogsTab(),
+/// )
+/// ```
 class LogsTab extends StatefulWidget {
+  /// Creates the Logs tab with every level shown.
   const LogsTab({super.key});
 
+  // ---------------- Find ----------------
+
+  /// Every text this tab shows, in on-screen order, for the panel's find bar.
   static final FindSource findSource = FindSource(
     changes: CorextraDevTools.instance.logs,
     targets: _findTargets,
@@ -43,13 +61,20 @@ class LogsTab extends StatefulWidget {
   State<LogsTab> createState() => _LogsTabState();
 }
 
+// ---------------- Private helpers ----------------
+
+// An Expando gives each entry a stable find id without adding a field to the public LogEntry.
 final _entryIds = Expando<int>();
 var _nextEntryId = 0;
 
 String _findId(LogEntry entry) => 'log/${_entryIds[entry] ??= _nextEntryId++}';
 
+// ---------------- State ----------------
+
 class _LogsTabState extends State<LogsTab> with FindAware<LogsTab> {
   final Set<LogLevel> _activeLevels = Set.of(LogLevel.values);
+
+  // ---------------- Find ----------------
 
   /// Like a browser expanding a collapsed section: a match is never left hidden behind a level filter.
   @override
@@ -59,6 +84,8 @@ class _LogsTabState extends State<LogsTab> with FindAware<LogsTab> {
       setState(() => _activeLevels.add(entry.level));
     }
   }
+
+  // ---------------- Levels ----------------
 
   Color _colorFor(LogLevel level) {
     switch (level) {
@@ -102,6 +129,8 @@ class _LogsTabState extends State<LogsTab> with FindAware<LogsTab> {
       }
     });
   }
+
+  // ---------------- Build ----------------
 
   @override
   Widget build(BuildContext context) {

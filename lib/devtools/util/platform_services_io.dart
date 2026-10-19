@@ -5,13 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
 
-/// [origin] anchors the sheet so iPad's popover-based presentation doesn't crash.
+/// Opens the system share sheet; [origin] anchors it so the iPad popover doesn't crash.
 Future<void> shareText(String text, {Rect? origin}) async {
   await SharePlus.instance.share(
     ShareParams(text: text, sharePositionOrigin: origin),
   );
 }
 
+/// App name, package, version and device as label-value rows.
 Future<Map<String, String>> loadAppInfo() async {
   final info = await PackageInfo.fromPlatform();
   return {
@@ -22,6 +23,9 @@ Future<Map<String, String>> loadAppInfo() async {
   };
 }
 
+// ---------------- Private helpers ----------------
+
+// A plugin error shows 'Unavailable' instead of failing the whole app info.
 Future<String> _deviceLabel() async {
   final plugin = DeviceInfoPlugin();
   try {

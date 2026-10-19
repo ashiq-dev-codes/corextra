@@ -58,14 +58,16 @@ Keeping these files useful:
 
 ## Where things go
 
-- `lib/<feature>/` holds one feature each: `extensions/`, `validators/`, `responsive/`, `logs/`, `network/`, `devtools/` and so on. Put new code in the matching folder, or a new one named the same way.
-- `test/` mirrors `lib/`.
+- `lib/<feature>/` holds one feature each: `extensions/`, `validators/`, `responsive/`, `logs/`, `network/`, `models/`, `devtools/` and so on. Put new code in the matching folder, or a new one named the same way.
+- Inside a feature, give each part its own sub-folder and each public class, mixin or extension its own file, like `lib/models/json_model/corextra_json_model.dart` or `lib/extensions/string_extensions/`.
+- Helpers only the package uses go in the feature's `util/` folder and are never exported.
+- `test/` mirrors `lib/`, sub-folders included.
 - `example/` is a runnable app that shows off the package.
 
 ## Adding to the API
 
 - Export new public files from `lib/corextra.dart`, keeping the exports in alphabetical order.
-- Give every public member a one-line `///` doc comment; pub.dev scores documented APIs.
+- Give every public member a `///` doc comment, with an example where [Code style](#code-style) asks for one; pub.dev scores documented APIs.
 - Add tests in the matching `test/` folder. Tests import `package:corextra/corextra.dart`, like apps do.
 - Document user-facing additions in the README, and add a demo to the example app.
 - Send console output through `deferredLog` ([deferred_log.dart](lib/logs/deferred_log.dart)), passing a function that builds the message, so formatting happens between frames instead of inside the caller. Never use `print`, `debugPrint` or `log` directly.
@@ -83,7 +85,10 @@ Developers judge the package by how its UI looks and feels, so make every widget
 ## Code style
 
 - Match the file you're in: naming, structure and `dart format` formatting.
-- Comments are one line, stating only the non-obvious *why*. That includes `///` doc comments.
+- Split a file into sections with a one-line divider, like `// ---------------- Reading values ----------------`. Public API comes first and private helpers last, in their own section.
+- Comments are one line, stating only the non-obvious *why*. That includes `///` doc comments, with one exception below.
+- Every public member a developer calls, sets or overrides gets a `///` doc with a short `Example:` block in a dart code fence: a line saying what it does, then real usage with a comment showing the result. Copy [corextra_json_model.dart](lib/models/json_model/corextra_json_model.dart).
+- Skip the example where nobody would read it: members developers never call directly (like `hashCode`), private helpers and `util/` files. These get a one-line comment at most.
 - Don't leave commented-out code or unused code behind.
 
 ### No `!` null checks

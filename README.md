@@ -14,7 +14,7 @@ Add the dependency:
 
 ```yaml
 dependencies:
-  corextra: ^1.2.11
+  corextra: ^1.3.0
 ```
 
 Import it:
@@ -60,6 +60,148 @@ import 'package:corextra/corextra.dart';
 
 ### Animation
 - `FadeSlideTransition` — fade + slide in from `top`, `bottom`, `left`, `right`, or a `custom` offset
+
+### Models
+- `CorextraJsonModel` — API models with no hand-written constructor, `fromJson`, `toJson` or `copyWith`. See [Models](#models)
+- `CorextraDataClass` — `==`, `hashCode` and `toString` for classes with normal fields
+- `CorextraSortable` — `list.sort()`, `<` and `>` by the fields you pick
+- `CorextraValidatable` — `validation.isValid` and `validation.errors` using your `FormValidators`
+- No `build_runner`, no code generation, no extra dependencies
+
+---
+
+## Models
+
+Write each field once, as a typed getter. corextra handles parsing, `toJson`, `==` and `toString`. All four are mixins (`with`), so `extends` stays free for your own base class.
+
+```dart
+class UserModel with CorextraJsonModel {
+  UserModel.fromJson(this.json);
+
+  @override
+  final Map<String, dynamic> json;
+
+  int? get id => read('id');                 // "7", 7 and 7.0 all read as 7
+  String get name => read('name') ?? '';     // a default when missing
+  bool? get isNewUser => read('is_new_user'); // true, "true", 1 and "1" read as true
+  DateTime? get joinedAt => read('joined_at');
+  Role get role => readEnum('role', Role.values) ?? Role.member;
+  List<String>? get tags => readList('tags');
+  AddressModel? get address => readModel('address', AddressModel.fromJson);
+  List<CourtModel>? get courts => readModelList('courts', CourtModel.fromJson);
+
+  // The API sends this under different keys; the first one with a value wins.
+  String? get email => read('user_email', fallbackKeys: ['email', 'userEmail']);
+
+  // A dot reads inside nested objects: json['owner']['name'].
+  String? get ownerName => read('owner.name');
+
+  // Numbers are Unix timestamps (seconds or milliseconds); text is read as an ISO date.
+  DateTime? get startsAt => read('days_until_start');
+
+  // Any other date format.
+  DateTime? get startTime => readDate('start_time', format: 'HH:mm:ss');
+
+  // Works the same when the API sends the object or list as JSON text, like "{\"prices\": {...}}".
+  MetaModel? get meta => readModel('meta', MetaModel.fromJson);
+}
+```
+
+The type comes from the getter, so always write it: `int? get id`, not `get id`.
+
+`read`, `write` and the other helpers are for use inside the model only; the analyzer warns if other code calls them. That keeps JSON keys in one place, and the rest of your app uses typed fields like `user.id`.
+
+**What you get:**
+
+```dart
+final user = UserModel.fromJson(response.data);
+
+user.toJson();                                            // nested models, dates and enums converted
+user == UserModel.fromJson(user.toJson());               // true: equal when the data matches
+print(user);                                             // UserModel{id: 7, name: Ashiq, ...}
+UserModel.fromJson({...user.toJson(), 'name': 'Ali'});   // copyWith, and it can set a field to null
+```
+
+**Safe by default:** a missing key or a value of the wrong type reads as `null` and never throws. `7.5` never silently becomes the int `7`, a map never becomes the text `"{...}"`, and a nested `fromJson` that throws gives `null` (with a note in the debug console). The model never changes the `json` you passed in.
+
+**Customize anything:**
+
+```dart
+class CourtModel extends BaseEntity with CorextraJsonModel {
+  CourtModel.fromJson(this.json);
+
+  // An optional typed constructor for building one by hand.
+  CourtModel({int? id, String? name}) : json = {'id': id, 'name': name};
+
+  @override
+  final Map<String, dynamic> json;
+
+  int? get id => read('id');
+  String? get name => read('name');
+
+  // A field you change at runtime; reads and toJson() see the new value.
+  set name(String? value) => write('name', value);
+
+  // Custom logic, built once and reused until the next write().
+  String get label => cached('label', () => '#$id ${name ?? ''}');
+
+  // Compare by id instead of all data.
+  @override
+  bool operator ==(Object other) => other is CourtModel && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  // Change what gets sent to the API.
+  @override
+  Map<String, dynamic> toJson() => {...super.toJson(), 'name': name?.trim()};
+}
+```
+
+Good to know: `toJson()` keeps every key the API sent, including ones you didn't declare, and sends back anything you didn't change exactly as it came in — JSON that arrived as text goes back as text. Each field is parsed on first read and cached, so reading it again is cheap. A key that really contains a dot is always read as that key first.
+
+**The other three mixins** work on any class, including a `CorextraJsonModel`:
+
+```dart
+// CorextraDataClass: like a Python @dataclass or a Java record.
+class GeoPoint with CorextraDataClass {
+  const GeoPoint(this.lat, this.lng);
+  final double lat;
+  final double lng;
+
+  @override
+  Map<String, Object?> get fields => {'lat': lat, 'lng': lng};
+}
+
+// CorextraSortable and CorextraValidatable.
+class Player with CorextraJsonModel, CorextraSortable, CorextraValidatable {
+  Player.fromJson(this.json);
+
+  @override
+  final Map<String, dynamic> json;
+
+  String? get name => read('name');
+  int? get rank => read('rank');
+
+  @override
+  List<Object?> get sortBy => [rank, name]; // ties on rank are sorted by name; nulls go last
+
+  @override
+  Map<String, String?> validate() => {
+    'name': FormValidators.required(name),
+  };
+}
+
+players.sort();                   // by rank, then name
+player.validation.isValid;        // false when name is empty
+player.validation.errors;         // {name: This field is required}
+player.validation.firstError;     // This field is required
+player.validation.errorFor('name');
+```
+
+The results sit under `validation` so they never clash with an `isValid` or `errors` field your API already sends.
+
+If two mixins both define `==` (for example `CorextraJsonModel` and `CorextraDataClass`), the last one in the `with` list wins, and anything you write in the class itself wins over both.
 
 ---
 

@@ -3,38 +3,48 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../devtools_controller.dart';
+import '../corextra_devtools.dart';
 import '../panel/devtools_tabs.dart';
 import '../util/devtools_theme.dart';
 import 'draggable_floating_widget.dart';
 
-/// A small, draggable, resizable floating window showing the *same*
-/// DevTools tab content (Network / Logs / Info) as the
-/// full panel — not a stripped-down summary — just confined to a
-/// smaller window that floats over the app instead of covering the
-/// whole screen. Lets a developer watch live activity while still
-/// freely interacting with (and testing) the rest of the app
-/// underneath, closer to inspecting a page in a browser than a
-/// full-screen-only panel would allow.
+/// A small floating window with the same DevTools tabs as the full panel, so you can watch live activity while still using your app.
 ///
-/// Drag the header to move it; drag the bottom-right corner grip to
-/// resize it (clamped between [_minSize] and a max that's capped by
-/// both a fixed ceiling and the available screen size); tap Expand to
-/// return to the full-screen panel, or Close to dismiss back to the
-/// bubble.
+/// Drag the header to move it, press and hold the bottom-right corner to resize it within the screen, tap Expand for the full panel, or Close to go back to the bubble.
+///
+/// Example:
+/// ```dart
+/// Stack(
+///   children: [
+///     const HomeScreen(),
+///     DevToolsFloatingWindow(
+///       onExpand: () => setState(() => showFullPanel = true),
+///       onClose: () => setState(() => showWindow = false),
+///     ),
+///   ],
+/// )
+/// ```
 class DevToolsFloatingWindow extends StatefulWidget {
+  /// Creates a floating window with Expand and Close buttons.
   const DevToolsFloatingWindow({
     super.key,
     required this.onExpand,
     required this.onClose,
   });
 
+  // ---------------- Settings ----------------
+
+  /// Called when Expand is tapped, e.g. to open the full-screen panel.
   final VoidCallback onExpand;
+
+  /// Called when Close is tapped, e.g. to go back to the bubble.
   final VoidCallback onClose;
 
   @override
   State<DevToolsFloatingWindow> createState() => _DevToolsFloatingWindowState();
 }
+
+// ---------------- Private widgets ----------------
 
 class _DevToolsFloatingWindowState extends State<DevToolsFloatingWindow> {
   static const Size _minSize = Size(280, 360);
@@ -67,15 +77,9 @@ class _DevToolsFloatingWindowState extends State<DevToolsFloatingWindow> {
 
     return DraggableFloatingWidget(
       size: _size,
-      // Matches the Material's own borderRadius below — otherwise this
-      // box's four corners (which the rounded Material can't reach,
-      // being a rounded shape inscribed in a same-sized square) show
-      // whatever's painted behind it instead of the app underneath.
+      // Matches the Material's radius so the box's corners show the app underneath, not what's painted behind the window.
       borderRadius: BorderRadius.circular(16),
-      // Anchored near the top-right by default, not bottom-right like
-      // the bubble — the bottom of the screen is where most app UIs
-      // (nav bars, primary actions) live, and that's exactly what a
-      // developer testing the app needs clear access to.
+      // Top-right by default, since the bottom is where most apps keep the nav bars and main actions a developer needs to reach.
       defaultOffset:
           (screenSize, size) => Offset(screenSize.width - size.width - 16, 64),
       builder:
@@ -86,14 +90,7 @@ class _DevToolsFloatingWindowState extends State<DevToolsFloatingWindow> {
                   data: buildDevToolsTheme(
                     mode == ThemeMode.dark ? Brightness.dark : Brightness.light,
                   ),
-                  // Its own Overlay, sized to exactly this window's bounds
-                  // (not the whole screen) — the tab content includes
-                  // tooltips (e.g. the Network tab's copy button) that need
-                  // one, and because this Overlay's bounds match what's
-                  // actually visible, it only ever intercepts taps within
-                  // the window itself, not the app underneath — unlike the
-                  // full-screen case this pattern deliberately avoids (see
-                  // `DevToolsBubble`'s doc comment).
+                  // Its own Overlay sized to the window, so tooltips work but taps outside it still reach the app (see DevToolsBubble).
                   child: Overlay(
                     initialEntries: [
                       OverlayEntry(
@@ -198,18 +195,7 @@ class _WindowHeader extends StatelessWidget {
   }
 }
 
-/// The bottom-right resize grip — press and hold, then drag, to resize
-/// the window. Deliberately gated behind a long press rather than a
-/// bare tap-drag: this handle sits right at the corner of the window,
-/// a screen region a developer routinely swipes through while dragging
-/// the header to reposition the window or just interacting with the app
-/// underneath, and an instant-drag handle there fires accidental
-/// resizes. Requiring a hold first — the same affordance iOS uses for
-/// drag handles that share space with ordinary touches — makes the
-/// resize a deliberate act. Diagonal (corner) resize only, deliberately:
-/// no separate horizontal- or vertical-only edge handles. Styled as a
-/// small corner bracket rather than an arrow icon or a dot — the same
-/// visual iOS uses for its Photos crop tool and Markup resize handles.
+// Diagonal corner grip that needs a hold before dragging, so swipes through the corner never resize by accident; drawn as an iOS-style crop bracket.
 class _ResizeHandle extends StatefulWidget {
   const _ResizeHandle({required this.onResizeDelta});
 
@@ -291,11 +277,7 @@ class _CornerBracketPainter extends CustomPainter {
           ..strokeCap = StrokeCap.round
           ..style = PaintingStyle.stroke;
 
-    // The bottom edge and the right edge, joined by a rounded corner
-    // instead of a sharp point — a quadratic bezier whose control point
-    // sits exactly at that corner always bulges smoothly toward it,
-    // regardless of orientation, which is a more reliable way to round
-    // a path corner than reasoning about arc sweep directions.
+    // A quadratic bezier with its control point on the corner rounds it smoothly in any orientation, more reliably than arc sweeps.
     final path =
         Path()
           ..moveTo(size.width - _armLength - _radius, size.height)

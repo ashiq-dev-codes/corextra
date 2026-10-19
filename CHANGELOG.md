@@ -1,3 +1,16 @@
+## 1.3.0
+
+- New **Models** feature: write API models without `build_runner` or code generation. See [Models](README.md#models).
+- `CorextraJsonModel` — declare each field once as a typed getter (`int? get id => read('id')`) and get safe parsing, `toJson()`, `==`, `hashCode` and `toString` for free. Reads loose API values like `"7"` or `1` for `true`, never throws on bad data, and supports nested models, lists, enums, fallback keys, nested paths like `'user.name'`, JSON sent as text, Unix timestamps and custom date formats.
+- `CorextraDataClass` — `==`, `hashCode` and a readable `toString` for classes with normal fields, comparing lists and maps by their contents.
+- `CorextraSortable` — makes `list.sort()`, `<` and `>` work by the fields you pick.
+- `CorextraValidatable` — `validation.isValid`, `validation.errors` and `validation.firstError` using your `FormValidators`.
+- All four are mixins, so your classes can still extend any base class.
+- `toTryInt()`, `toTryDouble()`, `toTryBool()` and `toTryDateTime()` now ignore spaces around the value.
+- `toTryBool()` now also accepts `yes` / `no` in any letter case.
+- **Breaking:** `toTryBool()` now returns `null` for text it doesn't recognize (like `'maybe'` or `'2'`) instead of `false`. Use `value.toTryBool() ?? false` to keep the old result.
+- DevTools and Models APIs now have usage examples in their docs, shown when you hover in your IDE and on pub.dev.
+
 ## 1.2.11
 
 - DevTools has a new **Find** box that searches every tab at once: URLs, headers, request and response bodies, logs, and app info. Every match is highlighted like a browser's find — press **Enter** or the arrows to jump between them, and DevTools opens the right tab, request, and section for you. It replaces the separate Network and Logs search boxes.

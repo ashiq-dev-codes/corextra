@@ -1,24 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../devtools_controller.dart';
+import '../corextra_devtools.dart';
 import 'devtools_tabs.dart';
 
-/// The DevTools inspector panel: Network / Logs / Info
-/// tabs, plus a header with theme, minimize, "Clear all", and close
-/// controls.
+/// The full DevTools panel: the Network, Logs and Info tabs under a header with theme, minimize, clear and close buttons.
+///
+/// `CorextraDevToolsOverlay` shows it for you; build it yourself only to put DevTools on your own screen.
+///
+/// Example:
+/// ```dart
+/// // Open DevTools from a "Debug" button in your settings screen
+/// Navigator.of(context).push(
+///   MaterialPageRoute(
+///     builder: (context) => DevToolsPanel(
+///       onClose: () => Navigator.of(context).pop(),
+///       onMinimize: () => Navigator.of(context).pop(),
+///     ),
+///   ),
+/// );
+/// ```
 class DevToolsPanel extends StatelessWidget {
+  /// Creates the panel; both callbacks are required since the header always shows their buttons.
   const DevToolsPanel({
     super.key,
     required this.onClose,
     required this.onMinimize,
   });
 
+  // ---------------- Callbacks ----------------
+
+  /// Called when the user taps the close button.
   final VoidCallback onClose;
 
-  /// Minimizes the panel to a small floating window instead of closing
-  /// it outright — see `DevToolsFloatingWindow`.
+  /// Called when the user taps minimize; the overlay shrinks the panel into `DevToolsFloatingWindow` instead of closing it.
   final VoidCallback onMinimize;
+
+  // ---------------- Build ----------------
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +54,8 @@ class DevToolsPanel extends StatelessWidget {
     );
   }
 }
+
+// ---------------- Private widgets ----------------
 
 class _Header extends StatelessWidget {
   const _Header({required this.onClose, required this.onMinimize});

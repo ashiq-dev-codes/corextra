@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
+import '../domain/demo_models.dart';
 import '../infrastructure/network/network_service.dart';
 
 import 'package:corextra/corextra.dart';
@@ -12,6 +13,7 @@ class DemoController extends ChangeNotifier {
 
   String stateMessage = 'Initial state';
   bool showAnimatedText = false;
+  List<(String, String)> modelResults = const [];
 
   DemoController({required this.networkService});
 
@@ -23,6 +25,34 @@ class DemoController extends ChangeNotifier {
 
   void toggleAnimation() {
     showAnimatedText = !showAnimatedText;
+    notifyListeners();
+  }
+
+  void parseSampleModels() {
+    final users = [for (final json in sampleUsersJson) UserModel.fromJson(json)]
+      ..sort();
+    final ashiq = users.firstWhere((user) => user.name == 'Ashiq');
+    final renamed = UserModel.fromJson({...ashiq.toJson(), 'name': 'Ashiq K'});
+    final invalid = users.where((user) => !user.validation.isValid);
+    modelResults = [
+      ('Sorted by name', users.map((user) => user.name).join(', ')),
+      ('id "7" read as', '${ashiq.id} (${ashiq.id.runtimeType})'),
+      ('Email from the fallback key', ashiq.email ?? '-'),
+      ('Role "ADMIN" read as', ashiq.role.name),
+      ('Nested address', ashiq.address?.city ?? '-'),
+      ('Location (data class)', '${ashiq.address?.location}'),
+      ('Same JSON is equal', '${ashiq == UserModel.fromJson(ashiq.toJson())}'),
+      ('Copy with a new name', renamed.name),
+      (
+        'Validation',
+        invalid.isEmpty
+            ? 'All valid'
+            : invalid
+                  .map((u) => '${u.name}: ${u.validation.firstError}')
+                  .join('\n'),
+      ),
+      ('toJson()', '${ashiq.toJson()}'),
+    ];
     notifyListeners();
   }
 

@@ -6,6 +6,7 @@ import 'dart:js_interop_unsafe';
 import 'package:flutter/services.dart';
 import 'package:web/web.dart' as web;
 
+/// Opens the browser's share sheet; [origin] is only needed on iPad apps, so it's unused here.
 Future<void> shareText(String text, {Rect? origin}) async {
   final navigator = web.window.navigator;
   // No Web Share API (desktop Firefox, non-HTTPS pages): fall back to the clipboard.
@@ -28,6 +29,9 @@ Future<Map<String, String>> loadAppInfo() async {
   };
 }
 
+// ---------------- Private helpers ----------------
+
+// Empty when the file is missing or unreadable, so app info shows blanks instead of an error.
 Future<Map<String, dynamic>> _versionJson() async {
   try {
     final uri = Uri.parse(web.document.baseURI).resolve('version.json');
