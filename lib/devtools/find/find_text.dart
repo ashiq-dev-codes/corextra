@@ -4,11 +4,18 @@ import 'package:flutter/scheduler.dart';
 
 import 'devtools_find.dart';
 
+// ---------------- Colors ----------------
+
+/// Background of every find match.
 const findMatchColor = Color(0xFFFFE066);
+
+/// Text on a match, dark so it stays readable in both themes.
 const findMatchTextColor = Color(0xFF1A1A1A);
 const _currentColor = Color(0xFFFF9632);
 
-/// A drop-in for [Text] / [SelectableText] with browser-style find highlights; give it the [id] its [FindSource] uses so it can show and scroll to the current match.
+// ---------------- Widget ----------------
+
+/// A drop-in for [Text] or [SelectableText] with find highlights; pass the [id] its [FindSource] uses so it can show and scroll to the current match.
 class FindText extends StatefulWidget {
   const FindText(
     String this.data, {
@@ -32,8 +39,13 @@ class FindText extends StatefulWidget {
     this.selectable = false,
   }) : data = null;
 
+  /// The plain text, set by the default constructor.
   final String? data;
+
+  /// The styled text, set by [FindText.rich].
   final TextSpan? span;
+
+  /// The target id from the tab's [FindSource]; without it matches still highlight but are never current.
   final String? id;
   final TextStyle? style;
   final int? maxLines;
@@ -46,6 +58,8 @@ class FindText extends StatefulWidget {
   @override
   State<FindText> createState() => _FindTextState();
 }
+
+// ---------------- Private helpers ----------------
 
 class _FindTextState extends State<FindText> {
   TextSelection? _currentRange;
@@ -86,7 +100,7 @@ class _FindTextState extends State<FindText> {
     );
   }
 
-  /// With nothing to highlight, renders exactly the widget it stands in for.
+  // With nothing to highlight, renders exactly the widget it stands in for.
   Widget _render(TextSpan? highlighted) {
     final span = highlighted ?? widget.span;
     if (widget.selectable) {
@@ -133,7 +147,7 @@ class _FindTextState extends State<FindText> {
     });
   }
 
-  /// showOnScreen walks every scrollable above — list, code block, both axes — so the exact words land in view, not just this widget's top.
+  // showOnScreen scrolls every scrollable above on both axes, so the matched words land in view, not just this widget's top.
   void _showOnScreen(TextSelection range) {
     final text = _findTextRenderObject(context.findRenderObject());
     if (text == null) return;
@@ -167,7 +181,7 @@ class _FindTextState extends State<FindText> {
   }
 }
 
-/// Splits each piece of styled text at match boundaries, since a match can straddle pieces — e.g. a JSON key and its value.
+// Splits each styled piece at match edges, since one match can span pieces, like a JSON key and its value.
 class _HighlightBuilder {
   _HighlightBuilder({
     required this.starts,

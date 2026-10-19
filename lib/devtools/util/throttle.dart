@@ -10,6 +10,7 @@ class Throttle {
   Timer? _timer;
   bool _pending = false;
 
+  /// Runs [action] now, or once more when the current [interval] ends.
   void call() {
     if (_timer != null) {
       _pending = true;
@@ -26,6 +27,7 @@ class Throttle {
     call();
   }
 
+  /// Cancels the timer and drops any pending run.
   void dispose() {
     _timer?.cancel();
     _timer = null;

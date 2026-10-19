@@ -4,21 +4,28 @@ Rules for `lib/devtools/`. Package-wide rules are in [../../AGENTS.md](../../AGE
 
 The panel runs inside other people's apps, on top of their UI, often in QA builds. It must never crash the host app, slow it down, or record anything while it's turned off.
 
+## Layout
+
+- `corextra_devtools.dart` holds the `CorextraDevTools` controller; `stores/`, `models/`, `interceptors/` and `overlay/` hold one public class per file.
+- `panel/` holds the panel and its tab bar; shared panel widgets go in `panel/widgets/`.
+- Each tab gets its own folder under `panel/tabs/`. When a tab grows past a few hundred lines, split it into `part` files by section, like [network/](panel/tabs/network/), so its private widgets stay private.
+- Code only the panel uses goes in `find/` or `util/` and is never exported. Inside the package, import find through [find/find.dart](find/find.dart).
+
 ## State and recording
 
-- All state lives in `CorextraDevTools.instance` ([devtools_controller.dart](devtools_controller.dart)). Add new state there, not in a new singleton or global.
-- Stores are bounded ring buffers. Give any new store a cap too, and clear it in `resetAll()`.
+- All state lives in `CorextraDevTools.instance` ([corextra_devtools.dart](corextra_devtools.dart)). Add new state there, not in a new singleton or global.
+- Stores in [stores/](stores/) are bounded ring buffers. Give any new store a cap too, and clear it in `resetAll()`.
 - Code that records data (interceptors, loggers, probes) checks `CorextraDevTools.instance.enabled` first, then only appends to a store. Keep it cheap: it runs on every request or log. Store references, not formatted text; formatting happens only when the panel shows it.
 - `enabled` defaults to `kDebugMode`. Never switch it on by default for release builds; apps opt in.
 
 ## Panel UI
 
-- A busy app must never make the panel busy. Build from store data with `DevToolsLiveBuilder` ([live_builder.dart](panel/live_builder.dart)), never `ListenableBuilder`, so a burst of captures costs one rebuild. Build long content lazily, only what's on screen, and cache anything derived from a request on that request.
+- A busy app must never make the panel busy. Build from store data with `DevToolsLiveBuilder` ([devtools_live_builder.dart](panel/widgets/devtools_live_builder.dart)), never `ListenableBuilder`, so a burst of captures costs one rebuild. Build long content lazily, only what's on screen, and cache anything derived from a request on that request.
 
 - Never use `Navigator`, routes, `showDialog`, `showMenu` or `PopupMenuButton`. The panel can be mounted with only a local `Overlay` above it. Use `MenuAnchor` or the ambient `Overlay` instead.
-- A nested view (a detail screen or fullscreen viewer) wraps itself in `BackHandlerScope` ([back_handler_scope.dart](panel/back_handler_scope.dart)) so Android's back button closes just that view.
+- A nested view (a detail screen or fullscreen viewer) wraps itself in `BackHandlerScope` ([back_handler_scope.dart](panel/widgets/back_handler_scope.dart)) so Android's back button closes just that view.
 - The panel opens both as a small floating window and full screen, in light and dark themes. Check a UI change in all four.
-- Empty tabs use `DevToolsEmptyState` ([empty_state.dart](panel/empty_state.dart)), so they all look the same.
+- Empty tabs use `DevToolsEmptyState` ([devtools_empty_state.dart](panel/widgets/devtools_empty_state.dart)), so they all look the same.
 
 ## Tabs and find
 

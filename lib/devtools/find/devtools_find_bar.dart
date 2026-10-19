@@ -8,12 +8,17 @@ import 'devtools_find.dart';
 class DevToolsFindBar extends StatefulWidget {
   const DevToolsFindBar({super.key, required this.find, this.focusNode});
 
+  /// The find controller this box searches with.
   final DevToolsFind find;
+
+  /// Lets the panel focus the box, e.g. from a keyboard shortcut.
   final FocusNode? focusNode;
 
   @override
   State<DevToolsFindBar> createState() => _DevToolsFindBarState();
 }
+
+// ---------------- Private helpers ----------------
 
 class _DevToolsFindBarState extends State<DevToolsFindBar> {
   final _text = TextEditingController();
@@ -50,7 +55,7 @@ class _DevToolsFindBarState extends State<DevToolsFindBar> {
             controller: _text,
             focusNode: widget.focusNode,
             onChanged: widget.find.search,
-            // Only the on-screen keyboard's search key gets here; it steps, then the default closes the keyboard so the match is visible.
+            // Only the on-screen search key gets here; it steps, then the keyboard closes so the match is visible.
             onSubmitted: (_) => widget.find.next(),
             // Mobile keeps the keyboard up on outside taps by default; a tap or scroll anywhere else should put it away.
             onTapOutside: (_) => FocusScope.of(context).unfocus(),

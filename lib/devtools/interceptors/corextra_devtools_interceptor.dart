@@ -1,20 +1,20 @@
 import 'package:dio/dio.dart';
 
-import '../devtools_controller.dart';
+import '../corextra_devtools.dart';
 import '../models/network_event.dart';
 import '../util/pretty_json.dart';
 
-/// A purely-observational Dio interceptor that feeds the DevTools Network
-/// tab. It never mutates the request/response/error — always calls
-/// `handler.next(...)` unchanged.
+/// A Dio interceptor that records every request for the DevTools Network tab, without changing any request, response or error.
 ///
-/// Additive to `AppLoggerInterceptor` — add both if you want pretty
-/// console logs *and* the in-app panel:
+/// Example:
 /// ```dart
-/// dio.interceptors.add(const AppLoggerInterceptor());
 /// dio.interceptors.add(const CorextraDevToolsInterceptor());
+///
+/// // Add AppLoggerInterceptor too for console logs
+/// dio.interceptors.add(const AppLoggerInterceptor());
 /// ```
 class CorextraDevToolsInterceptor extends Interceptor {
+  /// Creates an interceptor that records into `CorextraDevTools.instance.network`.
   const CorextraDevToolsInterceptor({
     this.enabled,
     this.captureBody = true,
@@ -22,20 +22,35 @@ class CorextraDevToolsInterceptor extends Interceptor {
     this.hiddenHeaders = const {},
   });
 
-  /// When `null`, defers to [CorextraDevTools.instance.enabled].
+  // ---------------- Settings ----------------
+
+  /// Whether to record requests; null follows [CorextraDevTools.enabled].
   final bool? enabled;
+
+  /// Whether to record request and response bodies; headers and status are always recorded.
   final bool captureBody;
 
-  /// Caps raw string bodies only; JSON (Map/List) bodies are captured
-  /// in full, since measuring them would mean formatting them.
+  /// The most characters kept from a text body; JSON maps and lists are kept whole, since measuring them would mean formatting them.
   final int maxBodyLength;
 
-  /// Header names (case-insensitive) the DevTools panel masks on screen. The real values are still captured — this only hides them from casual view/screenshots, it isn't a data-scrubbing feature.
+  /// Header names, in any letter case, whose values the panel masks on screen; they're still recorded, so this isn't data scrubbing.
+  ///
+  /// Example:
+  /// ```dart
+  /// dio.interceptors.add(
+  ///   const CorextraDevToolsInterceptor(hiddenHeaders: {'Authorization', 'Cookie'}),
+  /// );
+  /// ```
   final Set<String> hiddenHeaders;
 
+  // ---------------- Private helpers ----------------
+
+  // Carries the recorded event from onRequest to onResponse or onError of the same request.
   static const _extraKey = 'corextra_devtools_event';
 
   bool get _isEnabled => enabled ?? CorextraDevTools.instance.enabled;
+
+  // ---------------- Recording ----------------
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {

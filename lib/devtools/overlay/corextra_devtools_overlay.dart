@@ -1,21 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../devtools_controller.dart';
+import '../corextra_devtools.dart';
 import '../panel/devtools_panel.dart';
 import '../util/devtools_theme.dart';
 import 'devtools_bubble.dart';
 import 'devtools_floating_window.dart';
 
-/// The overlay's current visual state: a floating bubble, the full
-/// panel, or a minimized floating window.
+// What the overlay shows: the bubble, the full panel, or the minimized floating window.
 enum _DisplayMode { closed, open, pip }
 
-/// Wraps an app (or a subtree of one) with a floating DevTools bubble
-/// that opens an in-app inspector panel (Network / Logs / Info tabs).
+/// Wraps your app with the DevTools bubble, which opens the in-app panel with Network, Logs and Info tabs.
 ///
-/// Typical usage — wrap via `MaterialApp.builder` so the panel sits
-/// above the app's own Navigator/Directionality:
+/// Wrap it in `MaterialApp.builder` so the panel sits above your app's Navigator; the panel is mounted only while open, so it never blocks taps on your app.
+///
+/// Example:
 /// ```dart
 /// MaterialApp(
 ///   builder: (context, child) =>
@@ -23,36 +22,28 @@ enum _DisplayMode { closed, open, pip }
 ///   home: const HomeScreen(),
 /// )
 /// ```
-/// Visibility defaults to `false` (disabled) — pass [enabled] to
-/// explicitly enable it (e.g., `enabled: true` for demo videos). Toggle
-/// at runtime via `CorextraDevTools.instance.enabled = false;`.
-///
-/// The bubble is a small, always-present widget with no ancestor
-/// `Overlay` (see [DevToolsBubble] for why) — it only ever occupies its
-/// own small hit-testable area, so it never interferes with the host
-/// app underneath. The panel, by contrast, is only ever mounted while
-/// it's open, inside its own self-contained `Overlay` sized explicitly
-/// to the screen — giving Material widgets that need one (tooltips,
-/// popup menus) somewhere to attach, and the panel's Row/Column/Expanded
-/// layout a concrete, finite size to lay out against, regardless of
-/// where this widget sits relative to the host app's own Navigator.
-/// Individual tabs (see `NetworkTab`) adapt their own content to the
-/// available width — e.g. a master/detail split on larger screens —
-/// rather than the panel itself changing shape.
 class CorextraDevToolsOverlay extends StatefulWidget {
+  /// Creates the overlay around [child].
   const CorextraDevToolsOverlay({
     super.key,
     required this.child,
     this.enabled = kDebugMode,
   });
 
+  // ---------------- Settings ----------------
+
+  /// Sets `CorextraDevTools.instance.enabled` when the overlay is created; defaults to on in debug builds only, e.g. `enabled: true` for a QA build.
   final bool enabled;
+
+  /// Your app, shown under the bubble and the panel.
   final Widget child;
 
   @override
   State<CorextraDevToolsOverlay> createState() =>
       _CorextraDevToolsOverlayState();
 }
+
+// ---------------- Private widgets ----------------
 
 class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay>
     with WidgetsBindingObserver {
@@ -73,7 +64,7 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay>
     super.dispose();
   }
 
-  /// Hooks the platform's raw back-button signal directly, since the panel sits above (not inside) the host app's Navigator, so `PopScope`/`Navigator` can't catch it the way they would for an ordinary app screen.
+  // The panel sits above the app's Navigator, so PopScope can't catch the back button; this hooks the raw platform signal instead.
   @override
   Future<bool> didPopRoute() async {
     if (_mode == _DisplayMode.closed) return false;
@@ -112,13 +103,7 @@ class _CorextraDevToolsOverlayState extends State<CorextraDevToolsOverlay>
   }
 }
 
-/// Hosts [DevToolsPanel] only while it's open.
-///
-/// Deliberately *not* kept mounted when closed: an `Overlay` claims
-/// hit-testing across its entire bounds even where it paints nothing, so
-/// an always-present, screen-sized `Overlay` here would silently absorb
-/// every tap and scroll meant for the host app underneath, everywhere,
-/// all the time — not just while the panel is actually visible.
+// Mounted only while open, since an Overlay absorbs every tap across its bounds even where it paints nothing.
 class _PanelHost extends StatelessWidget {
   const _PanelHost({required this.onClose, required this.onMinimize});
 
@@ -127,19 +112,13 @@ class _PanelHost extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A concrete, finite size — not whatever loose/unbounded constraints
-    // this widget happens to receive at its mount point — is what keeps
-    // the panel's internal Row/Column/Expanded layout well-defined.
+    // A fixed screen size, not the loose constraints at the mount point, keeps the panel's Row/Column/Expanded layout well-defined.
     final screenSize = MediaQuery.sizeOf(context);
     return Positioned.fill(
       child: SizedBox(
         width: screenSize.width,
         height: screenSize.height,
-        // The DevTools panel gets its own theme — independent of the
-        // host app's — via a Theme ancestor above the Overlay. Theme is
-        // an InheritedWidget, so every Theme.of(context) call inside
-        // re-subscribes to it directly and reacts live if the mode is
-        // toggled.
+        // The panel's own Theme above its Overlay, so it ignores the app's theme and updates live when the mode is toggled.
         child: ValueListenableBuilder<ThemeMode>(
           valueListenable: CorextraDevTools.instance.themeModeNotifier,
           builder:

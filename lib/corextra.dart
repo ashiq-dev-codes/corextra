@@ -1,7 +1,7 @@
 library;
 
 export 'animation/fade_slide_transition.dart';
-export 'devtools/devtools_controller.dart';
+export 'devtools/corextra_devtools.dart';
 export 'devtools/interceptors/corextra_devtools_interceptor.dart';
 export 'devtools/models/log_entry.dart';
 export 'devtools/models/network_event.dart';
@@ -11,11 +11,13 @@ export 'devtools/overlay/devtools_floating_window.dart';
 export 'devtools/overlay/draggable_floating_widget.dart';
 export 'devtools/panel/devtools_panel.dart';
 export 'devtools/panel/devtools_tabs.dart';
-export 'devtools/panel/empty_state.dart';
-export 'devtools/panel/scroll_to_top_fab.dart';
-export 'devtools/panel/tabs/info_tab.dart';
-export 'devtools/panel/tabs/logs_tab.dart';
-export 'devtools/panel/tabs/network_tab.dart';
+export 'devtools/panel/tabs/info/info_tab.dart';
+export 'devtools/panel/tabs/logs/logs_tab.dart';
+export 'devtools/panel/tabs/network/network_tab.dart';
+export 'devtools/panel/widgets/devtools_empty_state.dart';
+export 'devtools/panel/widgets/devtools_scroll_to_top.dart';
+export 'devtools/stores/log_entry_store.dart';
+export 'devtools/stores/network_event_store.dart';
 export 'devtools/util/pretty_json.dart';
 export 'exceptions/corextra_exceptions.dart';
 export 'extensions/date_time_extensions/nullable_date_time_extensions.dart';

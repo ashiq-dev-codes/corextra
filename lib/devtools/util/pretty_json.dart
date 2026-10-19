@@ -3,13 +3,16 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
-/// Pretty-prints [data] as indented JSON for display in the DevTools
-/// panel — the common case for an API request/response body. Falls
-/// back to a short, readable summary for the two shapes JSON can't
-/// represent meaningfully: raw bytes ([Uint8List], e.g. a
-/// `ResponseType.bytes` download) and Dio's multipart [FormData]
-/// request bodies. Anything else that isn't valid JSON (plain text,
-/// HTML, XML, ...) is shown as-is via [Object.toString].
+// ---------------- Formatting ----------------
+
+/// Formats a request or response body as indented JSON; bytes and [FormData] get a short summary, and other text is returned as is.
+///
+/// Example:
+/// ```dart
+/// final text = prettyFormatBody(response.data);
+/// prettyFormatBody('{"id":7}'); // '{\n  "id": 7\n}'
+/// prettyFormatBody('<html></html>'); // '<html></html>', not JSON so unchanged
+/// ```
 String prettyFormatBody(Object? data) {
   if (data == null) return 'null';
   if (data is Uint8List) return _formatBytes(data);
@@ -22,11 +25,9 @@ String prettyFormatBody(Object? data) {
   }
 }
 
-/// A byte count plus a short hex preview — the leading bytes are
-/// often enough to recognize the format (e.g. a PNG's `89 50 4e 47`)
-/// without dumping the whole payload as a JSON array of numbers,
-/// which [JsonEncoder] would otherwise happily (and uselessly) do,
-/// since a byte list satisfies it just as well as a real JSON array.
+// ---------------- Formatting helpers ----------------
+
+// The first bytes are enough to spot the format (a PNG starts `89 50 4e 47`); JsonEncoder would dump every byte as a number.
 String _formatBytes(Uint8List bytes) {
   final preview = bytes
       .take(16)
@@ -37,10 +38,7 @@ String _formatBytes(Uint8List bytes) {
       'first bytes (hex): $preview$ellipsis';
 }
 
-/// [FormData] doesn't override [Object.toString], so left to the
-/// generic fallback it shows nothing but `Instance of 'FormData'`.
-/// This instead surfaces the actual field values and file metadata
-/// (name, filename, content type, byte length) as pretty JSON.
+// FormData's toString() is just `Instance of 'FormData'`, so show its fields and file details as JSON instead.
 String _formatFormData(FormData data) {
   final summary = <String, dynamic>{
     if (data.fields.isNotEmpty)
@@ -59,8 +57,15 @@ String _formatFormData(FormData data) {
   return const JsonEncoder.withIndent('  ').convert(summary);
 }
 
-/// Bounds [data] before capture, without pretty-printing a Map/List
-/// just to measure it — that cost must stay lazy, paid only on open.
+// ---------------- Bounding ----------------
+
+/// Cuts a text body to [maxLength] chars before capture; Maps and Lists pass through so formatting is paid only when shown.
+///
+/// Example:
+/// ```dart
+/// event.responseBody = truncateBody(response.data, 10000);
+/// truncateBody('abcdef', 3); // 'abc… [truncated, 6 chars total]'
+/// ```
 Object? truncateBody(Object? data, int maxLength) {
   if (data == null) return null;
   if (data is Uint8List || data is FormData) return prettyFormatBody(data);
@@ -70,8 +75,13 @@ Object? truncateBody(Object? data, int maxLength) {
   return data;
 }
 
-/// Like [prettyFormatBody], but bounds total work via [_boundForLogging]
-/// for an eager caller with no later display step to defer cost to.
+/// Like [prettyFormatBody], but caps how much it walks and prints, for callers that format right away, like a logger.
+///
+/// Example:
+/// ```dart
+/// final text = boundedPrettyFormatBody(response.data);
+/// boundedPrettyFormatBody(users, maxListItems: 10); // 100 users print as 10, then '… 90 more items'
+/// ```
 String boundedPrettyFormatBody(
   Object? data, {
   int budget = 2000,
@@ -107,8 +117,9 @@ String boundedPrettyFormatBody(
   }
 }
 
-/// [remaining] is a shared 1-element counter every nested call decrements,
-/// so the walk stops the instant the budget is spent, at any depth.
+// ---------------- Private helpers ----------------
+
+// [remaining] is a one-item counter shared by every nested call, so the walk stops as soon as the budget runs out, at any depth.
 Object? _boundForLogging(
   Object? value,
   List<int> remaining, {

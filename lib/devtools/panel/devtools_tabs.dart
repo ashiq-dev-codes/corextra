@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../find/devtools_find.dart';
-import '../find/find_bar.dart';
-import '../find/find_text.dart';
-import 'tabs/info_tab.dart';
-import 'tabs/logs_tab.dart';
-import 'tabs/network_tab.dart';
+import '../find/find.dart';
+import 'tabs/info/info_tab.dart';
+import 'tabs/logs/logs_tab.dart';
+import 'tabs/network/network_tab.dart';
+
+// ---------------- Tab spec ----------------
 
 /// One entry in the tab strip.
 class _TabSpec {
@@ -17,10 +17,24 @@ class _TabSpec {
   final String label;
 }
 
-/// The Network / Logs / Info tabs under one find bar.
+// ---------------- Tabs ----------------
+
+/// The Network, Logs and Info tabs under one find bar that searches all of them; the body of `DevToolsPanel`.
+///
+/// Use it on its own when you want the tabs inside your own layout, without the panel's header.
+///
+/// Example:
+/// ```dart
+/// Scaffold(
+///   appBar: AppBar(title: const Text('Debug')),
+///   body: const DevToolsTabs(),
+/// )
+/// ```
 class DevToolsTabs extends StatefulWidget {
+  /// Creates the tabs with the Network tab selected.
   const DevToolsTabs({super.key});
 
+  // Must match the order of the TabBarView children and the find sources below.
   static const _tabs = [
     _TabSpec(icon: LucideIcons.network, label: 'Network'),
     _TabSpec(icon: LucideIcons.fileText, label: 'Logs'),
@@ -30,6 +44,8 @@ class DevToolsTabs extends StatefulWidget {
   @override
   State<DevToolsTabs> createState() => _DevToolsTabsState();
 }
+
+// ---------------- State ----------------
 
 class _DevToolsTabsState extends State<DevToolsTabs>
     with SingleTickerProviderStateMixin {
@@ -42,6 +58,8 @@ class _DevToolsTabsState extends State<DevToolsTabs>
     InfoTab.findSource,
   ]);
   final _findFocus = FocusNode();
+
+  // The find reveal last acted on, so the same match never switches tabs twice.
   int _shownVersion = 0;
 
   @override
@@ -97,6 +115,8 @@ class _DevToolsTabsState extends State<DevToolsTabs>
     );
   }
 }
+
+// ---------------- Private widgets ----------------
 
 /// The fixed row: one button per tab.
 class _TabStrip extends StatelessWidget {

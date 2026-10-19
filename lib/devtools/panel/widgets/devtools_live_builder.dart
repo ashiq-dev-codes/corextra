@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../util/throttle.dart';
+import '../../util/throttle.dart';
 
-/// A [ListenableBuilder] for live capture data: however fast [listenable] fires, it rebuilds at most every [interval], so a busy app never makes the panel busy too.
+/// A [ListenableBuilder] that rebuilds at most every [interval] however fast [listenable] fires, so a busy app never makes the panel busy.
 class DevToolsLiveBuilder extends StatefulWidget {
   const DevToolsLiveBuilder({
     super.key,
@@ -11,13 +11,22 @@ class DevToolsLiveBuilder extends StatefulWidget {
     this.interval = const Duration(milliseconds: 250),
   });
 
+  // ---------------- Settings ----------------
+
+  /// The capture data to watch, usually a store on `CorextraDevTools.instance`.
   final Listenable listenable;
+
+  /// Builds the content from the latest data.
   final WidgetBuilder builder;
+
+  /// The shortest time between two rebuilds.
   final Duration interval;
 
   @override
   State<DevToolsLiveBuilder> createState() => _DevToolsLiveBuilderState();
 }
+
+// ---------------- State ----------------
 
 class _DevToolsLiveBuilderState extends State<DevToolsLiveBuilder> {
   late Throttle _throttle = Throttle(widget.interval, _rebuild);

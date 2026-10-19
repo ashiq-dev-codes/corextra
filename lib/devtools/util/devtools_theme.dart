@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Builds the DevTools panel's own theme. Intentionally decoupled from
-/// the host app's theme, so the panel always looks the same regardless
-/// of what the app around it looks like.
+/// The panel's own theme, kept apart from the host app's so the panel looks the same in every app.
 ThemeData buildDevToolsTheme(Brightness brightness) {
   return ThemeData(
     brightness: brightness,

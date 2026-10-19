@@ -1,6 +1,5 @@
 import 'package:corextra/corextra.dart';
-import 'package:corextra/devtools/find/devtools_find.dart';
-import 'package:corextra/devtools/find/find_text.dart';
+import 'package:corextra/devtools/find/find.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

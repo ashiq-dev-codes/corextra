@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../devtools/devtools_controller.dart';
+import '../devtools/corextra_devtools.dart';
 import '../devtools/models/network_event.dart';
 import '../devtools/util/pretty_json.dart';
 import '../logs/deferred_log.dart';
