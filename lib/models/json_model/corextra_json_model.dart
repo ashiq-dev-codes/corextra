@@ -10,7 +10,7 @@ import '../util/json_warnings.dart';
 /// Turns a class into a JSON model with no code generation: write each field once as a typed getter.
 ///
 /// You get safe parsing, [toJson], `==`, `hashCode` and `toString` for free.
-/// Bad or missing data reads as null and never throws.
+/// Bad or missing data reads as null and never throws; in debug builds, a bad value also prints one warning.
 ///
 /// Example:
 /// ```dart
@@ -47,7 +47,7 @@ mixin CorextraJsonModel {
 
   // ---------------- Source ----------------
 
-  /// The raw JSON this model reads from; the model never modifies it.
+  /// The raw JSON this model reads from; the model never modifies it, and if you change it, the model reads the new value.
   ///
   /// Example:
   /// ```dart
@@ -76,12 +76,12 @@ mixin CorextraJsonModel {
 
   /// Reads [key] as the getter's type: `int`, `double`, `num`, `String`, `bool`, `DateTime` or `Map`.
   ///
-  /// Accepts loose API values, like `"7"` for an int or `1` for true, and returns null when it can't.
+  /// Accepts loose API values, like `"7"` for an int or `1` for true, and returns null when it can't, with one warning in debug builds.
   /// Always write the getter's type, since that's what [read] converts to.
   ///
   /// Example:
   /// ```dart
-  /// int? get id => read('id');                      // "7", 7 and 7.0 read as 7
+  /// int? get id => read('id');                      // "7", 7 and 7.0 read as 7; "abc" reads as null
   /// String get name => read('name') ?? '';          // a default when missing
   /// bool? get isActive => read('is_active');        // true, "true", 1 and "yes" read as true
   /// DateTime? get startsAt => read('starts_at');    // ISO text or a Unix timestamp
