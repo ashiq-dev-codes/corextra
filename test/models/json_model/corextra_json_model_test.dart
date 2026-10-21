@@ -1,4 +1,5 @@
 import 'package:corextra/corextra.dart';
+import 'package:corextra/models/util/json_warnings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 enum Role { admin, member }
@@ -523,5 +524,101 @@ void main() {
     final court = Court.fromJson({'name': 'Center'});
     expect(court.kind, 'entity');
     expect(court.name, 'Center');
+  });
+
+  group('debug warnings', () {
+    final messages = <String>[];
+    final originalSink = jsonModelWarningSink;
+
+    setUp(() {
+      messages.clear();
+      resetJsonModelWarnings();
+      CorextraJsonModel.debugWarnings = true;
+      jsonModelWarningSink = (message) => messages.add(message());
+    });
+
+    tearDown(() {
+      jsonModelWarningSink = originalSink;
+      CorextraJsonModel.debugWarnings = true;
+    });
+
+    test('a value that exists but cannot be read warns with a clear message', () {
+      expect(User.fromJson({'id': 'abc'}).id, isNull);
+      expect(messages, [
+        'User: "id" should be int, but the JSON has text "abc". It reads as null.',
+      ]);
+    });
+
+    test('warns once per model type and key, not once per model', () {
+      for (var i = 0; i < 3; i++) {
+        User.fromJson({'id': 'abc'}).id;
+      }
+      expect(messages, hasLength(1));
+    });
+
+    test('missing, blank and valid values never warn', () {
+      User.fromJson({}).id;
+      User.fromJson({'id': '  '}).id;
+      User.fromJson({'id': '7'}).id;
+      expect(messages, isEmpty);
+    });
+
+    test('a nested fromJson that throws warns with the reason', () {
+      Holder.fromJson({
+        'item': {'fail': true},
+      }).item;
+      expect(messages.single, contains('Holder: "item" should be Broken'));
+      expect(messages.single, contains('bad data'));
+    });
+
+    test('can be turned off', () {
+      CorextraJsonModel.debugWarnings = false;
+      User.fromJson({'id': 'abc'}).id;
+      expect(messages, isEmpty);
+    });
+  });
+
+  group('self-checking cache', () {
+    test('notices when the original json changes after a read', () {
+      final source = <String, dynamic>{'name': 'Ashiq'};
+      final user = User.fromJson(source);
+      expect(user.name, 'Ashiq');
+      source['name'] = 'Ali';
+      expect(user.name, 'Ali');
+    });
+
+    test(
+      'lists from getters are copies, so editing one never changes the model',
+      () {
+        final user = User.fromJson({
+          'tags': ['a'],
+        });
+        user.tags?.add('x');
+        expect(user.tags, ['a']);
+        expect(user.toJson()['tags'], ['a']);
+      },
+    );
+
+    test('maps from getters are copies too', () {
+      final user = User.fromJson({
+        'meta': {'plan': 'pro'},
+      });
+      user.meta?['plan'] = 'free';
+      expect(user.meta, {'plan': 'pro'});
+    });
+
+    test(
+      'nested models stay the same objects, so their changes still count',
+      () {
+        final user = User.fromJson({
+          'addresses': [
+            {'city': 'Dubai'},
+          ],
+        });
+        expect(identical(user.addresses?.first, user.addresses?.first), isTrue);
+        user.addresses?.first.city = 'Doha';
+        expect(user.addresses?.first.city, 'Doha');
+      },
+    );
   });
 }

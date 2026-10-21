@@ -14,7 +14,7 @@ Add the dependency:
 
 ```yaml
 dependencies:
-  corextra: ^1.3.1
+  corextra: ^1.3.2
 ```
 
 Import it:
@@ -122,7 +122,15 @@ user == UserModel.fromJson(user.toJson());   // true: equal when the data matche
 print(user);                                 // UserModel{id: 7, name: Ashiq, ...}
 ```
 
-**Safe by default:** a missing key or a value of the wrong type reads as `null` and never throws. `7.5` never silently becomes the int `7`, a map never becomes the text `"{...}"`, and a nested `fromJson` that throws gives `null` (with a note in the debug console). The model never changes the `json` you passed in.
+**Safe by default:** a missing key or a value of the wrong type reads as `null` and never throws. `7.5` never silently becomes the int `7`, a map never becomes the text `"{...}"`, and a nested `fromJson` that throws gives `null`. The model never changes the `json` you passed in.
+
+**Wrong values don't go unnoticed:** in debug builds, a value that exists but can't be read prints one warning, so a bad API field is easy to spot:
+
+```text
+UserModel: "id" should be int, but the JSON has text "abc". It reads as null.
+```
+
+Each model type and key warns once, and missing or blank values never warn. Release builds print nothing. To turn warnings off: `CorextraJsonModel.debugWarnings = false;`
 
 **Customize anything:**
 
@@ -176,8 +184,8 @@ For a one-off copy you can skip `copyWith`: `ChatModel.fromJson({...chat.toJson(
 
 **Good to know:**
 - `toJson()` keeps every key the API sent, including ones you didn't declare, and sends back anything you didn't change exactly as it came in. JSON that arrived as text goes back as text.
-- Each field is converted on first read and remembered inside that model, so reading it again is cheap.
-- Change values through a setter or `copyWith`. Don't edit the map you passed to `fromJson`, or a list you got from a getter, since the model has already read them.
+- Each field is converted on first read and remembered inside that model, so reading it again is cheap. If the map you passed to `fromJson` changes later, the model notices and reads the new value.
+- Lists and maps from getters are copies, so editing one never changes the model. To change a value, use a setter or `copyWith`.
 - A key that really contains a dot is always read as that key first.
 
 **The other three mixins** work on any class, including a `CorextraJsonModel`:

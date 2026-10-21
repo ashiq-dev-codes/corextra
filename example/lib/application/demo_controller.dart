@@ -32,6 +32,7 @@ class DemoController extends ChangeNotifier {
     final users = [for (final json in sampleUsersJson) UserModel.fromJson(json)]
       ..sort();
     final ashiq = users.firstWhere((user) => user.name == 'Ashiq');
+    final sara = users.firstWhere((user) => user.name == 'Sara');
     final invalid = users.where((user) => !user.validation.isValid);
     final builtInCode = UserModel(
       id: 5,
@@ -65,6 +66,10 @@ class DemoController extends ChangeNotifier {
           (
             'Check-in ("HH:mm:ss" format)',
             ashiq.checkIn.formatDate(outputFormat: 'HH:mm') ?? '-',
+          ),
+          (
+            'Bad date "yesterday"',
+            '${sara.joinedAt} (in debug, the console shows a warning)',
           ),
         ],
       ),

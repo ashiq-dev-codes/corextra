@@ -108,6 +108,11 @@ const sampleUsersJson = [
       {'city': 'Muscat'},
     ],
   },
-  {'id': 3, 'name': 'Sara', 'user_email': 'sara@example.com'},
+  {
+    'id': 3,
+    'name': 'Sara',
+    'user_email': 'sara@example.com',
+    'joined_at': 'yesterday',
+  },
   {'id': 12.0, 'name': 'Ali', 'user_email': 'not-an-email'},
 ];
