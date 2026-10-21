@@ -1,3 +1,10 @@
+## 1.3.2
+
+- `CorextraJsonModel` now warns in debug builds when a value exists but can't be read, like `UserModel: "id" should be int, but the JSON has text "abc". It reads as null.` Each model type and key warns once, missing or blank values never warn, and release builds print nothing. Turn it off with `CorextraJsonModel.debugWarnings = false`.
+- Models now notice when the map you passed to `fromJson` changes, and read the new value.
+- Lists and maps from model getters are now copies, so editing one can't half-change a model. If your code edited a returned list and expected the model to see it, use a setter instead.
+- The example app's **Models** demo has a new **Safety** section that shows all three.
+
 ## 1.3.1
 
 - The README now shows how to copy a model with a short `copyWith`, and how to change model values safely.

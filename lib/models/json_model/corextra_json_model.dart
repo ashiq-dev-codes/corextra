@@ -3,14 +3,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../extensions/string_extensions/non_nullable_string_extensions.dart';
-import '../../logs/deferred_log.dart';
 import '../util/deep_equality.dart';
 import '../util/json_value.dart';
+import '../util/json_warnings.dart';
 
 /// Turns a class into a JSON model with no code generation: write each field once as a typed getter.
 ///
 /// You get safe parsing, [toJson], `==`, `hashCode` and `toString` for free.
-/// Bad or missing data reads as null and never throws.
+/// Bad or missing data reads as null and never throws; in debug builds, a bad value also prints one warning.
 ///
 /// Example:
 /// ```dart
@@ -30,9 +30,24 @@ import '../util/json_value.dart';
 /// print(user.id); // 7, even when the API sends "7"
 /// ```
 mixin CorextraJsonModel {
+  // ---------------- Settings ----------------
+
+  /// Whether debug builds print a warning when a value exists but can't be read; release builds never do.
+  ///
+  /// Each model type and key warns once, and missing or blank values never warn.
+  ///
+  /// Example:
+  /// ```dart
+  /// // The API sends {"id": "abc"} and the getter is `int? get id => read('id');`
+  /// // Debug console: UserModel: "id" should be int, but the JSON has text "abc". It reads as null.
+  ///
+  /// CorextraJsonModel.debugWarnings = false; // turn them off
+  /// ```
+  static bool debugWarnings = true;
+
   // ---------------- Source ----------------
 
-  /// The raw JSON this model reads from; the model never modifies it.
+  /// The raw JSON this model reads from; the model never modifies it, and if you change it, the model reads the new value.
   ///
   /// Example:
   /// ```dart
@@ -48,8 +63,8 @@ mixin CorextraJsonModel {
 
   // ---------------- State ----------------
 
-  // Parsed values by key, so each field is parsed only once.
-  final Map<String, Object?> _parsed = {};
+  // Parsed values by key, with the source they came from, so a value is reused only while its source is unchanged.
+  final Map<String, (Object? source, Object value)> _parsed = {};
 
   // Values set with write(), kept apart so json is never modified.
   final Map<String, Object?> _written = {};
@@ -61,12 +76,12 @@ mixin CorextraJsonModel {
 
   /// Reads [key] as the getter's type: `int`, `double`, `num`, `String`, `bool`, `DateTime` or `Map`.
   ///
-  /// Accepts loose API values, like `"7"` for an int or `1` for true, and returns null when it can't.
+  /// Accepts loose API values, like `"7"` for an int or `1` for true, and returns null when it can't, with one warning in debug builds.
   /// Always write the getter's type, since that's what [read] converts to.
   ///
   /// Example:
   /// ```dart
-  /// int? get id => read('id');                      // "7", 7 and 7.0 read as 7
+  /// int? get id => read('id');                      // "7", 7 and 7.0 read as 7; "abc" reads as null
   /// String get name => read('name') ?? '';          // a default when missing
   /// bool? get isActive => read('is_active');        // true, "true", 1 and "yes" read as true
   /// DateTime? get startsAt => read('starts_at');    // ISO text or a Unix timestamp
@@ -124,7 +139,7 @@ mixin CorextraJsonModel {
 
   // ---------------- Reading lists and nested models ----------------
 
-  /// Reads [key] as a list of plain values, skipping items that can't be converted.
+  /// Reads [key] as a list of plain values, skipping items that can't be converted; each read returns a fresh copy.
   ///
   /// Example:
   /// ```dart
@@ -219,7 +234,7 @@ mixin CorextraJsonModel {
   Map<String, dynamic> toJson() {
     final data = <String, Object?>{...json};
     for (final entry in _parsed.entries) {
-      final value = entry.value;
+      final (_, value) = entry.value;
       if (!data.containsKey(entry.key) || !_hasChanges(value)) continue;
       // Nested JSON that came in as text goes back as text.
       data[entry.key] = data[entry.key] is String ? _encode(value) : value;
@@ -274,11 +289,19 @@ mixin CorextraJsonModel {
   }
 
   T? _readKey<T>(String key, T? Function(Object? raw) parse) {
-    final cachedValue = _parsed[key];
-    if (cachedValue is T && cachedValue != null) return cachedValue;
-    final value = parse(_rawValue(key));
-    if (value != null) _parsed[key] = value;
-    return value;
+    final source = _source(key);
+    final entry = _parsed[key];
+    if (entry != null && identical(entry.$1, source)) {
+      if (entry.$2 case final T value) return _copy(value);
+    }
+    final raw = _rawValue(key);
+    final value = parse(raw);
+    if (value == null) {
+      warnUnreadable(this, key, raw, T);
+      return null;
+    }
+    _parsed[key] = (source, value);
+    return _copy(value);
   }
 
   // An exact key always wins, so a real key with a dot still works; otherwise 'user.name' walks into nested maps.
@@ -294,6 +317,23 @@ mixin CorextraJsonModel {
     return value;
   }
 
+  // The top-level value a key reads from; a path is checked by its first part, so JSON sent as text isn't decoded on every read.
+  Object? _source(String key) {
+    if (_written.containsKey(key)) return _written[key];
+    if (json.containsKey(key) || !key.contains('.')) return json[key];
+    return _source(key.substring(0, key.indexOf('.')));
+  }
+
+  // Lists and maps go out as copies, so editing one can never half-change the model.
+  static T _copy<T>(T value) {
+    final Object? copy = switch (value) {
+      List() => value.toList(),
+      Map<String, dynamic>() => Map<String, dynamic>.of(value),
+      _ => value,
+    };
+    return copy is T ? copy : value;
+  }
+
   T? _model<T>(
     String key,
     Object? raw,
@@ -305,12 +345,7 @@ mixin CorextraJsonModel {
     try {
       return fromJson(map);
     } catch (error) {
-      if (kDebugMode) {
-        deferredLog(
-          () => 'Could not read "$key" in $runtimeType: $error',
-          name: 'corextra',
-        );
-      }
+      warnUnreadable(this, key, raw, T, error: error);
       return null;
     }
   }
@@ -326,7 +361,9 @@ mixin CorextraJsonModel {
     return items;
   }
 
-  bool get _isChanged => _written.isNotEmpty || _parsed.values.any(_hasChanges);
+  bool get _isChanged =>
+      _written.isNotEmpty ||
+      _parsed.values.any((entry) => _hasChanges(entry.$2));
 
   static bool _hasChanges(Object? value) {
     if (value is CorextraJsonModel) return value._isChanged;
