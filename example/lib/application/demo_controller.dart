@@ -41,6 +41,15 @@ class DemoController extends ChangeNotifier {
     );
     final copied = ashiq.copyWith(name: 'Ashiq K', role: Role.member);
     final edited = UserModel.fromJson(ashiq.toJson())..name = 'Ali';
+
+    // Lists from getters are copies: editing this one leaves the model as it was.
+    ashiq.tags?.add('extra');
+
+    // The model notices when the map it was built from changes.
+    final source = <String, dynamic>{'name': 'Lina'};
+    final live = UserModel.fromJson(source);
+    final nameBefore = live.name;
+    source['name'] = 'Lina K';
     modelSections = [
       (
         'Reading values',
@@ -67,10 +76,6 @@ class DemoController extends ChangeNotifier {
             'Check-in ("HH:mm:ss" format)',
             ashiq.checkIn.formatDate(outputFormat: 'HH:mm') ?? '-',
           ),
-          (
-            'Bad date "yesterday"',
-            '${sara.joinedAt} (in debug, the console shows a warning)',
-          ),
         ],
       ),
       (
@@ -92,6 +97,17 @@ class DemoController extends ChangeNotifier {
           ('copyWith', '${copied.name}, ${copied.role.name}'),
           ('Setter', edited.toJson()['name'].toString()),
           ('Original is unchanged', '${ashiq.name}, ${ashiq.role.name}'),
+        ],
+      ),
+      (
+        'Safety',
+        [
+          (
+            'Bad date "yesterday" reads as',
+            '${sara.joinedAt}, and the debug console shows a warning',
+          ),
+          ('Tags after editing a returned list', ashiq.tags?.join(', ') ?? '-'),
+          ('Name after the JSON changed', '$nameBefore → ${live.name}'),
         ],
       ),
       (
