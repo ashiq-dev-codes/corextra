@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:material_ui/material_ui.dart';
 
 // Which screen edge the widget is tucked against.
 enum _PeekSide { none, left, right }
@@ -175,10 +175,9 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
   void _onPanEnd(DragEndDetails details, Size screenSize) {
     final current = _offset.value ?? _defaultOffset(screenSize);
     final leftOverflow = current.dx < 0 ? -current.dx : 0.0;
-    final rightOverflow =
-        (current.dx + widget.size.width) > screenSize.width
-            ? (current.dx + widget.size.width) - screenSize.width
-            : 0.0;
+    final rightOverflow = (current.dx + widget.size.width) > screenSize.width
+        ? (current.dx + widget.size.width) - screenSize.width
+        : 0.0;
 
     if (leftOverflow <= 0 && rightOverflow <= 0) {
       return; // never dragged past either edge — leave it exactly there.
@@ -194,10 +193,9 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
       setState(
         () => _peekSide = peekingLeft ? _PeekSide.left : _PeekSide.right,
       );
-      final peekedX =
-          peekingLeft
-              ? -(widget.size.width - widget.peekExtent)
-              : screenSize.width - widget.peekExtent;
+      final peekedX = peekingLeft
+          ? -(widget.size.width - widget.peekExtent)
+          : screenSize.width - widget.peekExtent;
       _animateTo(Offset(peekedX, current.dy));
     } else {
       // Not far enough past the edge, so spring back flush and fully visible instead of hiding.
@@ -208,10 +206,9 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
 
   void _reveal(Size screenSize) {
     final current = _offset.value ?? _defaultOffset(screenSize);
-    final dockedX =
-        _peekSide == _PeekSide.left
-            ? 0.0
-            : screenSize.width - widget.size.width;
+    final dockedX = _peekSide == _PeekSide.left
+        ? 0.0
+        : screenSize.width - widget.size.width;
     setState(() => _peekSide = _PeekSide.none);
     _animateTo(Offset(dockedX, current.dy));
   }
@@ -230,18 +227,16 @@ class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
           child: SizedBox(
             width: widget.size.width,
             height: widget.size.height,
-            child:
-                peekSide == _PeekSide.none
-                    ? widget.builder(
-                      context,
-                      (details) =>
-                          _onPanUpdate(details, screenSize, safePadding),
-                      (details) => _onPanEnd(details, screenSize),
-                    )
-                    : _PeekNub(
-                      peekingLeft: peekSide == _PeekSide.left,
-                      onTap: () => _reveal(screenSize),
-                    ),
+            child: peekSide == _PeekSide.none
+                ? widget.builder(
+                    context,
+                    (details) => _onPanUpdate(details, screenSize, safePadding),
+                    (details) => _onPanEnd(details, screenSize),
+                  )
+                : _PeekNub(
+                    peekingLeft: peekSide == _PeekSide.left,
+                    onTap: () => _reveal(screenSize),
+                  ),
           ),
         ),
       ),

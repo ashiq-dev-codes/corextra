@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart' show Drag, DragStartBehavior;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// A slim edge scrollbar with a wide invisible grab strip, so a finger never has to hit the thin thumb; drag or tap anywhere in the strip to scroll.
 class DevToolsEdgeScrollbar extends StatefulWidget {
@@ -180,8 +180,9 @@ class _DevToolsEdgeScrollbarState extends State<DevToolsEdgeScrollbar> {
       height: _vertical ? null : widget.touchWidth,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          _trackLength =
-              _vertical ? constraints.maxHeight : constraints.maxWidth;
+          _trackLength = _vertical
+              ? constraints.maxHeight
+              : constraints.maxWidth;
           return ListenableBuilder(
             listenable: widget.controller,
             builder: (context, _) {
@@ -201,8 +202,9 @@ class _DevToolsEdgeScrollbarState extends State<DevToolsEdgeScrollbar> {
                 onVerticalDragUpdate: _vertical ? _handleDragUpdate : null,
                 onVerticalDragEnd: _vertical ? _handleDragEnd : null,
                 onVerticalDragCancel: _vertical ? _handleDragCancel : null,
-                onHorizontalDragDown:
-                    _vertical ? null : (_) => _setActive(true),
+                onHorizontalDragDown: _vertical
+                    ? null
+                    : (_) => _setActive(true),
                 onHorizontalDragStart: _vertical ? null : _handleDragStart,
                 onHorizontalDragUpdate: _vertical ? null : _handleDragUpdate,
                 onHorizontalDragEnd: _vertical ? null : _handleDragEnd,
@@ -223,12 +225,9 @@ class _DevToolsEdgeScrollbarState extends State<DevToolsEdgeScrollbar> {
                         width: _vertical ? thickness : thumbLength,
                         height: _vertical ? thumbLength : thickness,
                         decoration: BoxDecoration(
-                          color:
-                              _active
-                                  ? colors.primary
-                                  : colors.onSurfaceVariant.withValues(
-                                    alpha: 0.45,
-                                  ),
+                          color: _active
+                              ? colors.primary
+                              : colors.onSurfaceVariant.withValues(alpha: 0.45),
                           borderRadius: BorderRadius.circular(thickness / 2),
                         ),
                       ),

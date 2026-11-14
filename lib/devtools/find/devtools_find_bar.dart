@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'devtools_find.dart';
 
@@ -120,10 +120,9 @@ class _FindControls extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontFeatures: const [FontFeature.tabularFigures()],
-                color:
-                    hasHits
-                        ? theme.colorScheme.onSurfaceVariant
-                        : theme.colorScheme.error,
+                color: hasHits
+                    ? theme.colorScheme.onSurfaceVariant
+                    : theme.colorScheme.error,
               ),
             ),
           ),

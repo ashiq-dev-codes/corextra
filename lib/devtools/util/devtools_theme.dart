@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The panel's own theme, kept apart from the host app's so the panel looks the same in every app.
 ThemeData buildDevToolsTheme(Brightness brightness) {

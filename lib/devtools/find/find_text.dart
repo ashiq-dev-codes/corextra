@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'devtools_find.dart';
 
@@ -70,20 +70,19 @@ class _FindTextState extends State<FindText> {
     final find = DevToolsFind.maybeOf(context);
     final needle = find?.needle ?? '';
     final source = widget.span ?? TextSpan(text: widget.data);
-    final starts =
-        needle.isEmpty
-            ? const <int>[]
-            : findMatches(source.toPlainText(), needle);
+    final starts = needle.isEmpty
+        ? const <int>[]
+        : findMatches(source.toPlainText(), needle);
     _currentRange = null;
     if (starts.isEmpty) return _render(null);
 
     final hit = find!.current;
-    final occurrence =
-        widget.id != null && hit?.target.id == widget.id
-            ? hit!.occurrence
-            : null;
-    final currentStart =
-        occurrence == null ? null : starts.elementAtOrNull(occurrence);
+    final occurrence = widget.id != null && hit?.target.id == widget.id
+        ? hit!.occurrence
+        : null;
+    final currentStart = occurrence == null
+        ? null
+        : starts.elementAtOrNull(occurrence);
     if (currentStart != null) {
       _currentRange = TextSelection(
         baseOffset: currentStart,
@@ -106,33 +105,33 @@ class _FindTextState extends State<FindText> {
     if (widget.selectable) {
       return span == null
           ? SelectableText(
-            widget.data!,
-            style: widget.style,
-            maxLines: widget.maxLines,
-            textAlign: widget.textAlign,
-          )
+              widget.data!,
+              style: widget.style,
+              maxLines: widget.maxLines,
+              textAlign: widget.textAlign,
+            )
           : SelectableText.rich(
-            span,
-            style: widget.style,
-            maxLines: widget.maxLines,
-            textAlign: widget.textAlign,
-          );
+              span,
+              style: widget.style,
+              maxLines: widget.maxLines,
+              textAlign: widget.textAlign,
+            );
     }
     return span == null
         ? Text(
-          widget.data!,
-          style: widget.style,
-          maxLines: widget.maxLines,
-          overflow: widget.overflow,
-          textAlign: widget.textAlign,
-        )
+            widget.data!,
+            style: widget.style,
+            maxLines: widget.maxLines,
+            overflow: widget.overflow,
+            textAlign: widget.textAlign,
+          )
         : Text.rich(
-          span,
-          style: widget.style,
-          maxLines: widget.maxLines,
-          overflow: widget.overflow,
-          textAlign: widget.textAlign,
-        );
+            span,
+            style: widget.style,
+            maxLines: widget.maxLines,
+            overflow: widget.overflow,
+            textAlign: widget.textAlign,
+          );
   }
 
   void _scheduleReveal(DevToolsFind find) {
@@ -156,13 +155,12 @@ class _FindTextState extends State<FindText> {
       RenderEditable() => text.getBoxesForSelection(range),
       _ => const <TextBox>[],
     };
-    final rect =
-        boxes.isEmpty
-            ? null
-            : boxes
-                .map((box) => box.toRect())
-                .reduce((a, b) => a.expandToInclude(b))
-                .inflate(32);
+    final rect = boxes.isEmpty
+        ? null
+        : boxes
+              .map((box) => box.toRect())
+              .reduce((a, b) => a.expandToInclude(b))
+              .inflate(32);
     text.showOnScreen(
       rect: rect,
       duration: const Duration(milliseconds: 250),
