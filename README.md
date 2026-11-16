@@ -14,7 +14,7 @@ Add the dependency:
 
 ```yaml
 dependencies:
-  corextra: ^1.3.2
+  corextra: ^1.3.3
 ```
 
 Import it:

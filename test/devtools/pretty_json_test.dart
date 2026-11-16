@@ -59,7 +59,11 @@ void main() {
 
       expect(result, contains('"name": "corextra"'));
       expect(result, contains('"filename": "avatar.png"'));
-      expect(result, contains('"contentType": "image/png"'));
+      // Older dio versions don't guess the type from the filename.
+      expect(
+        result,
+        contains('"contentType": "${form.files.first.value.contentType}"'),
+      );
       expect(result, contains('"length": 3'));
       expect(result, isNot(contains('Instance of')));
     });

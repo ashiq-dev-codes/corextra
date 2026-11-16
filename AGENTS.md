@@ -28,6 +28,18 @@ Everything in corextra ends up inside other developers' apps: their app size, bu
 
 - Ask before adding a dependency. Prefer a few lines of Dart over a new package.
 - Keep version ranges wide, and ask before narrowing one. Wide ranges let apps resolve corextra alongside their own dependencies.
+- The version rules below are for the package's own `pubspec.yaml` only. The example app is a normal Flutter app: plain `^` versions and the usual SDK constraint.
+- Write every dependency in `dependencies` as a range from the oldest version that works to the next major after the newest one that works, like `package_info_plus: ">=8.3.1 <11.0.0"`. Not `^`, which allows only one major. For a `0.x` package each minor counts as a major: `intl: ">=0.20.2 <0.21.0"`. `dev_dependencies` don't reach apps, so they keep `^`.
+- Prove both ends of a range before changing it:
+  1. **Oldest:** `flutter pub downgrade <each dependency>` (name them, so only corextra's own dependencies go down), then `flutter analyze` and `flutter test`.
+  2. **Newest:** `flutter pub upgrade`, then `flutter analyze` and `flutter test` again.
+  3. If the oldest fails, raise the lower bound to the first version that works. Don't change code to support an older version.
+- When a dependency ships a new major, try it with step 2. If it works, raise the upper bound so apps can use it.
+- Support the oldest Dart and Flutter you can, not the newest. Set `environment` to the lowest versions the dependencies allow (their oldest version we accept, not their latest), so apps on older Flutter can still use corextra. Prove it before changing it:
+  1. Install that Flutter with `fvm install <version>` (it doesn't change any project).
+  2. With it, run step 1 above on the package (`~/fvm/versions/<version>/bin/flutter pub downgrade ...`, `analyze`, `test`). The example app can need a newer Flutter; that's fine.
+  3. Run step 2 on the latest Flutter.
+  4. If the old Flutter fails, fix the code if it's a real bug, or raise the floor to the first version that works.
 - Don't add assets, fonts or code generation without asking.
 - Do no work until the app asks for it: no top-level setup, timers or listeners that start on their own.
 - Keep code that runs often (per request, per log, per frame) cheap.

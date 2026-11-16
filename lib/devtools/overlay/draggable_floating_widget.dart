@@ -83,13 +83,20 @@ class DraggableFloatingWidget extends StatefulWidget {
 class _DraggableFloatingWidgetState extends State<DraggableFloatingWidget>
     with SingleTickerProviderStateMixin {
   final ValueNotifier<Offset?> _offset = ValueNotifier(null);
-  late final AnimationController _settleController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 220),
-  )..addListener(_onSettleTick);
+  late final AnimationController _settleController;
 
   Tween<Offset>? _settleTween;
   _PeekSide _peekSide = _PeekSide.none;
+
+  @override
+  void initState() {
+    super.initState();
+    // Not lazy: a lazy one gets created inside dispose(), which Flutter rejects.
+    _settleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    )..addListener(_onSettleTick);
+  }
 
   @override
   void didUpdateWidget(covariant DraggableFloatingWidget oldWidget) {

@@ -1,3 +1,11 @@
+## 1.3.3
+
+- corextra now uses the standalone [`material_ui`](https://pub.dev/packages/material_ui) and [`cupertino_ui`](https://pub.dev/packages/cupertino_ui) packages instead of `package:flutter/material.dart` and `package:flutter/cupertino.dart`, which Flutter 3.50 deprecated. It needs **Flutter 3.44 or newer** (Dart 3.12), the first Flutter these packages support; apps on older Flutter keep resolving 1.3.2.
+- Apps still on `package:flutter/material.dart` keep working, but should migrate too: see Flutter's [migration guide](https://docs.flutter.dev/release/breaking-changes/material-ui-and-cupertino-ui).
+- Dependencies now accept wider version ranges, so corextra fits alongside more apps. `lucide_icons_flutter` 4.x is now allowed (3.x still works).
+- Fix: closing the DevTools floating window without ever dragging it no longer throws an error in debug builds on some Flutter versions.
+- The example app now uses `material_ui`.
+
 ## 1.3.2
 
 - `CorextraJsonModel` now warns in debug builds when a value exists but can't be read, like `UserModel: "id" should be int, but the JSON has text "abc". It reads as null.` Each model type and key warns once, missing or blank values never warn, and release builds print nothing. Turn it off with `CorextraJsonModel.debugWarnings = false`.
