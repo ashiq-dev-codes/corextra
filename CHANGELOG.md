@@ -1,9 +1,9 @@
 ## 1.3.3
 
-- corextra now uses the standalone [`material_ui`](https://pub.dev/packages/material_ui) and [`cupertino_ui`](https://pub.dev/packages/cupertino_ui) packages instead of `package:flutter/material.dart` and `package:flutter/cupertino.dart`, which Flutter 3.50 deprecated. It needs **Flutter 3.44 or newer** (Dart 3.12), the first Flutter these packages support; apps on older Flutter keep resolving 1.3.2.
-- Apps still on `package:flutter/material.dart` keep working, but should migrate too: see Flutter's [migration guide](https://docs.flutter.dev/release/breaking-changes/material-ui-and-cupertino-ui).
-- Dependencies now accept wider version ranges, so corextra fits alongside more apps. `lucide_icons_flutter` 4.x is now allowed (3.x still works).
-- Fix: closing the DevTools floating window without ever dragging it no longer throws an error in debug builds on some Flutter versions.
+- **Now needs Flutter 3.44 or newer** (Dart 3.12). Apps on older Flutter keep getting 1.3.2 automatically, so nothing breaks for them.
+- corextra now uses the [`material_ui`](https://pub.dev/packages/material_ui) package instead of `package:flutter/material.dart`, which Flutter 3.50 deprecated. Your app keeps working with either import, but should move too: see Flutter's [migration guide](https://docs.flutter.dev/release/breaking-changes/material-ui-and-cupertino-ui).
+- Wider dependency ranges, so corextra fits alongside more apps. `lucide_icons_flutter` 4.x now works too (3.x still does).
+- Fixed: closing the DevTools floating window before ever dragging it no longer throws an error in debug builds.
 - The example app now uses `material_ui`.
 
 ## 1.3.2

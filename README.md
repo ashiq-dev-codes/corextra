@@ -23,6 +23,10 @@ Import it:
 import 'package:corextra/corextra.dart';
 ```
 
+**Requirements:** Flutter 3.44 or newer (Dart 3.12). On older Flutter, pub picks corextra 1.3.2 for you.
+
+corextra is built on [`material_ui`](https://pub.dev/packages/material_ui), the package that replaces `package:flutter/material.dart`. Your app works with either import; see Flutter's [migration guide](https://docs.flutter.dev/release/breaking-changes/material-ui-and-cupertino-ui) when you're ready to switch.
+
 ---
 
 ## Features
@@ -40,7 +44,7 @@ import 'package:corextra/corextra.dart';
 - `FormValidators.compose([...])` — run several validators, return the first error
 - `FormValidators.optional(validator)` — skip validation when a non-required field is empty
 - Every validator accepts a custom `message:`
-- Optional translations via `easy_localization`
+- Translate every message with `FormValidators.setTranslator(...)`, using `easy_localization` or any other i18n package
 
 ### Responsive
 - `ResponsiveBreakpoints` — `sm` / `md` / `lg` / `xl` / `xxl` on `BuildContext` or `BoxConstraints`
@@ -178,7 +182,7 @@ ChatModel copyWith({int? unreadCount, String? avatarUrl}) => ChatModel.fromJson(
 chat.copyWith(unreadCount: 0);
 ```
 
-The `?` form needs Dart 3.8 or newer. On older Dart, write `if (unreadCount != null) 'unread_count': unreadCount,` instead.
+The `?` form needs your app's `sdk` constraint to start at 3.8 or higher. Below that, write `if (unreadCount != null) 'unread_count': unreadCount,` instead.
 
 For a one-off copy you can skip `copyWith`: `ChatModel.fromJson({...chat.toJson(), 'unread_count': 0})`.
 
