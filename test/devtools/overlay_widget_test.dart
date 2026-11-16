@@ -120,10 +120,8 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          builder:
-              (context, child) => CorextraDevToolsOverlay(
-                child: child ?? const SizedBox.shrink(),
-              ),
+          builder: (context, child) =>
+              CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
           home: Scaffold(
             body: ElevatedButton(
               onPressed: () => hostButtonTapped = true,
@@ -700,10 +698,8 @@ void main() {
     var hostButtonTapped = false;
     await tester.pumpWidget(
       MaterialApp(
-        builder:
-            (context, child) => CorextraDevToolsOverlay(
-              child: child ?? const SizedBox.shrink(),
-            ),
+        builder: (context, child) =>
+            CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
         home: Scaffold(
           body: ElevatedButton(
             onPressed: () => hostButtonTapped = true,
@@ -741,10 +737,8 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          builder:
-              (context, child) => CorextraDevToolsOverlay(
-                child: child ?? const SizedBox.shrink(),
-              ),
+          builder: (context, child) =>
+              CorextraDevToolsOverlay(child: child ?? const SizedBox.shrink()),
           home: const Scaffold(body: SizedBox.shrink()),
         ),
       );

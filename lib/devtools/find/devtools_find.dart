@@ -167,8 +167,10 @@ class DevToolsFind extends ChangeNotifier {
     final out = <FindHit>[];
     if (_counts.length > _maxCachedCounts) _counts.clear();
     for (final target in sources[tab].targets()) {
-      final count =
-          _counts[target.text] ??= findMatches(target.text, _needle).length;
+      final count = _counts[target.text] ??= findMatches(
+        target.text,
+        _needle,
+      ).length;
       for (var i = 0; i < count; i++) {
         out.add(FindHit(tab: tab, target: target, occurrence: i));
       }

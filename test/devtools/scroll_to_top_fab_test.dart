@@ -8,32 +8,29 @@ Widget _wrap() {
       body: SizedBox(
         height: 400,
         child: DevToolsScrollToTop(
-          builder:
-              (context, controller) => ListView.builder(
-                controller: controller,
-                itemCount: 100,
-                itemExtent: 50,
-                itemBuilder: (context, index) => Text('Item $index'),
-              ),
+          builder: (context, controller) => ListView.builder(
+            controller: controller,
+            itemCount: 100,
+            itemExtent: 50,
+            itemBuilder: (context, index) => Text('Item $index'),
+          ),
         ),
       ),
     ),
   );
 }
 
-double _opacityOf(WidgetTester tester) =>
-    tester
-        .widget<AnimatedOpacity>(
-          find.byKey(const Key('devtools-scroll-to-top-opacity')),
-        )
-        .opacity;
+double _opacityOf(WidgetTester tester) => tester
+    .widget<AnimatedOpacity>(
+      find.byKey(const Key('devtools-scroll-to-top-opacity')),
+    )
+    .opacity;
 
-bool _ignoringOf(WidgetTester tester) =>
-    tester
-        .widget<IgnorePointer>(
-          find.byKey(const Key('devtools-scroll-to-top-ignore-pointer')),
-        )
-        .ignoring;
+bool _ignoringOf(WidgetTester tester) => tester
+    .widget<IgnorePointer>(
+      find.byKey(const Key('devtools-scroll-to-top-ignore-pointer')),
+    )
+    .ignoring;
 
 void main() {
   testWidgets(

@@ -179,12 +179,11 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
     final theme = Theme.of(context);
     final allActive = widget.active.length == widget.values.length;
     final noneActive = widget.active.isEmpty;
-    final summary =
-        allActive
-            ? 'All'
-            : noneActive
-            ? 'None'
-            : '${widget.active.length} selected';
+    final summary = allActive
+        ? 'All'
+        : noneActive
+        ? 'None'
+        : '${widget.active.length} selected';
     final tintColor = theme.colorScheme.primary;
 
     return MenuAnchor(
@@ -226,11 +225,8 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
                   label: widget.labelOf(value),
                   color: widget.colorOf(value),
                   active: widget.active.contains(value),
-                  onTap:
-                      () => widget.onChanged(
-                        value,
-                        !widget.active.contains(value),
-                      ),
+                  onTap: () =>
+                      widget.onChanged(value, !widget.active.contains(value)),
                 ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
@@ -280,16 +276,14 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
       ],
       builder: (context, controller, child) {
         return Material(
-          color:
-              allActive
-                  ? theme.colorScheme.surfaceContainerHighest
-                  : tintColor.withValues(alpha: 0.14),
+          color: allActive
+              ? theme.colorScheme.surfaceContainerHighest
+              : tintColor.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(18),
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
-            onTap:
-                () =>
-                    controller.isOpen ? controller.close() : controller.open(),
+            onTap: () =>
+                controller.isOpen ? controller.close() : controller.open(),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
               child: Row(
@@ -298,10 +292,9 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
                   Icon(
                     LucideIcons.listFilter,
                     size: 13,
-                    color:
-                        allActive
-                            ? theme.colorScheme.onSurfaceVariant
-                            : tintColor,
+                    color: allActive
+                        ? theme.colorScheme.onSurfaceVariant
+                        : tintColor,
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -309,8 +302,9 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color:
-                          allActive ? theme.colorScheme.onSurface : tintColor,
+                      color: allActive
+                          ? theme.colorScheme.onSurface
+                          : tintColor,
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -318,10 +312,9 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
                     summary,
                     style: TextStyle(
                       fontSize: 12,
-                      color:
-                          allActive
-                              ? theme.colorScheme.onSurfaceVariant
-                              : tintColor,
+                      color: allActive
+                          ? theme.colorScheme.onSurfaceVariant
+                          : tintColor,
                     ),
                   ),
                   const SizedBox(width: 2),
@@ -330,10 +323,9 @@ class _FilterMenuButtonState<T> extends State<_FilterMenuButton<T>> {
                         ? LucideIcons.chevronUp
                         : LucideIcons.chevronDown,
                     size: 14,
-                    color:
-                        allActive
-                            ? theme.colorScheme.onSurfaceVariant
-                            : tintColor,
+                    color: allActive
+                        ? theme.colorScheme.onSurfaceVariant
+                        : tintColor,
                   ),
                 ],
               ),
@@ -397,10 +389,9 @@ class _FilterOptionRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                  color:
-                      active
-                          ? theme.colorScheme.onSurface
-                          : theme.colorScheme.onSurfaceVariant,
+                  color: active
+                      ? theme.colorScheme.onSurface
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ),

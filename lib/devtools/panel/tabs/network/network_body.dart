@@ -46,18 +46,17 @@ class _Body {
   final Map<double, double> _widths = {};
 
   /// Monospace, so a line's width is its character count; wide characters like CJK and emoji count double.
-  double contentWidth(double charWidth) =>
-      _widths[charWidth] ??= () {
-        var widest = 0.0;
-        for (final line in lines) {
-          var units = line.plainText.length + line.collapsedExtraChars;
-          for (final unit in line.plainText.codeUnits) {
-            if (unit >= 0x1100) units++;
-          }
-          widest = math.max(widest, line.indent + units * charWidth);
-        }
-        return widest;
-      }();
+  double contentWidth(double charWidth) => _widths[charWidth] ??= () {
+    var widest = 0.0;
+    for (final line in lines) {
+      var units = line.plainText.length + line.collapsedExtraChars;
+      for (final unit in line.plainText.codeUnits) {
+        if (unit >= 0x1100) units++;
+      }
+      widest = math.max(widest, line.indent + units * charWidth);
+    }
+    return widest;
+  }();
 }
 
 /// The body as a JSON object or array, or null when it isn't one.

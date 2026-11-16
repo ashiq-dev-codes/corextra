@@ -36,16 +36,12 @@ Finder _bodyScrollArea() =>
     find.byKey(const ValueKey('code-block-scroll-area')).first;
 
 /// The live scroll position along [axis] inside the (first) open body block.
-ScrollPosition _bodyScrollPosition(WidgetTester tester, Axis axis) =>
-    tester
-        .stateList<ScrollableState>(
-          find.descendant(
-            of: _bodyScrollArea(),
-            matching: find.byType(Scrollable),
-          ),
-        )
-        .firstWhere((state) => state.position.axis == axis)
-        .position;
+ScrollPosition _bodyScrollPosition(WidgetTester tester, Axis axis) => tester
+    .stateList<ScrollableState>(
+      find.descendant(of: _bodyScrollArea(), matching: find.byType(Scrollable)),
+    )
+    .firstWhere((state) => state.position.axis == axis)
+    .position;
 
 /// Opens the Response tab of the request seeded by [_seedBigJsonResponse].
 Future<void> _openBigResponse(WidgetTester tester) async {
@@ -555,18 +551,15 @@ void main() {
         await tester.tap(find.text('Response'));
         await tester.pumpAndSettle();
 
-        final span =
-            tester
-                .widget<SelectableText>(
-                  find.byWidgetPredicate(
-                    (widget) =>
-                        widget is SelectableText &&
-                        (widget.textSpan?.toPlainText() ?? '').contains(
-                          '"Ada"',
-                        ),
-                  ),
-                )
-                .textSpan!;
+        final span = tester
+            .widget<SelectableText>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is SelectableText &&
+                    (widget.textSpan?.toPlainText() ?? '').contains('"Ada"'),
+              ),
+            )
+            .textSpan!;
         return span.children!
             .whereType<TextSpan>()
             .firstWhere((s) => s.text == '"Ada"')
@@ -575,14 +568,16 @@ void main() {
       }
 
       final lightColor = await pumpAndGetValueColor(Brightness.light);
-      final lightColors =
-          Theme.of(tester.element(find.text('/user'))).colorScheme;
+      final lightColors = Theme.of(
+        tester.element(find.text('/user')),
+      ).colorScheme;
       expect(lightColor, lightColors.onTertiaryContainer);
       expect(lightColor, isNot(lightColors.tertiary));
 
       final darkColor = await pumpAndGetValueColor(Brightness.dark);
-      final darkColors =
-          Theme.of(tester.element(find.text('/user'))).colorScheme;
+      final darkColors = Theme.of(
+        tester.element(find.text('/user')),
+      ).colorScheme;
       expect(darkColor, darkColors.tertiary);
     },
   );

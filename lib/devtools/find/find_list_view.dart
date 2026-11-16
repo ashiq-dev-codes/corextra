@@ -67,26 +67,23 @@ class _FindListViewState extends State<FindListView>
       controller: widget.controller,
       padding: widget.padding,
       itemCount: widget.itemCount,
-      findChildIndexCallback:
-          itemKey == null
-              ? null
-              : (key) {
-                final lookup =
-                    indexByKey ??= {
-                      for (var i = 0; i < widget.itemCount; i++) itemKey(i): i,
-                    };
-                return key is ValueKey ? lookup[key.value] : null;
-              },
+      findChildIndexCallback: itemKey == null
+          ? null
+          : (key) {
+              final lookup = indexByKey ??= {
+                for (var i = 0; i < widget.itemCount; i++) itemKey(i): i,
+              };
+              return key is ValueKey ? lookup[key.value] : null;
+            },
       itemBuilder: (context, index) {
         final row = widget.itemBuilder(context, index);
-        final child =
-            index == widget.itemCount - 1
-                ? row
-                : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [row, widget.separatorBuilder(context, index)],
-                );
+        final child = index == widget.itemCount - 1
+            ? row
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [row, widget.separatorBuilder(context, index)],
+              );
         return itemKey == null
             ? child
             : KeyedSubtree(key: ValueKey(itemKey(index)), child: child);

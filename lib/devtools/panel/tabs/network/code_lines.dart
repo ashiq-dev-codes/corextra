@@ -79,22 +79,21 @@ List<_CodeLine> _flattenJson(Object value) {
     String comma,
     int depth,
   ) {
-    final children =
-        node is Map
-            ? [
-              for (final entry in node.entries)
-                (
-                  keyPrefix: '"${entry.key}": ',
-                  value: entry.value,
-                  path: '$path.${entry.key}',
-                ),
-            ]
-            : node is List
-            ? [
-              for (var i = 0; i < node.length; i++)
-                (keyPrefix: '', value: node[i], path: '$path[$i]'),
-            ]
-            : null;
+    final children = node is Map
+        ? [
+            for (final entry in node.entries)
+              (
+                keyPrefix: '"${entry.key}": ',
+                value: entry.value,
+                path: '$path.${entry.key}',
+              ),
+          ]
+        : node is List
+        ? [
+            for (var i = 0; i < node.length; i++)
+              (keyPrefix: '', value: node[i], path: '$path[$i]'),
+          ]
+        : null;
     if (children == null) {
       lines.add(
         _CodeLine(
@@ -156,8 +155,9 @@ List<_CodeLine> _flattenJson(Object value) {
       closeIndex: lines.length - 1,
       closeBrace: closeBrace,
       comma: comma,
-      countLabel:
-          children.length == 1 ? '1 $noun' : '${children.length} ${noun}s',
+      countLabel: children.length == 1
+          ? '1 $noun'
+          : '${children.length} ${noun}s',
     );
   }
 
@@ -205,10 +205,9 @@ class _CodeLeafLine extends StatelessWidget {
         style: _codeStyle,
       );
     }
-    final valueColor =
-        line.muted
-            ? theme.colorScheme.onSurfaceVariant
-            : _literalColor(line.value, theme);
+    final valueColor = line.muted
+        ? theme.colorScheme.onSurfaceVariant
+        : _literalColor(line.value, theme);
     final italicValue = !line.muted && line.value == null;
     return Padding(
       padding: EdgeInsets.only(left: line.depth * 16.0),

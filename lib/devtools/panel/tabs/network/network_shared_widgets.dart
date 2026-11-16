@@ -44,8 +44,9 @@ class _ShareIconButton extends StatelessWidget {
 
   Future<void> _share(BuildContext context) async {
     final box = context.findRenderObject() as RenderBox?;
-    final origin =
-        box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    final origin = box == null
+        ? null
+        : box.localToGlobal(Offset.zero) & box.size;
     try {
       await shareText(text(), origin: origin);
     } catch (_) {}

@@ -20,10 +20,9 @@ class _CompactNetworkRow extends StatelessWidget {
     final prefix = _findPrefix(event, _Section.row);
 
     return Material(
-      color:
-          selected
-              ? theme.colorScheme.primary.withValues(alpha: 0.12)
-              : Colors.transparent,
+      color: selected
+          ? theme.colorScheme.primary.withValues(alpha: 0.12)
+          : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Padding(

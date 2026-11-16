@@ -57,19 +57,18 @@ class _CodeViewState extends State<_CodeView> with FindAware<_CodeView> {
   }
 
   /// Indices of the lines not folded away, in order.
-  List<int> get _visibleLines =>
-      _visible ??= () {
-        final out = <int>[];
-        for (var i = 0; i < _lines.length; i++) {
-          out.add(i);
-          final line = _lines[i];
-          // Folded: its children and closing line are skipped; the toggle line shows them inline.
-          if (line.isOpen && _collapsedPaths.contains(line.path)) {
-            i = line.closeIndex!;
-          }
-        }
-        return out;
-      }();
+  List<int> get _visibleLines => _visible ??= () {
+    final out = <int>[];
+    for (var i = 0; i < _lines.length; i++) {
+      out.add(i);
+      final line = _lines[i];
+      // Folded: its children and closing line are skipped; the toggle line shows them inline.
+      if (line.isOpen && _collapsedPaths.contains(line.path)) {
+        i = line.closeIndex!;
+      }
+    }
+    return out;
+  }();
 
   double _extentOf(_CodeLine line) {
     final text = _metrics.lineHeight;
@@ -91,13 +90,12 @@ class _CodeViewState extends State<_CodeView> with FindAware<_CodeView> {
   void _expandAll() => _setCollapsed((paths) => paths.clear());
 
   void _collapseAll() => _setCollapsed(
-    (paths) =>
-        paths
-          ..clear()
-          ..addAll([
-            for (final line in _lines)
-              if (line.isOpen) line.path,
-          ]),
+    (paths) => paths
+      ..clear()
+      ..addAll([
+        for (final line in _lines)
+          if (line.isOpen) line.path,
+      ]),
   );
 
   /// Unfolds whatever hides the current match, then scrolls its line into the built range so its [FindText] can show the exact words.
@@ -149,15 +147,14 @@ class _CodeViewState extends State<_CodeView> with FindAware<_CodeView> {
     return _CodeBlockChrome(
       copyText: widget.body.copyText,
       title: widget.title,
-      fullscreenBuilder:
-          widget.standalone
-              ? (context) => _CodeView(
-                body: widget.body,
-                title: widget.title,
-                findPrefix: widget.findPrefix,
-                standalone: false,
-              )
-              : null,
+      fullscreenBuilder: widget.standalone
+          ? (context) => _CodeView(
+              body: widget.body,
+              title: widget.title,
+              findPrefix: widget.findPrefix,
+              standalone: false,
+            )
+          : null,
       actions: [
         if (widget.body.isJson) ...[
           IconButton(
@@ -189,12 +186,12 @@ class _CodeViewState extends State<_CodeView> with FindAware<_CodeView> {
           final findId = '${widget.findPrefix}/$index';
           return line.isOpen
               ? _CodeToggleLine(
-                line: line,
-                collapsed: _collapsedPaths.contains(line.path),
-                findId: findId,
-                theme: theme,
-                onTap: () => _toggle(line.path),
-              )
+                  line: line,
+                  collapsed: _collapsedPaths.contains(line.path),
+                  findId: findId,
+                  theme: theme,
+                  onTap: () => _toggle(line.path),
+                )
               : _CodeLeafLine(line: line, findId: findId, theme: theme);
         },
       ),
@@ -300,12 +297,11 @@ class _FullscreenIconButtonState extends State<_FullscreenIconButton> {
 
   void _open() {
     final entry = OverlayEntry(
-      builder:
-          (context) => _FullscreenContentView(
-            title: widget.title,
-            onClose: _close,
-            child: widget.builder(context),
-          ),
+      builder: (context) => _FullscreenContentView(
+        title: widget.title,
+        onClose: _close,
+        child: widget.builder(context),
+      ),
     );
     _entry = entry;
     Overlay.of(context).insert(entry);
@@ -454,42 +450,36 @@ class _ScrollableCodeState extends State<_ScrollableCode> {
               key: const ValueKey('code-block-scroll-area'),
               children: [
                 LayoutBuilder(
-                  builder:
-                      (context, box) => SingleChildScrollView(
-                        controller: _horizontal,
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.only(left: 10, right: 16),
-                        child: SizedBox(
-                          width: math.max(
-                            widget.contentWidth,
-                            box.maxWidth - 26,
-                          ),
-                          // Lines are built only while on screen, each at a known height, so a huge body costs no more than a small one.
-                          child: ListView.builder(
-                            controller: vertical,
-                            padding: const EdgeInsets.only(
-                              top: _codeTopPadding,
-                              bottom: _codeBottomPadding,
-                            ),
-                            itemCount: widget.itemCount,
-                            itemExtentBuilder:
-                                (index, _) =>
-                                    index < widget.itemCount
-                                        ? widget.itemExtent(index)
-                                        : null,
-                            itemBuilder:
-                                (context, index) => OverflowBox(
-                                  alignment: Alignment.centerLeft,
-                                  maxWidth: double.infinity,
-                                  // Never wraps: a line wider than the estimate just runs on, like an editor.
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: widget.itemBuilder(context, index),
-                                  ),
-                                ),
+                  builder: (context, box) => SingleChildScrollView(
+                    controller: _horizontal,
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.only(left: 10, right: 16),
+                    child: SizedBox(
+                      width: math.max(widget.contentWidth, box.maxWidth - 26),
+                      // Lines are built only while on screen, each at a known height, so a huge body costs no more than a small one.
+                      child: ListView.builder(
+                        controller: vertical,
+                        padding: const EdgeInsets.only(
+                          top: _codeTopPadding,
+                          bottom: _codeBottomPadding,
+                        ),
+                        itemCount: widget.itemCount,
+                        itemExtentBuilder: (index, _) =>
+                            index < widget.itemCount
+                            ? widget.itemExtent(index)
+                            : null,
+                        itemBuilder: (context, index) => OverflowBox(
+                          alignment: Alignment.centerLeft,
+                          maxWidth: double.infinity,
+                          // Never wraps: a line wider than the estimate just runs on, like an editor.
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: widget.itemBuilder(context, index),
                           ),
                         ),
                       ),
+                    ),
+                  ),
                 ),
                 // Starts below the floating action bar, so the bar never covers the thumb.
                 DevToolsEdgeScrollbar(

@@ -28,11 +28,10 @@ void debugLog(String message, {LogLevel level = LogLevel.info}) {
   if (CorextraDevTools.instance.enabled) {
     CorextraDevTools.instance.logs.add(
       LogEntry(
-        message:
-            message.length > _maxPanelMessageLength
-                ? '${message.substring(0, _maxPanelMessageLength)}… '
-                    '[${message.length} chars total — full text in the console]'
-                : message,
+        message: message.length > _maxPanelMessageLength
+            ? '${message.substring(0, _maxPanelMessageLength)}… '
+                  '[${message.length} chars total — full text in the console]'
+            : message,
         level: level,
         timestamp: DateTime.now(),
       ),

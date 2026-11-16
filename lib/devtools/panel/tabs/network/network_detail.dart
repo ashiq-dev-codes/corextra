@@ -59,18 +59,17 @@ class _NetworkEventDetailState extends State<_NetworkEventDetail>
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
-          child:
-              _summaryCollapsed
-                  ? Padding(
-                    key: const ValueKey('compact-summary'),
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: _DetailSummary(event: event, compact: true),
-                  )
-                  : Padding(
-                    key: const ValueKey('full-summary'),
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                    child: _DetailSummary(event: event),
-                  ),
+          child: _summaryCollapsed
+              ? Padding(
+                  key: const ValueKey('compact-summary'),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: _DetailSummary(event: event, compact: true),
+                )
+              : Padding(
+                  key: const ValueKey('full-summary'),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: _DetailSummary(event: event),
+                ),
         ),
         Expanded(
           child: Column(
@@ -116,54 +115,50 @@ class _HeadersTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return DevToolsScrollToTop(
       onScroll: onScroll,
-      builder:
-          (context, controller) => SingleChildScrollView(
-            controller: controller,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _SubsectionLabel('URL'),
-                const SizedBox(height: 4),
-                FindText(
-                  event.url,
-                  id: '${_findPrefix(event, _Section.url)}/text',
-                  selectable: true,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12.5,
-                  ),
-                ),
-                if (event.errorMessage != null) ...[
-                  const SizedBox(height: 20),
-                  const _SubsectionLabel('ERROR'),
-                  const SizedBox(height: 4),
-                  _ErrorBanner(
-                    message: event.errorMessage!,
-                    findId: '${_findPrefix(event, _Section.error)}/text',
-                  ),
-                ],
-                if (!event.isSocket) ...[
-                  const SizedBox(height: 20),
-                  const _SubsectionLabel('REQUEST HEADERS'),
-                  const SizedBox(height: 4),
-                  _KeyValueList(
-                    data: event.requestHeaders,
-                    hiddenKeys: event.hiddenHeaderKeys,
-                    findPrefix: _findPrefix(event, _Section.requestHeaders),
-                  ),
-                  const SizedBox(height: 20),
-                  const _SubsectionLabel('RESPONSE HEADERS'),
-                  const SizedBox(height: 4),
-                  _KeyValueList(
-                    data: event.responseHeaders,
-                    hiddenKeys: event.hiddenHeaderKeys,
-                    findPrefix: _findPrefix(event, _Section.responseHeaders),
-                  ),
-                ],
-              ],
+      builder: (context, controller) => SingleChildScrollView(
+        controller: controller,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _SubsectionLabel('URL'),
+            const SizedBox(height: 4),
+            FindText(
+              event.url,
+              id: '${_findPrefix(event, _Section.url)}/text',
+              selectable: true,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
             ),
-          ),
+            if (event.errorMessage != null) ...[
+              const SizedBox(height: 20),
+              const _SubsectionLabel('ERROR'),
+              const SizedBox(height: 4),
+              _ErrorBanner(
+                message: event.errorMessage!,
+                findId: '${_findPrefix(event, _Section.error)}/text',
+              ),
+            ],
+            if (!event.isSocket) ...[
+              const SizedBox(height: 20),
+              const _SubsectionLabel('REQUEST HEADERS'),
+              const SizedBox(height: 4),
+              _KeyValueList(
+                data: event.requestHeaders,
+                hiddenKeys: event.hiddenHeaderKeys,
+                findPrefix: _findPrefix(event, _Section.requestHeaders),
+              ),
+              const SizedBox(height: 20),
+              const _SubsectionLabel('RESPONSE HEADERS'),
+              const SizedBox(height: 4),
+              _KeyValueList(
+                data: event.responseHeaders,
+                hiddenKeys: event.hiddenHeaderKeys,
+                findPrefix: _findPrefix(event, _Section.responseHeaders),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -225,18 +220,17 @@ class _ResponseTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder:
-          (context, constraints) => SingleChildScrollView(
-            primary: false,
-            padding: const EdgeInsets.all(16),
-            child: _BodyView(
-              event: event,
-              section: _Section.responseBody,
-              title: 'Response',
-              maxHeight: _maxBodyHeight(constraints),
-              onScroll: onScroll,
-            ),
-          ),
+      builder: (context, constraints) => SingleChildScrollView(
+        primary: false,
+        padding: const EdgeInsets.all(16),
+        child: _BodyView(
+          event: event,
+          section: _Section.responseBody,
+          title: 'Response',
+          maxHeight: _maxBodyHeight(constraints),
+          onScroll: onScroll,
+        ),
+      ),
     );
   }
 }

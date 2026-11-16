@@ -94,10 +94,9 @@ extension NonNullableStringExtensions on String {
   String toPascalCase() {
     return split(RegExp(r'[_\-]'))
         .map(
-          (word) =>
-              word.isEmpty
-                  ? ''
-                  : word[0].toUpperCase() + word.substring(1).toLowerCase(),
+          (word) => word.isEmpty
+              ? ''
+              : word[0].toUpperCase() + word.substring(1).toLowerCase(),
         )
         .join();
   }

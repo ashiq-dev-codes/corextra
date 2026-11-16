@@ -92,8 +92,10 @@ void main() {
     setUp(() {
       find = DevToolsFind([
         FindSource(
-          targets:
-              () => const [FindTarget('a', 'apple pie'), FindTarget('b', 'x')],
+          targets: () => const [
+            FindTarget('a', 'apple pie'),
+            FindTarget('b', 'x'),
+          ],
         ),
         FindSource(targets: () => const [FindTarget('c', 'apple, apple')]),
       ]);

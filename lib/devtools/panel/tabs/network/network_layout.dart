@@ -90,27 +90,22 @@ class _MasterDetailView extends StatelessWidget {
               Expanded(
                 child: DevToolsScrollToTop(
                   scrollbar: true,
-                  builder:
-                      (context, controller) => FindListView(
-                        controller: controller,
-                        itemCount: events.length,
-                        itemKey: (index) => events[index].id,
-                        indexOfHit: (hit) => _rowIndexOf(events, hit),
-                        separatorBuilder:
-                            (context, index) => const Divider(
-                              height: 1,
-                              indent: 12,
-                              endIndent: 12,
-                            ),
-                        itemBuilder: (context, index) {
-                          final event = events[index];
-                          return _CompactNetworkRow(
-                            event: event,
-                            selected: identical(event, selected),
-                            onTap: () => onSelect(event),
-                          );
-                        },
-                      ),
+                  builder: (context, controller) => FindListView(
+                    controller: controller,
+                    itemCount: events.length,
+                    itemKey: (index) => events[index].id,
+                    indexOfHit: (hit) => _rowIndexOf(events, hit),
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1, indent: 12, endIndent: 12),
+                    itemBuilder: (context, index) {
+                      final event = events[index];
+                      return _CompactNetworkRow(
+                        event: event,
+                        selected: identical(event, selected),
+                        onTap: () => onSelect(event),
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
@@ -118,13 +113,12 @@ class _MasterDetailView extends StatelessWidget {
         ),
         const VerticalDivider(width: 1),
         Expanded(
-          child:
-              selectedEvent == null
-                  ? const DevToolsEmptyState(
-                    icon: LucideIcons.mousePointerClick,
-                    message: 'Select a request to see its details',
-                  )
-                  : _NetworkEventDetail(event: selectedEvent),
+          child: selectedEvent == null
+              ? const DevToolsEmptyState(
+                  icon: LucideIcons.mousePointerClick,
+                  message: 'Select a request to see its details',
+                )
+              : _NetworkEventDetail(event: selectedEvent),
         ),
       ],
     );

@@ -188,11 +188,10 @@ void main() {
         User.fromJson({'user_email': null, 'email': 'b@x.com'}).email,
         'b@x.com',
       );
-      final home =
-          User.fromJson({
-            'home': 'not a map',
-            'home_address': {'city': 'Dubai'},
-          }).home;
+      final home = User.fromJson({
+        'home': 'not a map',
+        'home_address': {'city': 'Dubai'},
+      }).home;
       expect(home?.city, 'Dubai');
     });
   });

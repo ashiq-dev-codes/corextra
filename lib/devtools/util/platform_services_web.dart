@@ -35,10 +35,9 @@ Future<Map<String, String>> loadAppInfo() async {
 Future<Map<String, dynamic>> _versionJson() async {
   try {
     final uri = Uri.parse(web.document.baseURI).resolve('version.json');
-    final response =
-        await web.window
-            .fetch(uri.toString().toJS, web.RequestInit(cache: 'no-store'))
-            .toDart;
+    final response = await web.window
+        .fetch(uri.toString().toJS, web.RequestInit(cache: 'no-store'))
+        .toDart;
     if (!response.ok) return const {};
     final body = (await response.text().toDart).toDart;
     return jsonDecode(body) as Map<String, dynamic>;

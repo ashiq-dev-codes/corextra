@@ -36,10 +36,9 @@ bool _isHiddenHeader(String key, Set<String> hiddenKeys) =>
 String _headerDisplayValue(
   MapEntry<String, String> entry,
   Set<String> hiddenKeys,
-) =>
-    _isHiddenHeader(entry.key, hiddenKeys)
-        ? _maskedPreview(entry.value)
-        : entry.value;
+) => _isHiddenHeader(entry.key, hiddenKeys)
+    ? _maskedPreview(entry.value)
+    : entry.value;
 
 // ---------------- Header list ----------------
 
@@ -69,59 +68,57 @@ class _KeyValueList extends StatelessWidget {
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children:
-          data.entries.map((entry) {
-            final hidden = _isHiddenHeader(entry.key, hiddenKeys);
-            final sensitive = _isSensitiveHeader(entry.key) || hidden;
-            final displayValue = _headerDisplayValue(entry, hiddenKeys);
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 130,
-                    child: Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 4,
-                      runSpacing: 2,
-                      children: [
-                        FindText(
-                          entry.key,
-                          id: '$findPrefix/k/${entry.key}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (sensitive) _TokenBadge(hidden: hidden),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: FindText(
-                      displayValue,
-                      id: '$findPrefix/v/${entry.key}',
-                      selectable: true,
+      children: data.entries.map((entry) {
+        final hidden = _isHiddenHeader(entry.key, hiddenKeys);
+        final sensitive = _isSensitiveHeader(entry.key) || hidden;
+        final displayValue = _headerDisplayValue(entry, hiddenKeys);
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 130,
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 4,
+                  runSpacing: 2,
+                  children: [
+                    FindText(
+                      entry.key,
+                      id: '$findPrefix/k/${entry.key}',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                        fontStyle: hidden ? FontStyle.italic : FontStyle.normal,
-                        color:
-                            hidden
-                                ? theme.colorScheme.onSurfaceVariant
-                                : sensitive
-                                ? theme.colorScheme.primary
-                                : null,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  if (sensitive) ...[
-                    _CopyIconButton(text: () => entry.value),
-                    _ShareIconButton(text: () => entry.value),
+                    if (sensitive) _TokenBadge(hidden: hidden),
                   ],
-                ],
+                ),
               ),
-            );
-          }).toList(),
+              Expanded(
+                child: FindText(
+                  displayValue,
+                  id: '$findPrefix/v/${entry.key}',
+                  selectable: true,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    fontStyle: hidden ? FontStyle.italic : FontStyle.normal,
+                    color: hidden
+                        ? theme.colorScheme.onSurfaceVariant
+                        : sensitive
+                        ? theme.colorScheme.primary
+                        : null,
+                  ),
+                ),
+              ),
+              if (sensitive) ...[
+                _CopyIconButton(text: () => entry.value),
+                _ShareIconButton(text: () => entry.value),
+              ],
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -135,10 +132,9 @@ class _TokenBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message:
-          hidden
-              ? 'Masked on screen by hiddenHeaders — Copy still copies the real value'
-              : 'Looks like an auth token or credential',
+      message: hidden
+          ? 'Masked on screen by hiddenHeaders — Copy still copies the real value'
+          : 'Looks like an auth token or credential',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
         decoration: BoxDecoration(

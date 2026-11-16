@@ -96,8 +96,9 @@ class CorextraSocketLogger {
       method: method,
       url: url,
       socketEvent: event,
-      requestBody:
-          captureBody ? truncateBody(requestBody, maxBodyLength) : null,
+      requestBody: captureBody
+          ? truncateBody(requestBody, maxBodyLength)
+          : null,
     );
   }
 
