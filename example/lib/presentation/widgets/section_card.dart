@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// A reusable card widget for grouping demo sections.
 class SectionCard extends StatelessWidget {

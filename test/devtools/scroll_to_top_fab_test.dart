@@ -1,6 +1,6 @@
 import 'package:corextra/corextra.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget _wrap() {
   return MaterialApp(

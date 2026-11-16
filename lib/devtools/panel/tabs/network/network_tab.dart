@@ -1,18 +1,18 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../corextra_devtools.dart';
 import '../../../find/find.dart';
 import '../../../models/network_event.dart';
-import '../../../util/pretty_json.dart';
 import '../../../util/platform_services.dart';
+import '../../../util/pretty_json.dart';
 import '../../widgets/back_handler_scope.dart';
 import '../../widgets/devtools_edge_scrollbar.dart';
 import '../../widgets/devtools_empty_state.dart';
@@ -171,10 +171,9 @@ class _NetworkTabState extends State<NetworkTab> with FindAware<NetworkTab> {
   void onFindReveal(FindHit hit) {
     final meta = hit.target.meta;
     if (meta is! _NetworkFindMeta) return;
-    final event =
-        CorextraDevTools.instance.network.events
-            .where((event) => event.id == meta.eventId)
-            .firstOrNull;
+    final event = CorextraDevTools.instance.network.events
+        .where((event) => event.id == meta.eventId)
+        .firstOrNull;
     if (event == null) return;
     setState(() {
       if (!_passesFilters(event)) _resetFilterSets();
@@ -237,10 +236,9 @@ class _NetworkTabState extends State<NetworkTab> with FindAware<NetworkTab> {
         final filtered = events.where(_passesFilters).toList();
 
         // The selected request may have left the capture buffer or been filtered out; either way, show nothing selected.
-        final selected =
-            (_selected != null && filtered.contains(_selected))
-                ? _selected
-                : null;
+        final selected = (_selected != null && filtered.contains(_selected))
+            ? _selected
+            : null;
 
         final filtersActive =
             _activeMethods.length != _MethodFilter.values.length ||
@@ -269,49 +267,41 @@ class _NetworkTabState extends State<NetworkTab> with FindAware<NetworkTab> {
                   onReset: filtersActive ? _resetFilters : null,
                 ),
                 Expanded(
-                  child:
-                      filtered.isEmpty
-                          ? const DevToolsEmptyState(
-                            icon: LucideIcons.searchX,
-                            message: 'No requests match the selected filters',
-                          )
-                          : isWide
-                          ? _MasterDetailView(
-                            events: filtered,
-                            selected: selected,
-                            onSelect:
-                                (event) => setState(() => _selected = event),
-                          )
-                          : DevToolsScrollToTop(
-                            scrollbar: true,
-                            builder:
-                                (context, controller) => FindListView(
-                                  controller: controller,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                  ),
-                                  itemCount: filtered.length,
-                                  itemKey: (index) => filtered[index].id,
-                                  indexOfHit:
-                                      (hit) => _rowIndexOf(filtered, hit),
-                                  separatorBuilder:
-                                      (context, index) => const Divider(
-                                        height: 1,
-                                        indent: 16,
-                                        endIndent: 16,
-                                      ),
-                                  itemBuilder: (context, index) {
-                                    final event = filtered[index];
-                                    return _CompactNetworkRow(
-                                      event: event,
-                                      selected: false,
-                                      onTap:
-                                          () =>
-                                              setState(() => _selected = event),
-                                    );
-                                  },
-                                ),
+                  child: filtered.isEmpty
+                      ? const DevToolsEmptyState(
+                          icon: LucideIcons.searchX,
+                          message: 'No requests match the selected filters',
+                        )
+                      : isWide
+                      ? _MasterDetailView(
+                          events: filtered,
+                          selected: selected,
+                          onSelect: (event) =>
+                              setState(() => _selected = event),
+                        )
+                      : DevToolsScrollToTop(
+                          scrollbar: true,
+                          builder: (context, controller) => FindListView(
+                            controller: controller,
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            itemCount: filtered.length,
+                            itemKey: (index) => filtered[index].id,
+                            indexOfHit: (hit) => _rowIndexOf(filtered, hit),
+                            separatorBuilder: (context, index) => const Divider(
+                              height: 1,
+                              indent: 16,
+                              endIndent: 16,
+                            ),
+                            itemBuilder: (context, index) {
+                              final event = filtered[index];
+                              return _CompactNetworkRow(
+                                event: event,
+                                selected: false,
+                                onTap: () => setState(() => _selected = event),
+                              );
+                            },
                           ),
+                        ),
                 ),
               ],
             );

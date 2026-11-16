@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../find/find.dart';
 import 'tabs/info/info_tab.dart';
@@ -187,15 +187,13 @@ class _TabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color =
-        selected
-            ? theme.colorScheme.primary
-            : theme.colorScheme.onSurfaceVariant;
+    final color = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
     return Material(
-      color:
-          selected
-              ? theme.colorScheme.primary.withValues(alpha: 0.14)
-              : Colors.transparent,
+      color: selected
+          ? theme.colorScheme.primary.withValues(alpha: 0.14)
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),

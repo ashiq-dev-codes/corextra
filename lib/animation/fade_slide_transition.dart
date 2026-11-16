@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Directions for the slide animation in [FadeSlideTransition].
 enum SlideDirection { top, left, right, bottom, custom }

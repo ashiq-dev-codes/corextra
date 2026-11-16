@@ -1,7 +1,7 @@
 import 'package:corextra/logs/enum/log_level.dart';
-import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../corextra_devtools.dart';
 import '../../../find/find.dart';
@@ -149,8 +149,9 @@ class _LogsTabState extends State<LogsTab> with FindAware<LogsTab> {
           );
         }
 
-        final filtered =
-            entries.where((e) => _activeLevels.contains(e.level)).toList();
+        final filtered = entries
+            .where((e) => _activeLevels.contains(e.level))
+            .toList();
 
         return Column(
           children: [
@@ -158,113 +159,104 @@ class _LogsTabState extends State<LogsTab> with FindAware<LogsTab> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: Wrap(
                 spacing: 6,
-                children:
-                    LogLevel.values.map((level) {
-                      final color = _colorFor(level);
-                      final active = _activeLevels.contains(level);
-                      return FilterChip(
-                        label: FindText(_labelFor(level)),
-                        labelStyle: TextStyle(
-                          fontSize: 12,
-                          color:
-                              active
-                                  ? color
-                                  : theme.colorScheme.onSurfaceVariant,
-                        ),
-                        avatar: Icon(_iconFor(level), size: 14, color: color),
-                        selected: active,
-                        showCheckmark: false,
-                        visualDensity: VisualDensity.compact,
-                        selectedColor: color.withValues(alpha: 0.15),
-                        side: BorderSide(
-                          color:
-                              active
-                                  ? color.withValues(alpha: 0.4)
-                                  : theme.colorScheme.outlineVariant,
-                        ),
-                        onSelected: (value) => _toggleLevel(level, value),
-                      );
-                    }).toList(),
+                children: LogLevel.values.map((level) {
+                  final color = _colorFor(level);
+                  final active = _activeLevels.contains(level);
+                  return FilterChip(
+                    label: FindText(_labelFor(level)),
+                    labelStyle: TextStyle(
+                      fontSize: 12,
+                      color: active
+                          ? color
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                    avatar: Icon(_iconFor(level), size: 14, color: color),
+                    selected: active,
+                    showCheckmark: false,
+                    visualDensity: VisualDensity.compact,
+                    selectedColor: color.withValues(alpha: 0.15),
+                    side: BorderSide(
+                      color: active
+                          ? color.withValues(alpha: 0.4)
+                          : theme.colorScheme.outlineVariant,
+                    ),
+                    onSelected: (value) => _toggleLevel(level, value),
+                  );
+                }).toList(),
               ),
             ),
             Expanded(
-              child:
-                  filtered.isEmpty
-                      ? const DevToolsEmptyState(
-                        icon: LucideIcons.searchX,
-                        message: 'No logs match the selected levels',
-                      )
-                      : DevToolsScrollToTop(
-                        scrollbar: true,
-                        builder:
-                            (context, controller) => FindListView(
-                              controller: controller,
-                              itemCount: filtered.length,
-                              itemKey: (index) => filtered[index],
-                              indexOfHit: (hit) {
-                                final entry = hit.target.meta;
-                                return entry is LogEntry
-                                    ? filtered.indexOf(entry)
-                                    : null;
-                              },
-                              separatorBuilder:
-                                  (context, index) => const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                final entry = filtered[index];
-                                final color = _colorFor(entry.level);
-                                final id = _findId(entry);
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  child: Row(
+              child: filtered.isEmpty
+                  ? const DevToolsEmptyState(
+                      icon: LucideIcons.searchX,
+                      message: 'No logs match the selected levels',
+                    )
+                  : DevToolsScrollToTop(
+                      scrollbar: true,
+                      builder: (context, controller) => FindListView(
+                        controller: controller,
+                        itemCount: filtered.length,
+                        itemKey: (index) => filtered[index],
+                        indexOfHit: (hit) {
+                          final entry = hit.target.meta;
+                          return entry is LogEntry
+                              ? filtered.indexOf(entry)
+                              : null;
+                        },
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final entry = filtered[index];
+                          final color = _colorFor(entry.level);
+                          final id = _findId(entry);
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  _iconFor(entry.level),
+                                  size: 16,
+                                  color: color,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Icon(
-                                        _iconFor(entry.level),
-                                        size: 16,
-                                        color: color,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            FindText(
-                                              entry.message,
-                                              id: '$id/message',
-                                              style: TextStyle(
-                                                fontFamily: 'monospace',
-                                                fontSize: 12.5,
-                                                color: color,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 2),
-                                            FindText(
-                                              _timeFormat.format(
-                                                entry.timestamp,
-                                              ),
-                                              id: '$id/time',
-                                              style: theme.textTheme.bodySmall
-                                                  ?.copyWith(
-                                                    color:
-                                                        theme
-                                                            .colorScheme
-                                                            .onSurfaceVariant,
-                                                  ),
-                                            ),
-                                          ],
+                                      FindText(
+                                        entry.message,
+                                        id: '$id/message',
+                                        style: TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 12.5,
+                                          color: color,
                                         ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      FindText(
+                                        _timeFormat.format(entry.timestamp),
+                                        id: '$id/time',
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
                                       ),
                                     ],
                                   ),
-                                );
-                              },
+                                ),
+                              ],
                             ),
+                          );
+                        },
                       ),
+                    ),
             ),
           ],
         );

@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../corextra_devtools.dart';
 import '../../../find/find.dart';
@@ -47,20 +47,17 @@ class InfoTab extends StatelessWidget {
       listenable: _changes,
       builder: (context) {
         return DevToolsScrollToTop(
-          builder:
-              (context, controller) => SingleChildScrollView(
-                controller: controller,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final item in _items(_appInfo.value))
-                      item.icon != null
-                          ? _SectionHeader(item)
-                          : _InfoRowView(item),
-                  ],
-                ),
-              ),
+          builder: (context, controller) => SingleChildScrollView(
+            controller: controller,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final item in _items(_appInfo.value))
+                  item.icon != null ? _SectionHeader(item) : _InfoRowView(item),
+              ],
+            ),
+          ),
         );
       },
     );

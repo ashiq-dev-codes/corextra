@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../corextra_devtools.dart';
 import '../panel/devtools_tabs.dart';
@@ -80,60 +80,57 @@ class _DevToolsFloatingWindowState extends State<DevToolsFloatingWindow> {
       // Matches the Material's radius so the box's corners show the app underneath, not what's painted behind the window.
       borderRadius: BorderRadius.circular(16),
       // Top-right by default, since the bottom is where most apps keep the nav bars and main actions a developer needs to reach.
-      defaultOffset:
-          (screenSize, size) => Offset(screenSize.width - size.width - 16, 64),
-      builder:
-          (context, onPanUpdate, onPanEnd) => ValueListenableBuilder<ThemeMode>(
+      defaultOffset: (screenSize, size) =>
+          Offset(screenSize.width - size.width - 16, 64),
+      builder: (context, onPanUpdate, onPanEnd) =>
+          ValueListenableBuilder<ThemeMode>(
             valueListenable: CorextraDevTools.instance.themeModeNotifier,
-            builder:
-                (context, mode, _) => Theme(
-                  data: buildDevToolsTheme(
-                    mode == ThemeMode.dark ? Brightness.dark : Brightness.light,
-                  ),
-                  // Its own Overlay sized to the window, so tooltips work but taps outside it still reach the app (see DevToolsBubble).
-                  child: Overlay(
-                    initialEntries: [
-                      OverlayEntry(
-                        builder:
-                            (context) => Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Material(
-                                  color: Theme.of(context).colorScheme.surface,
-                                  elevation: 12,
-                                  borderRadius: BorderRadius.circular(16),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: Column(
-                                    children: [
-                                      GestureDetector(
-                                        onPanUpdate: onPanUpdate,
-                                        onPanEnd: onPanEnd,
-                                        behavior: HitTestBehavior.opaque,
-                                        child: _WindowHeader(
-                                          onExpand: widget.onExpand,
-                                          onClose: widget.onClose,
-                                        ),
-                                      ),
-                                      const Divider(height: 1),
-                                      const Expanded(child: DevToolsTabs()),
-                                    ],
-                                  ),
+            builder: (context, mode, _) => Theme(
+              data: buildDevToolsTheme(
+                mode == ThemeMode.dark ? Brightness.dark : Brightness.light,
+              ),
+              // Its own Overlay sized to the window, so tooltips work but taps outside it still reach the app (see DevToolsBubble).
+              child: Overlay(
+                initialEntries: [
+                  OverlayEntry(
+                    builder: (context) => Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Material(
+                          color: Theme.of(context).colorScheme.surface,
+                          elevation: 12,
+                          borderRadius: BorderRadius.circular(16),
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            children: [
+                              GestureDetector(
+                                onPanUpdate: onPanUpdate,
+                                onPanEnd: onPanEnd,
+                                behavior: HitTestBehavior.opaque,
+                                child: _WindowHeader(
+                                  onExpand: widget.onExpand,
+                                  onClose: widget.onClose,
                                 ),
-                                Positioned(
-                                  right: 0,
-                                  bottom: 0,
-                                  child: _ResizeHandle(
-                                    onResizeDelta:
-                                        (delta) =>
-                                            _onResizeDelta(delta, maxAllowed),
-                                  ),
-                                ),
-                              ],
-                            ),
-                      ),
-                    ],
+                              ),
+                              const Divider(height: 1),
+                              const Expanded(child: DevToolsTabs()),
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: _ResizeHandle(
+                            onResizeDelta: (delta) =>
+                                _onResizeDelta(delta, maxAllowed),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
+              ),
+            ),
           ),
     );
   }
@@ -270,25 +267,23 @@ class _CornerBracketPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..color = color
-          ..strokeWidth = 3
-          ..strokeCap = StrokeCap.round
-          ..style = PaintingStyle.stroke;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
 
     // A quadratic bezier with its control point on the corner rounds it smoothly in any orientation, more reliably than arc sweeps.
-    final path =
-        Path()
-          ..moveTo(size.width - _armLength - _radius, size.height)
-          ..lineTo(size.width - _radius, size.height)
-          ..quadraticBezierTo(
-            size.width,
-            size.height,
-            size.width,
-            size.height - _radius,
-          )
-          ..lineTo(size.width, size.height - _armLength - _radius);
+    final path = Path()
+      ..moveTo(size.width - _armLength - _radius, size.height)
+      ..lineTo(size.width - _radius, size.height)
+      ..quadraticBezierTo(
+        size.width,
+        size.height,
+        size.width,
+        size.height - _radius,
+      )
+      ..lineTo(size.width, size.height - _armLength - _radius);
 
     canvas.drawPath(path, paint);
   }

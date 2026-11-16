@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../corextra_devtools.dart';
 import '../panel/devtools_panel.dart';
@@ -121,23 +121,19 @@ class _PanelHost extends StatelessWidget {
         // The panel's own Theme above its Overlay, so it ignores the app's theme and updates live when the mode is toggled.
         child: ValueListenableBuilder<ThemeMode>(
           valueListenable: CorextraDevTools.instance.themeModeNotifier,
-          builder:
-              (context, mode, _) => Theme(
-                data: buildDevToolsTheme(
-                  mode == ThemeMode.dark ? Brightness.dark : Brightness.light,
+          builder: (context, mode, _) => Theme(
+            data: buildDevToolsTheme(
+              mode == ThemeMode.dark ? Brightness.dark : Brightness.light,
+            ),
+            child: Overlay(
+              initialEntries: [
+                OverlayEntry(
+                  builder: (context) =>
+                      DevToolsPanel(onClose: onClose, onMinimize: onMinimize),
                 ),
-                child: Overlay(
-                  initialEntries: [
-                    OverlayEntry(
-                      builder:
-                          (context) => DevToolsPanel(
-                            onClose: onClose,
-                            onMinimize: onMinimize,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
+              ],
+            ),
+          ),
         ),
       ),
     );

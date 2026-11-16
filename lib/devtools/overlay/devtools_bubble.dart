@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'draggable_floating_widget.dart';
 
@@ -33,25 +33,20 @@ class DevToolsBubble extends StatelessWidget {
       size: const Size(_size, _size),
       // A circular clip hides the grey square the RepaintBoundary and elevation shadow leave in the box's corners around the circle.
       borderRadius: BorderRadius.circular(_size / 2),
-      builder:
-          (context, onPanUpdate, onPanEnd) => GestureDetector(
-            onPanUpdate: onPanUpdate,
-            onPanEnd: onPanEnd,
-            child: Material(
-              color: Colors.black87,
-              shape: const CircleBorder(),
-              elevation: 4,
-              child: InkWell(
-                onTap: onTap,
-                customBorder: const CircleBorder(),
-                child: const Icon(
-                  LucideIcons.bug,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
+      builder: (context, onPanUpdate, onPanEnd) => GestureDetector(
+        onPanUpdate: onPanUpdate,
+        onPanEnd: onPanEnd,
+        child: Material(
+          color: Colors.black87,
+          shape: const CircleBorder(),
+          elevation: 4,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: const Icon(LucideIcons.bug, color: Colors.white, size: 24),
           ),
+        ),
+      ),
     );
   }
 }
